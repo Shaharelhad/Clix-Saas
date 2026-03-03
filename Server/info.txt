@@ -1,0 +1,1 @@
+Server folder is for custom backend integration, if we ever need one for scalability. e.g Node Express server.
