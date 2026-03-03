@@ -25,7 +25,7 @@ Only `Client/` has a package.json. Run `npm install` from there.
 ### Client (`Client/`)
 - **Entry:** `src/main.tsx` → mounts `<App>` inside `<QueryClientProvider>`, `<ErrorBoundary>`, `<BrowserRouter>`, `<StrictMode>`
 - **Routing:** React Router v7 in `src/App.tsx` — add new routes here
-- **Pages:** `src/pages/` — page-level components (currently empty — to be built)
+- **Pages:** `src/pages/` — page-level components (see Page Structure convention below)
 - **Components:** `src/components/` — reusable UI (includes `ErrorBoundary`)
 - **Services:**
   - `src/services/supabase.ts` — typed Supabase client (`createClient<Database>`)
@@ -60,6 +60,21 @@ Only `Client/` has a package.json. Run `npm install` from there.
 - Auth: use `useAuth()` hook from `@/hooks/useAuth.ts` for all auth operations
 - State: Zustand for client state (`src/store/`), React Query for server state
 - Database types: import from `@/types/database` (e.g., `Tables<"profiles">`, `TablesInsert<"form_responses">`)
+
+### Page Structure (`src/pages/`)
+- **Naming:** pages are `{Name}Page.tsx`, sections are `{Name}Section.tsx`
+- **Single-file page:** if a page has no sections, place it directly in `pages/` — e.g., `pages/ProfilePage.tsx`
+- **Multi-section page:** if a page has distinct sections, create a folder for it:
+  ```
+  pages/{Name}Page/
+  ├── {Name}Page.tsx          # main page component
+  └── Sections/
+      ├── HeroSection.tsx     # individual section components
+      └── PricingSection.tsx
+  ```
+  - The folder and main file share the same name (e.g., `HomePage/HomePage.tsx`)
+  - All section components go inside a `Sections/` subfolder
+  - The main page imports and composes its sections
 
 ## What's Ready (Backend Connections)
 - Supabase client with typed Database generics
