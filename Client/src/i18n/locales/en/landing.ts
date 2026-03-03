@@ -1,0 +1,111 @@
+export default {
+  /* ── nav ── */
+  navFeatures: "Features",
+  navPreview: "Preview",
+  navPricing: "Pricing",
+  navFaq: "FAQ",
+  navLogin: "Login",
+  navStartFree: "Start Free",
+
+  /* ── hero ── */
+  heroTitle1: "Your WhatsApp,",
+  heroTitle2: "On Autopilot.",
+  heroSubtitle1: "Build a smart bot for your business without writing a single line of code.",
+  heroSubtitle2: "Full Hebrew support · Built for Israeli businesses.",
+  heroBtn: "Start Free",
+  heroNote: "No credit card · Setup in minutes · Cancel anytime",
+
+  /* ── how it works / product preview ── */
+  howItWorks: "How It Works",
+  automationInMinutes: "Automation in minutes, no code",
+  mockSidebar: ["Preview", "Business Content", "FAQ", "Connect WhatsApp", "Flow Builder"],
+  mockStart: "Start",
+  mockTextMessage: "Text Message",
+  mockGreeting: "Hello! 👋 Welcome",
+  mockButtons: "Buttons",
+  mockBtnLabels: ["Products", "Hours", "Talk to Agent"],
+
+  /* ── why clix / features ── */
+  whyClix: "Why CLIX?",
+  whyClixTitle: "Automation Without Unnecessary Complications",
+  whyClixDesc: "The tool built for business owners, not programmers",
+  feature1: "No Coding Required",
+  feature1Desc: "Simple and intuitive drag-and-drop interface",
+  feature2: "Full Hebrew Support",
+  feature2Desc: "Adapted to Israeli language and culture",
+  feature3: "99.9% Reliability",
+  feature3Desc: "Fast performance and high stability",
+  feature4: "AI That Improves",
+  feature4Desc: "The bot learns and improves over time",
+  feature5: "24/7 Response",
+  feature5Desc: "Your customers get answers any time",
+  feature6: "Advanced Security",
+  feature6Desc: "Your data is protected with the highest standards",
+
+  /* ── whatsapp chat mockup ── */
+  chatMockTitle: "Sample Conversation",
+  chatUser1: "Hey, what are your business hours?",
+  chatBot1: "Hello! 😊 We're open Sun-Thu 9:00-18:00 and Fridays 9:00-13:00. How can I help?",
+  chatUser2: "Do you offer delivery?",
+  chatBot2: "Absolutely! 🚚 We offer free delivery on orders over ₪200. Delivery takes 2-3 business days.",
+
+  /* ── pricing ── */
+  pricing: "Pricing",
+  pricingTitle: "Plans & Pricing",
+  tierFree: "Free",
+  tierPro: "Professional",
+  tierEnterprise: "Enterprise",
+  priceFree: "₪0",
+  pricePro: "₪149",
+  priceEnterprise: "Custom",
+  perMonth: "/month",
+  bestForFree: "Perfect for getting started",
+  bestForPro: "For businesses that want to grow",
+  bestForEnterprise: "For organizations with advanced needs",
+  ctaFree: "Start Free",
+  ctaPro: "Upgrade Now",
+  ctaEnterprise: "Contact Us",
+  featuresFree: [
+    { text: "One bot", included: true },
+    { text: "100 messages / month", included: true },
+    { text: "Basic support", included: true },
+    { text: "Flow builder", included: false },
+    { text: "Analytics", included: false },
+  ],
+  featuresPro: [
+    { text: "Unlimited bots", included: true },
+    { text: "10,000 messages / month", included: true },
+    { text: "Priority support", included: true },
+    { text: "Flow builder", included: true },
+    { text: "Analytics", included: false },
+  ],
+  featuresEnterprise: [
+    { text: "Unlimited bots", included: true },
+    { text: "Unlimited messages", included: true },
+    { text: "Dedicated support", included: true },
+    { text: "Flow builder", included: true },
+    { text: "Advanced analytics", included: true },
+  ],
+
+  /* ── FAQ ── */
+  faqLabel: "FAQ",
+  faqTitle: "Got Questions? We've Got Answers",
+  faqQ1: "How long does it take to set up a bot?",
+  faqA1: "Less than 2 minutes! Just fill out the form, our AI builds the bot, and you can start right away.",
+  faqQ2: "Do I need programming knowledge?",
+  faqA2: "Not at all. CLIX is built for business owners. The interface is intuitive and requires no technical knowledge.",
+  faqQ3: "How do I connect WhatsApp?",
+  faqA3: "Simple QR scan through GreenAPI. Setup takes less than a minute and is completely secure.",
+  faqQ4: "What happens when the bot doesn't know the answer?",
+  faqA4: "The bot uses advanced AI that learns from your content. If unsure, it forwards the customer to a human agent.",
+  faqQ5: "Can I try for free?",
+  faqA5: "Of course! The free plan includes 100 messages per month, enough to feel the power of CLIX.",
+
+  /* ── final CTA ── */
+  ctaTitle: "Ready to upgrade your business WhatsApp?",
+  ctaSubtitle: "Join thousands of businesses already using CLIX",
+  ctaBtn: "Start Free Now",
+
+  /* ── footer ── */
+  allRightsReserved: "All Rights Reserved",
+};
