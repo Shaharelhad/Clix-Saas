@@ -4,7 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Fullstack boilerplate: React (Vite) frontend + Node/Express backend, both in TypeScript. No database or state management is configured yet — these are left as extension points.
+**CLIX** — SaaS WhatsApp Bot Builder for Israeli businesses (Hebrew-first, RTL). Users create AI-powered WhatsApp chatbots through a web dashboard without coding.
+
+Built from a React/Vite boilerplate. Backend is fully serverless via **Supabase** (auth, DB, edge functions, storage). No Express server — the `Server/` directory is unused (only `Server/info.txt` remains as a placeholder).
+
+For the full original project architecture, database schema, edge functions, and webhook mapping, see [`.claude/clix-bot-reference.md`](.claude/clix-bot-reference.md).
 
 ## Commands
 
@@ -14,58 +18,62 @@ Fullstack boilerplate: React (Vite) frontend + Node/Express backend, both in Typ
 - `npm run lint` — ESLint
 - `npm run preview` — Preview production build
 
-### Server (from `Server/`)
-- `npm run dev` — Start with nodemon + tsx (http://localhost:3000)
-- `npm run build` — Compile TypeScript to `dist/`
-- `npm start` — Run compiled `dist/server.js`
-
-Both Client and Server require separate `npm install`. There is no root package.json.
+Only `Client/` has a package.json. Run `npm install` from there.
 
 ## Architecture
 
 ### Client (`Client/`)
-- **Entry:** `src/main.tsx` → mounts `<App>` inside `<ErrorBoundary>`, `<BrowserRouter>`, and `<StrictMode>`
+- **Entry:** `src/main.tsx` → mounts `<App>` inside `<QueryClientProvider>`, `<ErrorBoundary>`, `<BrowserRouter>`, `<StrictMode>`
 - **Routing:** React Router v7 in `src/App.tsx` — add new routes here
-- **Pages:** `src/pages/` — page-level components
+- **Pages:** `src/pages/` — page-level components (currently empty — to be built)
 - **Components:** `src/components/` — reusable UI (includes `ErrorBoundary`)
-- **Services:** `src/services/api.ts` — centralized Axios instance with `/api` base URL and error interceptor
-- **Hooks:** `src/hooks/` — custom React hooks
-- **Types:** `src/types/` — TypeScript interfaces and type definitions
-- **Utils:** `src/utils/` — helper functions and constants
-- **State management:** `src/store/` — placeholder directory, no library installed yet
+- **Services:**
+  - `src/services/supabase.ts` — typed Supabase client (`createClient<Database>`)
+  - `src/services/webhooks.ts` — 11 webhook functions for Supabase edge functions + n8n
+- **Hooks:** `src/hooks/useAuth.ts` — auth hook (signUp, signIn, signOut, resetPassword, profile)
+- **Store:** `src/store/auth.store.ts` — Zustand auth state (user, session, loading)
+- **Types:** `src/types/database.ts` — auto-generated Supabase types (20 tables, RPCs, enums)
 - **Styling:** Tailwind CSS 4.x via `@tailwindcss/vite` plugin
 - **Path aliases:** `@/*` maps to `./src/*` (configured in tsconfig.app.json + vite.config.ts)
 
-### Server (`Server/`)
-- **Entry:** `src/server.ts` — Express app with helmet, CORS, error handler
-- **Env validation:** `src/config/env.ts` — Zod schema validates `PORT`, `BACKEND_URL`, `FRONTEND_URL` on startup
-- **Routes:** `src/routes/index.ts` aggregates all route modules, mounted at `/api`
-- **Controllers:** `src/controllers/` — route handlers (MVC pattern)
-- **Middleware:** `src/middleware/` — Express middleware (auth, validation, etc.)
-- **Services:** `src/services/` — business logic layer
-- **Validators:** `src/validators/` — Zod schemas for request validation
-- **Models:** `src/models/` — database models and schemas
-- **Types:** `src/types/` — TypeScript interfaces and type definitions
-- **Utils:** `src/utils/` — helper functions and constants
-- **Health checks:** `GET /` and `GET /health` on the server root
-
-### Client-Server Connection
-- Vite proxies `/api/*` requests to `VITE_API_DOMAIN` (default `http://localhost:3000`) configured in `Client/vite.config.ts`
-- Server CORS allows `FRONTEND_URL` env var as origin
-- In production, proxy is not used — deploy behind same domain or update CORS accordingly
+### Backend (Supabase — no local server)
+- **Auth:** Supabase Auth with `handle_new_user()` trigger → auto-creates `profiles` row
+- **Database:** 20 tables in Supabase PostgreSQL (see `clix-bot-reference.md` for schema)
+- **Edge Functions:** 8 deployed at `https://gctijcljpjtmpyuzaohm.supabase.co/functions/v1/`
+  - form-submission, bot-demo, bot-edit, greenapi-connect, flow-webhook, flow-demo, scrape-trigger, scrape-status
+- **RPC Functions:** 17 PostgreSQL functions (admin operations, profile, product search, etc.)
+- **n8n Webhooks:** 4 endpoints on seai.shop (1 working: deep-scrape; 2 legacy/unused: bot-edit-apply, integration-add; 1 needs deployment or replacement: support-ai)
 
 ### Environment Variables
-- **Client/.env:** `VITE_API_DOMAIN` (backend URL for Vite proxy)
-- **Server/.env:** `PORT`, `BACKEND_URL`, `FRONTEND_URL` — validated by Zod on startup via `src/config/env.ts`
-- Sample `.env.sample` files exist in both directories
+- **Client/.env:** Supabase credentials, API keys (Anthropic, Gemini, OpenRouter, Firecrawl), n8n config, 11 webhook URLs
+- **Client/.env.sample:** Template with all keys (no values)
+- See `clix-bot-reference.md` → "Webhook Mapping" for which env var maps to which endpoint
 
 ## Key Conventions
-- ES modules throughout (`"type": "module"` in both package.json files)
-- Express 5.x on the backend with Helmet security headers
-- TypeScript strict mode enabled in all tsconfig files
-- ESLint 9 flat config format (Client), ESLint 10 (Server)
+- ES modules (`"type": "module"` in package.json)
+- TypeScript strict mode
+- ESLint 9 flat config
 - Prettier config at project root (`.prettierrc`)
-- Path aliases: use `@/` for all Client imports (e.g., `import api from "@/services/api"`)
-- API calls: use the centralized `@/services/api` Axios instance, not raw `axios`
-- Server env: use `env` from `./config/env.js`, not raw `process.env`
-- Add new API routes by creating a route file in `Server/src/routes/`, a controller in `Server/src/controllers/`, and registering in `Server/src/routes/index.ts`
+- Path aliases: use `@/` for all imports (e.g., `import { supabase } from "@/services/supabase"`)
+- Supabase client: always import from `@/services/supabase`, never create new clients
+- Webhooks: use functions from `@/services/webhooks.ts`, never call endpoints directly
+- Auth: use `useAuth()` hook from `@/hooks/useAuth.ts` for all auth operations
+- State: Zustand for client state (`src/store/`), React Query for server state
+- Database types: import from `@/types/database` (e.g., `Tables<"profiles">`, `TablesInsert<"form_responses">`)
+
+## What's Ready (Backend Connections)
+- Supabase client with typed Database generics
+- Auth flow (signUp → pending → admin approval → approved)
+- 11 webhook functions with auto-auth for Supabase edge functions
+- All 20 DB tables exist and are queryable
+- All 8 edge functions deployed and responding
+- All RPC functions working
+
+## What Needs Building (Frontend)
+- All page components (Auth, CreateBot, Preview, Connect, FlowBuilder, FAQ, Settings, Admin pages)
+- Route guards (AuthGuard, AdminGuard)
+- UI component library (shadcn/ui in original — user decides)
+- i18n (Hebrew/English with RTL support)
+- Sidebar/navigation
+- Flow builder UI (@xyflow/react in original)
+- Support chat (needs backend — either deploy n8n workflow or create edge function)
