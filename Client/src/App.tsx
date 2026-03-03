@@ -1,15 +1,11 @@
-import { Route, Routes } from "react-router-dom"
-import HomePage from "@/pages/HomePage"
+import { Route, Routes } from "react-router-dom";
+
 function App() {
-
-
   return (
-    <>
-      <Routes>
-        <Route path="/" element={<HomePage />} />
-      </Routes>
-    </>
-  )
+    <Routes>
+      <Route path="/" element={<div>CLIX</div>} />
+    </Routes>
+  );
 }
 
-export default App
+export default App;
