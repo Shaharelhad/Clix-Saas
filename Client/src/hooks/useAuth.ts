@@ -1,6 +1,7 @@
 import { useEffect, useCallback } from "react";
 import { supabase } from "@/services/supabase";
 import { useAuthStore } from "@/store/auth.store";
+import i18n from "@/i18n";
 
 export function useAuth() {
   const { user, session, isLoading, setUser, setSession, setLoading, clear } = useAuthStore();
@@ -11,7 +12,13 @@ export function useAuth() {
       setUser(null);
       return;
     }
-    setUser(data[0]);
+    const profile = data[0];
+    setUser(profile);
+
+    // Sync profile language to i18next
+    if (profile.language && profile.language !== i18n.language) {
+      i18n.changeLanguage(profile.language);
+    }
   }, [setUser]);
 
   useEffect(() => {

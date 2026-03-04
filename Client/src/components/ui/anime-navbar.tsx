@@ -25,14 +25,6 @@ export function AnimeNavBar({
 }: AnimeNavBarProps) {
   const [active, setActive] = useState(defaultActive ?? items[0]?.name ?? "");
   const [hovered, setHovered] = useState<string | null>(null);
-  const [isMobile, setIsMobile] = useState(false);
-
-  useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 768);
-    check();
-    window.addEventListener("resize", check);
-    return () => window.removeEventListener("resize", check);
-  }, []);
 
   useEffect(() => {
     if (activeItem !== undefined) setActive(activeItem);
@@ -102,7 +94,7 @@ export function AnimeNavBar({
 
             <span className="relative z-10 flex items-center gap-1.5">
               {item.icon}
-              {!isMobile && item.name}
+              <span className="hidden md:inline">{item.name}</span>
             </span>
           </button>
         );

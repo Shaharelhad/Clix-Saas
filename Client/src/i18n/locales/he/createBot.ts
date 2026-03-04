@@ -81,6 +81,7 @@ const createBot = {
   apiTokenLabel: "API TOKEN",
   apiTokenPlaceholder: "הזן את ה-API Token שלך",
   connectBot: "חבר בוט",
+  logout: "התנתק",
 };
 
 export default createBot;

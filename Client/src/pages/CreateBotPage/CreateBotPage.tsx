@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Check, FileText, Eye, Wifi } from "lucide-react";
+import { Check, FileText, Eye, Wifi, LogOut } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 import FormSection from "./Sections/FormSection";
 import PreviewSection from "./Sections/PreviewSection";
@@ -30,6 +32,8 @@ const slideVariants = {
 
 const CreateBotPage = () => {
   const { t, i18n } = useTranslation("createBot");
+  const { signOut } = useAuth();
+  const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(0);
   const [direction, setDirection] = useState(0);
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(
@@ -80,6 +84,27 @@ const CreateBotPage = () => {
           }}
         />
       </div>
+
+      {/* ── Logout ── */}
+      <motion.button
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.3 }}
+        onClick={async () => {
+          await signOut();
+          navigate("/");
+        }}
+        className="absolute top-4 start-4 z-20 flex items-center gap-2 rounded-full px-3 py-2 text-sm font-bold text-[#8C847A] backdrop-blur-xl transition-colors duration-200 hover:text-[#FF7E47] cursor-pointer"
+        style={{
+          background: "rgba(255,255,255,0.5)",
+          border: "1px solid rgba(237,230,221,0.5)",
+        }}
+      >
+        <div className="flex items-center gap-2">
+          <LogOut className="w-4 h-4" />
+          <span>{t("logout")}</span>
+        </div>
+      </motion.button>
 
       {/* ── Stepper ── */}
       <div className="relative z-10 pt-8 pb-4 flex justify-center px-4">
