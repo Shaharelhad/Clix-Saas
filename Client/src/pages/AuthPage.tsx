@@ -123,6 +123,7 @@ export default function AuthPage() {
     signIn,
     resetPassword,
     isAuthenticated,
+    isAdmin,
     isApproved,
     isPending,
     isLoading: authLoading,
@@ -154,9 +155,10 @@ export default function AuthPage() {
   useEffect(() => {
     if (authLoading) return;
     if (!isAuthenticated) return;
-    if (isPending) navigate("/pending", { replace: true });
+    if (isAdmin) navigate("/admin/approvals", { replace: true });
+    else if (isPending) navigate("/pending", { replace: true });
     else if (isApproved) navigate("/create-bot", { replace: true });
-  }, [isAuthenticated, isApproved, isPending, authLoading, navigate]);
+  }, [isAuthenticated, isAdmin, isApproved, isPending, authLoading, navigate]);
 
   // Loading gate — prevent flash of auth form for already-logged-in users
   if (authLoading) {
