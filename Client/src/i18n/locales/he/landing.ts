@@ -42,13 +42,6 @@ export default {
   feature6: "אבטחה מתקדמת",
   feature6Desc: "הנתונים שלך מוגנים בסטנדרטים הגבוהים ביותר",
 
-  /* ── whatsapp chat mockup ── */
-  chatMockTitle: "שיחה לדוגמה",
-  chatUser1: "היי, מה שעות הפעילות שלכם?",
-  chatBot1: "שלום! 😊 אנחנו פתוחים א׳-ה׳ 9:00-18:00 ובימי ו׳ 9:00-13:00. איך אוכל לעזור?",
-  chatUser2: "יש לכם משלוחים?",
-  chatBot2: "בטח! 🚚 אנחנו מציעים משלוח חינם בהזמנות מעל ₪200. זמן אספקה 2-3 ימי עסקים.",
-
   /* ── pricing ── */
   pricing: "מחירון",
   pricingTitle: "תוכניות ומחירים",
@@ -107,5 +100,16 @@ export default {
   ctaBtn: "התחל בחינם עכשיו",
 
   /* ── footer ── */
+  footerDesc: "בוטים חכמים לוואטסאפ לעסקים ישראליים",
+  footerProduct: "מוצר",
+  footerFeatures: "תכונות",
+  footerPricing: "מחירון",
+  footerFaq: "שאלות נפוצות",
+  footerCompany: "חברה",
+  footerAbout: "אודות",
+  footerContact: "צור קשר",
+  footerLegal: "משפטי",
+  footerPrivacy: "מדיניות פרטיות",
+  footerTerms: "תנאי שימוש",
   allRightsReserved: "כל הזכויות שמורות",
 };

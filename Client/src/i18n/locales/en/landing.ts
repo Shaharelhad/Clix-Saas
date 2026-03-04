@@ -42,13 +42,6 @@ export default {
   feature6: "Advanced Security",
   feature6Desc: "Your data is protected with the highest standards",
 
-  /* ── whatsapp chat mockup ── */
-  chatMockTitle: "Sample Conversation",
-  chatUser1: "Hey, what are your business hours?",
-  chatBot1: "Hello! 😊 We're open Sun-Thu 9:00-18:00 and Fridays 9:00-13:00. How can I help?",
-  chatUser2: "Do you offer delivery?",
-  chatBot2: "Absolutely! 🚚 We offer free delivery on orders over ₪200. Delivery takes 2-3 business days.",
-
   /* ── pricing ── */
   pricing: "Pricing",
   pricingTitle: "Plans & Pricing",
@@ -107,5 +100,16 @@ export default {
   ctaBtn: "Start Free Now",
 
   /* ── footer ── */
+  footerDesc: "Smart WhatsApp bots for Israeli businesses",
+  footerProduct: "Product",
+  footerFeatures: "Features",
+  footerPricing: "Pricing",
+  footerFaq: "FAQ",
+  footerCompany: "Company",
+  footerAbout: "About",
+  footerContact: "Contact",
+  footerLegal: "Legal",
+  footerPrivacy: "Privacy Policy",
+  footerTerms: "Terms of Service",
   allRightsReserved: "All Rights Reserved",
 };

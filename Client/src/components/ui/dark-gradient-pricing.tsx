@@ -32,19 +32,19 @@ export function PricingCard({
   const ref = useRef(null);
   const inView = useInView(ref, { once: true, margin: "-60px" });
 
-  return (
+  const card = (
     <motion.div
       ref={ref}
-      initial={{ opacity: 0, filter: "blur(10px)" }}
-      animate={inView ? { opacity: 1, filter: "blur(0px)" } : {}}
-      transition={{ duration: 0.6, delay: 0.25 }}
+      initial={{ opacity: 0, y: 20 }}
+      animate={inView ? { opacity: 1, y: 0 } : {}}
+      transition={{ duration: 0.5, delay: 0.15 }}
       className={cn(
-        "relative flex flex-col rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md p-6 sm:p-8",
-        popular && "ring-2 ring-[#FF7E47] border-[#FF7E47]/30"
+        "relative flex flex-col rounded-2xl border border-white/[0.08] bg-white/[0.04] p-6 sm:p-8 h-full",
+        popular && !popular && "ring-2 ring-[#FF6B2C]"
       )}
     >
       {popular && (
-        <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-[#FF7E47] text-white text-xs font-bold">
+        <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-[#FF6B2C] text-white text-xs font-bold">
           הכי פופולרי
         </div>
       )}
@@ -55,7 +55,7 @@ export function PricingCard({
       </div>
 
       <div className="mb-6">
-        <span className="text-4xl font-bold text-white">{price}</span>
+        <span className={cn("text-4xl font-bold", popular ? "text-[#FF6B2C]" : "text-white")}>{price}</span>
         {period && <span className="text-white/50 text-sm mr-1">{period}</span>}
       </div>
 
@@ -63,8 +63,8 @@ export function PricingCard({
         {benefits.map((b, i) => (
           <li key={i} className="flex items-center gap-2.5 text-sm">
             {b.included ? (
-              <div className="w-5 h-5 rounded-full bg-[#FF7E47]/20 flex items-center justify-center shrink-0">
-                <Check className="w-3 h-3 text-[#FF7E47]" />
+              <div className="w-5 h-5 rounded-full bg-[#FF6B2C]/20 flex items-center justify-center shrink-0">
+                <Check className="w-3 h-3 text-[#FF6B2C]" />
               </div>
             ) : (
               <div className="w-5 h-5 rounded-full bg-white/5 flex items-center justify-center shrink-0">
@@ -83,7 +83,7 @@ export function PricingCard({
         className={cn(
           "w-full py-3 rounded-xl font-bold text-sm transition-all",
           popular
-            ? "bg-[#FF7E47] text-white hover:bg-[#FF7E47]/90 hover:scale-[1.02]"
+            ? "bg-[#FF6B2C] text-white hover:bg-[#E85D04] hover:scale-[1.02]"
             : "bg-white/10 text-white hover:bg-white/15 hover:scale-[1.02]"
         )}
       >
@@ -91,4 +91,14 @@ export function PricingCard({
       </button>
     </motion.div>
   );
+
+  if (popular) {
+    return (
+      <div className="bg-gradient-to-b from-[#FF6B2C]/40 to-[#FF6B2C]/10 p-px rounded-2xl">
+        {card}
+      </div>
+    );
+  }
+
+  return card;
 }

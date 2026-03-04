@@ -12,52 +12,46 @@ body {
   font-family: "Secular One", sans-serif;
 }
 
-/* ── Glass button ── */
-.glass-btn {
-  background: linear-gradient(135deg, #c8956c 0%, #a8763e 50%, #c8956c 100%);
+/* ── Primary CTA button ── */
+.clix-btn {
+  background: #FF6B2C;
   color: #fff;
   font-weight: 700;
   padding: 0.75rem 2rem;
   border-radius: 0.75rem;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  box-shadow:
-    0 4px 24px rgba(0, 0, 0, 0.25),
-    inset 0 1px 0 rgba(255, 255, 255, 0.2);
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 107, 44, 0.3);
+  box-shadow: 0 4px 24px rgba(255, 107, 44, 0.2);
   transition: all 0.3s ease;
   position: relative;
   overflow: hidden;
+  cursor: pointer;
 }
 
-.glass-btn::before {
+.clix-btn::before {
   content: "";
   position: absolute;
   top: 0;
-  left: -50%;
+  left: -100%;
   width: 200%;
   height: 100%;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    rgba(255, 255, 255, 0.1) 50%,
-    transparent 100%
-  );
+  background: linear-gradient(90deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.1) 50%,
+      transparent 100%);
   transition: transform 0.5s ease;
 }
 
-.glass-btn:hover {
-  filter: brightness(1.15);
+.clix-btn:hover {
+  background: #E85D04;
   transform: scale(1.03);
-  box-shadow:
-    0 6px 32px rgba(0, 0, 0, 0.35),
-    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  box-shadow: 0 6px 32px rgba(255, 107, 44, 0.35);
 }
 
-.glass-btn:hover::before {
+.clix-btn:hover::before {
   transform: translateX(50%);
 }
 
-/* ── Hero glow ── */
+/* ── Hero glow — dot grid + focused orange glow ── */
 .hero-glow {
   position: absolute;
   inset: 0;
@@ -65,44 +59,45 @@ body {
   pointer-events: none;
 }
 
-.hero-glow::before,
+.hero-glow::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: repeating-linear-gradient(-45deg,
+      transparent,
+      transparent 40px,
+      rgba(255, 255, 255, 0.015) 40px,
+      rgba(255, 255, 255, 0.015) 41px);
+}
+
 .hero-glow::after {
   content: "";
   position: absolute;
-  border-radius: 50%;
-  animation: hero-pulse 6s ease-in-out infinite;
-}
-
-.hero-glow::before {
-  width: 600px;
-  height: 600px;
-  top: -200px;
-  right: -100px;
-  background: radial-gradient(circle, rgba(255, 126, 71, 0.15) 0%, transparent 70%);
-}
-
-.hero-glow::after {
   width: 500px;
   height: 500px;
-  bottom: -150px;
-  left: -100px;
-  background: radial-gradient(circle, rgba(226, 255, 111, 0.1) 0%, transparent 70%);
-  animation-delay: 3s;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -60%);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 107, 44, 0.12) 0%, transparent 70%);
+  animation: hero-pulse 8s ease-in-out infinite;
 }
 
 @keyframes hero-pulse {
+
   0%,
   100% {
     opacity: 0.5;
-    transform: scale(1);
+    transform: translate(-50%, -60%) scale(1);
   }
+
   50% {
-    opacity: 1;
-    transform: scale(1.1);
+    opacity: 0.8;
+    transform: translate(-50%, -60%) scale(1.05);
   }
 }
 
-/* ── CTA glow ── */
+/* ── CTA glow — diagonal lines + orange glow ── */
 .cta-glow {
   position: absolute;
   inset: 0;
@@ -110,45 +105,50 @@ body {
   pointer-events: none;
 }
 
-.cta-glow::before,
+.cta-glow::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: repeating-linear-gradient(-45deg,
+      transparent,
+      transparent 40px,
+      rgba(255, 255, 255, 0.015) 40px,
+      rgba(255, 255, 255, 0.015) 41px);
+}
+
 .cta-glow::after {
   content: "";
   position: absolute;
+  width: 400px;
+  height: 400px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 107, 44, 0.1) 0%, transparent 70%);
   animation: cta-shift 8s ease-in-out infinite;
 }
 
-.cta-glow::before {
-  width: 400px;
-  height: 400px;
-  top: -100px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: radial-gradient(circle, rgba(255, 126, 71, 0.12) 0%, transparent 70%);
-}
-
-.cta-glow::after {
-  width: 350px;
-  height: 350px;
-  bottom: -100px;
-  right: -50px;
-  background: radial-gradient(circle, rgba(226, 255, 111, 0.08) 0%, transparent 70%);
-  animation-delay: 4s;
-}
-
 @keyframes cta-shift {
+
   0%,
   100% {
     opacity: 0.4;
-    transform: scale(1);
+    transform: translate(-50%, -50%) scale(1);
   }
+
   50% {
-    opacity: 0.8;
-    transform: scale(1.05);
+    opacity: 0.7;
+    transform: translate(-50%, -50%) scale(1.05);
   }
 }
 
 /* ── Utilities ── */
+.dot-grid {
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
 .scrollbar-hide {
   -ms-overflow-style: none;
   scrollbar-width: none;
@@ -167,6 +167,7 @@ body {
     opacity: 0;
     transform: translateY(10px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);

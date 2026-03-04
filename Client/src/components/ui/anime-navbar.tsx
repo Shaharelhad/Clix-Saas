@@ -68,7 +68,7 @@ export function AnimeNavBar({
               {isActive && (
                 <motion.div
                   layoutId="nav-glow"
-                  className="absolute inset-0 rounded-full bg-[#FFB347]/15"
+                  className="absolute inset-0 rounded-full bg-[#FF6B2C]/15"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
@@ -89,12 +89,12 @@ export function AnimeNavBar({
                   transition={{ type: "spring", stiffness: 300, damping: 25 }}
                 >
                   {/* Stem pointing up */}
-                  <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-[#2D3139] rotate-45" />
+                  <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-[#111111] rotate-45" />
                   <img
                     src="/clix-favicon.svg"
                     alt=""
                     aria-hidden="true"
-                    className="w-7 h-7 drop-shadow-[0_0_6px_rgba(255,126,71,0.4)]"
+                    className="w-7 h-7 drop-shadow-[0_0_6px_rgba(255,107,44,0.4)]"
                   />
                 </motion.div>
               )}

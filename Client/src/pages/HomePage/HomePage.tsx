@@ -107,7 +107,7 @@ const HomePage = () => {
   return (
     <div
       dir="rtl"
-      className="min-h-screen bg-[#0a0a0a] text-white font-secular-one"
+      className="min-h-screen bg-black text-white font-secular-one"
     >
       {/* ── Fixed Navbar ── */}
       <header
@@ -134,7 +134,7 @@ const HomePage = () => {
               src="/clix-logo.svg"
               alt=""
               aria-hidden="true"
-              className="h-8 w-8 transition-[filter] duration-300 group-hover:drop-shadow-[0_0_8px_rgba(255,126,71,0.6)]"
+              className="h-8 w-8 transition-[filter] duration-300 group-hover:drop-shadow-[0_0_8px_rgba(255,107,44,0.6)]"
             />
           </motion.button>
 
@@ -157,7 +157,7 @@ const HomePage = () => {
             </button>
             <button
               onClick={() => navigate("/auth")}
-              className="bg-[#FF7E47] text-white text-sm px-4 py-2 rounded-full hover:bg-[#FF7E47]/90 transition-colors flex items-center gap-1.5"
+              className="bg-[#FF6B2C] text-white text-sm px-4 py-2 rounded-lg hover:bg-[#E85D04] transition-colors flex items-center gap-1.5"
             >
               {t("navStartFree")}
               {/* ArrowLeft is intentional: in RTL, pointing left = forward */}

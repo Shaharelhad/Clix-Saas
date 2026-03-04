@@ -12,13 +12,13 @@ const FaqSection = () => {
   const { t } = useTranslation("landing");
 
   return (
-    <section id="faq" className="py-20 px-6">
+    <section id="faq" className="py-20 px-6 bg-white">
       <div className="max-w-3xl mx-auto">
         <div className="text-center mb-12">
-          <span className="text-[#FF7E47] text-sm font-bold tracking-wider uppercase mb-3 block">
+          <span className="text-[#FF6B2C] text-sm font-bold tracking-wider uppercase mb-3 block">
             {t("faqLabel")}
           </span>
-          <h2 className="text-3xl sm:text-4xl font-bold text-white">
+          <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-gray-900">
             {t("faqTitle")}
           </h2>
         </div>
@@ -28,12 +28,12 @@ const FaqSection = () => {
             <AccordionItem
               key={n}
               value={`faq-${n}`}
-              className="rounded-xl border border-white/10 bg-white/5 px-5"
+              className="rounded-xl border border-gray-200 bg-gray-50 px-5"
             >
-              <AccordionTrigger className="text-white text-sm sm:text-base font-medium hover:no-underline">
+              <AccordionTrigger className="text-gray-900 text-base sm:text-lg font-medium hover:no-underline">
                 {t(`faqQ${n}`)}
               </AccordionTrigger>
-              <AccordionContent className="text-white/60 text-sm leading-relaxed">
+              <AccordionContent className="text-gray-600 text-sm sm:text-base leading-relaxed">
                 {t(`faqA${n}`)}
               </AccordionContent>
             </AccordionItem>

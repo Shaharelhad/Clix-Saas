@@ -43,7 +43,7 @@ const PricingSection = () => {
     <section id="pricing" className="py-20 px-6">
       <div className="max-w-5xl mx-auto">
         <div className="text-center mb-12">
-          <span className="text-[#FF7E47] text-sm font-bold tracking-wider uppercase mb-3 block">
+          <span className="text-[#FF6B2C] text-sm font-bold tracking-wider uppercase mb-3 block">
             {t("pricing")}
           </span>
           <h2 className="text-3xl sm:text-4xl font-bold text-white">
