@@ -66,8 +66,8 @@ body {
   background-image: repeating-linear-gradient(-45deg,
       transparent,
       transparent 40px,
-      rgba(255, 255, 255, 0.015) 40px,
-      rgba(255, 255, 255, 0.015) 41px);
+      rgba(0, 0, 0, 0.06) 40px,
+      rgba(0, 0, 0, 0.06) 41px);
 }
 
 .hero-glow::after {
@@ -79,7 +79,7 @@ body {
   left: 50%;
   transform: translate(-50%, -60%);
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(255, 107, 44, 0.12) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(255, 107, 44, 0.06) 0%, transparent 70%);
   animation: hero-pulse 8s ease-in-out infinite;
 }
 

@@ -9,10 +9,9 @@ export default {
 
   /* ── hero ── */
   heroTitle1: "Your WhatsApp,",
-  heroTitle2: "On Autopilot.",
-  heroSubtitle1: "Build a smart bot for your business without writing a single line of code.",
-  heroSubtitle2: "Full Hebrew support · Built for Israeli businesses.",
-  heroBtn: "Start Free",
+  heroTitle2: "on Autopilot.",
+  heroSubtitle: "Create a custom WhatsApp bot with advanced AI.\nLet your customers get instant answers — and grow your business.",
+  heroBtn: "Open Free Account",
   heroNote: "No credit card · Setup in minutes · Cancel anytime",
 
   /* ── how it works / product preview ── */
