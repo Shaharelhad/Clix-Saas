@@ -83,6 +83,7 @@ const createBot = {
   apiTokenLabel: "API TOKEN",
   apiTokenPlaceholder: "Enter your API Token",
   connectBot: "Connect Bot",
+  logout: "Logout",
 };
 
 export default createBot;
