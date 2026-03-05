@@ -1,7 +1,22 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { motion } from "framer-motion";
-import { Play, ExternalLink, Link2, Eye, EyeOff, Wifi } from "lucide-react";
+import {
+  Play,
+  ExternalLink,
+  Link2,
+  Eye,
+  EyeOff,
+  Wifi,
+  Loader2,
+  CheckCircle2,
+  AlertCircle,
+} from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { callGreenAPIConnect } from "@/services/webhooks";
+import { supabase } from "@/services/supabase";
+import { useAuth } from "@/hooks/useAuth";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 
@@ -21,9 +36,58 @@ const stagger = {
 
 const ConnectSection = () => {
   const { t } = useTranslation("createBot");
+  const { user, refreshProfile } = useAuth();
+  const navigate = useNavigate();
+
+  const { data: botStatus, refetch: refetchBotStatus } = useQuery({
+    queryKey: ["bot_status", user?.id],
+    queryFn: async () => {
+      if (!user?.id) return null;
+      const { data } = await supabase
+        .from("profiles")
+        .select("bot_status")
+        .eq("id", user.id)
+        .single();
+      return data?.bot_status ?? null;
+    },
+    enabled: !!user?.id,
+  });
+
+  const isAlreadyConnected = botStatus === "connected";
   const [instanceId, setInstanceId] = useState("");
   const [apiToken, setApiToken] = useState("");
   const [showToken, setShowToken] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [connectStatus, setConnectStatus] = useState<
+    "idle" | "success" | "error"
+  >("idle");
+  const [connectError, setConnectError] = useState("");
+
+  const handleConnect = async () => {
+    if (!instanceId.trim() || !apiToken.trim()) return;
+    setIsConnecting(true);
+    setConnectStatus("idle");
+    setConnectError("");
+
+    try {
+      const result = await callGreenAPIConnect({
+        user_id: user?.id ?? "",
+        instance_id: instanceId.trim(),
+        token: apiToken.trim(),
+      });
+
+      if (result.error) throw new Error(result.error);
+      setConnectStatus("success");
+      await Promise.all([refreshProfile(), refetchBotStatus()]);
+    } catch (err) {
+      setConnectStatus("error");
+      setConnectError(
+        err instanceof Error ? err.message : t("connectError"),
+      );
+    } finally {
+      setIsConnecting(false);
+    }
+  };
 
   return (
     <motion.div
@@ -134,66 +198,124 @@ const ConnectSection = () => {
           </div>
         </div>
 
-        {/* Form */}
-        <div className="px-6 sm:px-8 py-8">
-          <div className="max-w-md mx-auto space-y-6">
-            {/* Instance ID */}
-            <motion.div variants={fadeUp}>
-              <label className="block text-xs font-bold text-[#7A7267] uppercase tracking-wider mb-2 text-end">
-                {t("instanceIdLabel")}
-              </label>
-              <input
-                type="text"
-                dir="ltr"
-                value={instanceId}
-                onChange={(e) => setInstanceId(e.target.value)}
-                placeholder={t("instanceIdPlaceholder")}
-                className="w-full bg-[#FAF7F3] border border-[#E5DDD3] rounded-xl px-5 py-4 text-sm text-[#2D2A26] placeholder-[#C4BAB0] focus:border-[#FF7E47] focus:ring-2 focus:ring-[#FF7E47]/15 outline-none transition-all duration-200 font-mono tracking-wide"
-              />
+        {/* Already connected banner */}
+        {(isAlreadyConnected || connectStatus === "success") && (
+          <div className="px-6 sm:px-8 py-6 space-y-4">
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex items-center gap-3 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl px-5 py-4 text-sm"
+            >
+              <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
+              <span className="font-semibold">
+                {connectStatus === "success"
+                  ? t("connectSuccess")
+                  : t("alreadyConnected")}
+              </span>
             </motion.div>
-
-            {/* API Token */}
-            <motion.div variants={fadeUp}>
-              <label className="block text-xs font-bold text-[#7A7267] uppercase tracking-wider mb-2 text-end">
-                {t("apiTokenLabel")}
-              </label>
-              <div className="relative">
-                <input
-                  type={showToken ? "text" : "password"}
-                  dir="ltr"
-                  value={apiToken}
-                  onChange={(e) => setApiToken(e.target.value)}
-                  placeholder={t("apiTokenPlaceholder")}
-                  className="w-full bg-[#FAF7F3] border border-[#E5DDD3] rounded-xl ps-12 pe-5 py-4 text-sm text-[#2D2A26] placeholder-[#C4BAB0] focus:border-[#FF7E47] focus:ring-2 focus:ring-[#FF7E47]/15 outline-none transition-all duration-200 font-mono tracking-wide"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowToken(!showToken)}
-                  className="absolute start-3 top-1/2 -translate-y-1/2 p-1 rounded-lg text-[#A39B90] hover:text-[#FF7E47] transition-colors"
-                >
-                  {showToken ? (
-                    <EyeOff className="w-4.5 h-4.5" />
-                  ) : (
-                    <Eye className="w-4.5 h-4.5" />
-                  )}
-                </button>
-              </div>
-            </motion.div>
+            <motion.button
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => navigate("/profile")}
+              className="w-full inline-flex items-center justify-center gap-2 bg-[#FF7E47] hover:bg-[#E86B38] text-white font-bold text-base rounded-2xl py-4 transition-all duration-300 shadow-[0_4px_20px_rgba(255,126,71,0.3)] hover:shadow-[0_6px_28px_rgba(255,126,71,0.4)] cursor-pointer"
+            >
+              {t("gotIt", { defaultValue: "Continue" })}
+            </motion.button>
           </div>
-        </div>
+        )}
 
-        {/* Connect Bot Button */}
-        <div className="px-6 sm:px-8 pb-8">
-          <motion.button
-            variants={fadeUp}
-            whileHover={{ scale: 1.01 }}
-            whileTap={{ scale: 0.99 }}
-            className="group w-full inline-flex items-center justify-center gap-3 bg-[#FF7E47] hover:bg-[#E86B38] text-white font-bold text-base rounded-2xl py-4 transition-all duration-300 shadow-[0_4px_20px_rgba(255,126,71,0.3)] hover:shadow-[0_6px_28px_rgba(255,126,71,0.4)]"
-          >
-            {t("connectBot")}
-            <Wifi className="w-5 h-5 transition-transform group-hover:scale-110" />
-          </motion.button>
-        </div>
+        {/* Form — hidden when already connected */}
+        {!isAlreadyConnected && connectStatus !== "success" && (
+          <>
+            <div className="px-6 sm:px-8 py-8">
+              <div className="max-w-md mx-auto space-y-6">
+                {/* Instance ID */}
+                <motion.div variants={fadeUp}>
+                  <label className="block text-xs font-bold text-[#7A7267] uppercase tracking-wider mb-2 text-end">
+                    {t("instanceIdLabel")}
+                  </label>
+                  <input
+                    type="text"
+                    dir="ltr"
+                    value={instanceId}
+                    onChange={(e) => setInstanceId(e.target.value)}
+                    placeholder={t("instanceIdPlaceholder")}
+                    className="w-full bg-[#FAF7F3] border border-[#E5DDD3] rounded-xl px-5 py-4 text-sm text-[#2D2A26] placeholder-[#C4BAB0] focus:border-[#FF7E47] focus:ring-2 focus:ring-[#FF7E47]/15 outline-none transition-all duration-200 font-mono tracking-wide"
+                  />
+                </motion.div>
+
+                {/* API Token */}
+                <motion.div variants={fadeUp}>
+                  <label className="block text-xs font-bold text-[#7A7267] uppercase tracking-wider mb-2 text-end">
+                    {t("apiTokenLabel")}
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showToken ? "text" : "password"}
+                      dir="ltr"
+                      value={apiToken}
+                      onChange={(e) => setApiToken(e.target.value)}
+                      placeholder={t("apiTokenPlaceholder")}
+                      className="w-full bg-[#FAF7F3] border border-[#E5DDD3] rounded-xl ps-12 pe-5 py-4 text-sm text-[#2D2A26] placeholder-[#C4BAB0] focus:border-[#FF7E47] focus:ring-2 focus:ring-[#FF7E47]/15 outline-none transition-all duration-200 font-mono tracking-wide"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowToken(!showToken)}
+                      className="absolute start-3 top-1/2 -translate-y-1/2 p-1 rounded-lg text-[#A39B90] hover:text-[#FF7E47] transition-colors"
+                    >
+                      {showToken ? (
+                        <EyeOff className="w-4.5 h-4.5" />
+                      ) : (
+                        <Eye className="w-4.5 h-4.5" />
+                      )}
+                    </button>
+                  </div>
+                </motion.div>
+              </div>
+            </div>
+
+            {/* Error feedback */}
+            {connectStatus === "error" && (
+              <div className="px-6 sm:px-8 pb-2">
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="flex items-center gap-3 bg-red-50 border border-red-200 text-red-700 rounded-xl px-5 py-3.5 text-sm"
+                >
+                  <AlertCircle className="w-4.5 h-4.5 flex-shrink-0" />
+                  {connectError}
+                </motion.div>
+              </div>
+            )}
+
+            {/* Connect Bot Button */}
+            <div className="px-6 sm:px-8 pb-8">
+              <motion.button
+                variants={fadeUp}
+                whileHover={!isConnecting ? { scale: 1.01 } : undefined}
+                whileTap={!isConnecting ? { scale: 0.99 } : undefined}
+                onClick={handleConnect}
+                disabled={isConnecting || !instanceId.trim() || !apiToken.trim()}
+                className="group w-full inline-flex items-center justify-center gap-3 bg-[#FF7E47] hover:bg-[#E86B38] text-white font-bold text-base rounded-2xl py-4 transition-all duration-300 shadow-[0_4px_20px_rgba(255,126,71,0.3)] hover:shadow-[0_6px_28px_rgba(255,126,71,0.4)] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+              >
+                {isConnecting ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    {t("connecting")}
+                  </>
+                ) : (
+                  <>
+                    {t("connectBot")}
+                    <Wifi className="w-5 h-5 transition-transform group-hover:scale-110" />
+                  </>
+                )}
+              </motion.button>
+            </div>
+          </>
+        )}
       </motion.div>
     </motion.div>
   );

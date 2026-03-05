@@ -55,14 +55,38 @@ const createBot = {
     "המידע שהגשת ישמש אך ורק ליצירת הבוט שלך. לא נשתף את המידע שלך עם צדדים שלישיים.",
   privacyLink: "קרא את מדיניות הפרטיות המלאה שלנו",
   createBotBtn: "צור את הבוט",
+  missingFields: "נא למלא את כל השדות הנדרשים",
+  createBotError: "משהו השתבש ביצירת הבוט. נסה שוב.",
+
+  // Form Section — Submission Progress
+  creatingBot: "יוצר את הבוט שלך...",
+  creatingBotDesc: "אנחנו בונים את ה-AI של הבוט. זה עשוי לקחת רגע.",
+  scrapingWebsite: "סורק את האתר שלך...",
+  scrapingDesc: "אנחנו סורקים את האתר שלך כדי ללמוד על העסק שלך.",
+  botCreated: "הבוט נוצר!",
+  botReadyForPreview: "הבוט שלך מוכן. בוא נראה אותו בפעולה!",
+  pagesScraped: "דפים נסרקו",
+  productsFound: "מוצרים נמצאו",
 
   // Preview Section
   previewChangeTitle: "רוצה לשנות משהו?",
   chatbotDemo: "הדגמת צ'אטבוט",
   botMessage: "היי! רוצה לשנות משהו בבוט? ספר לי מה ואני אטפל בזה",
   systemMessage: "שלח הודעה כדי להתחיל את התהליך",
-  typeMessage: "....הקלד הודעה",
+  typeMessage: "הקלד הודעה...",
   letsGo: "קדימה",
+  tabDemo: "הדגמת צ'אט",
+  tabEdit: "עריכת בוט",
+  editBotTitle: "עריכת תגובות הבוט",
+  editBotDesc: "תאר מה תרצה לשנות בהתנהגות או בתגובות הבוט",
+  editBotPlaceholder: "למשל: להפוך את הבוט לרשמי יותר, להוסיף ברכה בערבית, לענות בקצרה...",
+  editBotSubmit: "החל שינויים",
+  editBotProcessing: "מחיל שינויים...",
+  editBotSuccess: "הבוט עודכן בהצלחה! נסה אותו בלשונית ההדגמה.",
+  editBotError: "עדכון הבוט נכשל. נסה שוב.",
+  proposedChanges: "שינויים שבוצעו:",
+  typingIndicator: "הבוט מקליד...",
+  newConversation: "שיחה חדשה",
 
   // Connect Section
   connectTitle: "איך לחבר את הבוט לוואטסאפ",
@@ -81,6 +105,10 @@ const createBot = {
   apiTokenLabel: "API TOKEN",
   apiTokenPlaceholder: "הזן את ה-API Token שלך",
   connectBot: "חבר בוט",
+  connecting: "מתחבר...",
+  connectSuccess: "חיבור לוואטסאפ הצליח! הבוט שלך פעיל עכשיו.",
+  connectError: "החיבור נכשל. בדוק את הפרטים ונסה שוב.",
+  alreadyConnected: "הבוט שלך כבר מחובר לוואטסאפ!",
   logout: "התנתק",
 };
 

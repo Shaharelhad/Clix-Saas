@@ -56,6 +56,18 @@ const createBot = {
     "The information you submitted will be used solely for creating your bot. We will not share your data with third parties.",
   privacyLink: "Read our full privacy policy",
   createBotBtn: "Create the Bot",
+  missingFields: "Please fill in all required fields",
+  createBotError: "Something went wrong while creating your bot. Please try again.",
+
+  // Form Section — Submission Progress
+  creatingBot: "Creating Your Bot...",
+  creatingBotDesc: "We're building your bot's AI. This might take a moment.",
+  scrapingWebsite: "Scanning Your Website...",
+  scrapingDesc: "We're scanning your website to learn about your business.",
+  botCreated: "Bot Created!",
+  botReadyForPreview: "Your bot is ready. Let's see it in action!",
+  pagesScraped: "Pages scanned",
+  productsFound: "Products found",
 
   // Preview Section
   previewChangeTitle: "Want to change something?",
@@ -63,8 +75,20 @@ const createBot = {
   botMessage:
     "Hey! Want to change something in the bot? Tell me what and I'll take care of it",
   systemMessage: "Send a message to start the flow",
-  typeMessage: "....Type a message",
+  typeMessage: "Type a message...",
   letsGo: "Let's go",
+  tabDemo: "Chat Demo",
+  tabEdit: "Edit Bot",
+  editBotTitle: "Edit Bot Responses",
+  editBotDesc: "Describe what you'd like to change about your bot's behavior or responses",
+  editBotPlaceholder: "e.g. Make the bot more formal, add greeting in Arabic, respond shorter...",
+  editBotSubmit: "Apply Changes",
+  editBotProcessing: "Applying changes...",
+  editBotSuccess: "Bot updated successfully! Try it out in the Demo tab.",
+  editBotError: "Failed to update bot. Please try again.",
+  proposedChanges: "Changes Applied:",
+  typingIndicator: "Bot is typing...",
+  newConversation: "New Conversation",
 
   // Connect Section
   connectTitle: "How to Connect the Bot to WhatsApp",
@@ -83,6 +107,10 @@ const createBot = {
   apiTokenLabel: "API TOKEN",
   apiTokenPlaceholder: "Enter your API Token",
   connectBot: "Connect Bot",
+  connecting: "Connecting...",
+  connectSuccess: "Successfully connected to WhatsApp! Your bot is now live.",
+  connectError: "Failed to connect. Please check your credentials and try again.",
+  alreadyConnected: "Your bot is already connected to WhatsApp!",
   logout: "Logout",
 };
 

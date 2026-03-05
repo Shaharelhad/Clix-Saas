@@ -94,7 +94,6 @@ function SortableFieldCard({
   isDeleting,
   isEditing,
   editPanel,
-  t,
   fieldTypeLabel,
 }: {
   field: FormField;
@@ -103,7 +102,6 @@ function SortableFieldCard({
   isDeleting: boolean;
   isEditing: boolean;
   editPanel: React.ReactNode;
-  t: (key: string) => string;
   fieldTypeLabel: (type: string) => string;
 }) {
   const {
@@ -873,7 +871,6 @@ export default function FormBuilderSection() {
                           />
                         ) : null
                       }
-                      t={t}
                       fieldTypeLabel={fieldTypeLabel}
                     />
                   ))}

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -34,17 +34,29 @@ const CreateBotPage = () => {
   const { t, i18n } = useTranslation("createBot");
   const { signOut } = useAuth();
   const navigate = useNavigate();
-  const [currentStep, setCurrentStep] = useState(0);
+  const [currentStep, setCurrentStep] = useState(() => {
+    const saved = sessionStorage.getItem("createBot_currentStep");
+    return saved ? Number(saved) : 0;
+  });
   const [direction, setDirection] = useState(0);
-  const [completedSteps, setCompletedSteps] = useState<Set<number>>(
-    new Set()
-  );
+  const [completedSteps, setCompletedSteps] = useState<Set<number>>(() => {
+    const saved = sessionStorage.getItem("createBot_completedSteps");
+    return saved ? new Set(JSON.parse(saved) as number[]) : new Set();
+  });
+
+  useEffect(() => {
+    sessionStorage.setItem("createBot_currentStep", String(currentStep));
+  }, [currentStep]);
+
+  useEffect(() => {
+    sessionStorage.setItem("createBot_completedSteps", JSON.stringify([...completedSteps]));
+  }, [completedSteps]);
   const isRTL = i18n.language === "he";
 
   const goToStep = (step: number) => {
     if (step === currentStep) return;
-    // Allow going to completed steps or the next uncompleted step
-    if (step > currentStep && !completedSteps.has(currentStep)) return;
+    // TODO: re-enable step guard after integration is done
+    // if (step > currentStep && !completedSteps.has(currentStep)) return;
     const dir = isRTL ? (step < currentStep ? 1 : -1) : step > currentStep ? 1 : -1;
     setDirection(dir);
     setCurrentStep(step);
@@ -124,8 +136,8 @@ const CreateBotPage = () => {
             const Icon = step.icon;
             const isActive = i === currentStep;
             const isCompleted = completedSteps.has(i);
-            const isClickable =
-              isActive || isCompleted || (i === currentStep + 1 && completedSteps.has(currentStep));
+            // TODO: re-enable step guard after integration is done
+            const isClickable = true;
 
             return (
               <div key={step.id} className="flex items-center">

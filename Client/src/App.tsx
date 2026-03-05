@@ -5,6 +5,7 @@ import CreateBotPage from "./pages/CreateBotPage/CreateBotPage";
 import AuthPage from "./pages/AuthPage";
 import PendingPage from "./pages/PendingPage";
 import AdminGuard from "./components/AdminGuard";
+import AuthGuard from "./components/AuthGuard";
 import AdminPage from "./pages/AdminPage/AdminPage";
 import AdminApprovalsSection from "./pages/AdminPage/Sections/AdminApprovalsSection";
 import AdminUsersSection from "./pages/AdminPage/Sections/AdminUsersSection";
@@ -17,7 +18,7 @@ function App() {
       <Route path="/auth" element={<AuthPage />} />
       <Route path="/pending" element={<PendingPage />} />
       <Route path="/profile" element={<ProfilePage />} />
-      <Route path="/create-bot" element={<CreateBotPage />} />
+      <Route path="/create-bot" element={<AuthGuard><CreateBotPage /></AuthGuard>} />
 
       {/* Admin routes */}
       <Route

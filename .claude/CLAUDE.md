@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Built from a React/Vite boilerplate. Backend is fully serverless via **Supabase** (auth, DB, edge functions, storage). No Express server — the `Server/` directory is unused (only `Server/info.txt` remains as a placeholder).
 
-For the full original project architecture, database schema, edge functions, and webhook mapping, see [`.claude/clix-bot-reference.md`](.claude/clix-bot-reference.md).
+For the full architecture, database schema, edge functions, webhook mapping, and code patterns, see [`.claude/clix-backend-reference.md`](.claude/clix-backend-reference.md).
 
 ## Commands
 
@@ -38,7 +38,7 @@ Only `Client/` has a package.json. Run `npm install` from there.
 
 ### Backend (Supabase — no local server)
 - **Auth:** Supabase Auth with `handle_new_user()` trigger → auto-creates `profiles` row
-- **Database:** 20 tables in Supabase PostgreSQL (see `clix-bot-reference.md` for schema)
+- **Database:** 20 tables in Supabase PostgreSQL (see `clix-backend-reference.md` for schema)
 - **Edge Functions:** 8 deployed at `https://gctijcljpjtmpyuzaohm.supabase.co/functions/v1/`
   - form-submission, bot-demo, bot-edit, greenapi-connect, flow-webhook, flow-demo, scrape-trigger, scrape-status
 - **RPC Functions:** 17 PostgreSQL functions (admin operations, profile, product search, etc.)
@@ -47,7 +47,7 @@ Only `Client/` has a package.json. Run `npm install` from there.
 ### Environment Variables
 - **Client/.env:** Supabase credentials, API keys (Anthropic, Gemini, OpenRouter, Firecrawl), n8n config, 11 webhook URLs
 - **Client/.env.sample:** Template with all keys (no values)
-- See `clix-bot-reference.md` → "Webhook Mapping" for which env var maps to which endpoint
+- See `clix-backend-reference.md` → "Webhook Mapping" for which env var maps to which endpoint
 
 ## Key Conventions
 - ES modules (`"type": "module"` in package.json)
@@ -76,19 +76,44 @@ Only `Client/` has a package.json. Run `npm install` from there.
   - All section components go inside a `Sections/` subfolder
   - The main page imports and composes its sections
 
-## What's Ready (Backend Connections)
+## What's Ready
+
+### Backend Connections
 - Supabase client with typed Database generics
 - Auth flow (signUp → pending → admin approval → approved)
-- 11 webhook functions with auto-auth for Supabase edge functions
+- 11 webhook functions defined in `webhooks.ts` with auto-auth for Supabase edge functions
+  - **WARNING:** All 11 are defined but NONE are called from any page yet — they need to be wired in
 - All 20 DB tables exist and are queryable
 - All 8 edge functions deployed and responding
-- All RPC functions working
+- 10/17 RPC functions used from frontend (7 unused — see `migration-status.md`)
 
-## What Needs Building (Frontend)
-- All page components (Auth, CreateBot, Preview, Connect, FlowBuilder, FAQ, Settings, Admin pages)
-- Route guards (AuthGuard, AdminGuard)
-- UI component library (shadcn/ui in original — user decides)
-- i18n (Hebrew/English with RTL support)
-- Sidebar/navigation
-- Flow builder UI (@xyflow/react in original)
-- Support chat (needs backend — either deploy n8n workflow or create edge function)
+### Frontend Pages Built
+- **HomePage** — full landing page with 7 sections (Hero, ProductPreview, Features, Pricing, FAQ, CTA, Footer)
+- **AuthPage** — login, signup, forgot-password modes (wired to Supabase Auth)
+- **PendingPage** — approval waiting screen with 30s auto-refresh (wired to `get_my_profile` RPC)
+- **CreateBotPage** — multi-step form with 3 sections (Form, Preview, Connect) — **UI only, no backend calls yet**
+- **AdminPage** — 3 working sections:
+  - Approvals — approve/reject users (wired to RPCs)
+  - Users — list + search + filter (wired to RPCs)
+  - FormBuilder — drag-drop field editor (wired to 7 RPCs)
+- **AdminGuard** — route protection for admin pages
+- **i18n** — 14 namespaces, Hebrew + English, RTL support via i18next
+
+### Frontend Not Yet Built
+See [`.claude/migration-status.md`](.claude/migration-status.md) for the full gap analysis with checklists.
+
+**Key missing items:**
+- 10 pages (Preview, Connect, FlowBuilder, BusinessContent, FaqManager, Settings, NotFound, Admin/UserDetails, Admin/Tickets, Admin/FlowManager)
+- UserLayout + AppSidebar (user navigation/auth guard wrapper)
+- AuthGuard for user routes
+- Flow builder (needs @xyflow/react + 11 components)
+- All webhook function calls (none are wired to pages)
+- Support chat backend (n8n endpoint returns 404)
+
+## Maintenance Rule
+
+**When implementing any feature, you MUST:**
+1. Update `.claude/migration-status.md` to mark the feature as complete (change `[ ]` to `[x]`)
+2. Update webhook/RPC usage tables if you wire new backend calls
+3. Update this file's "What's Ready" section if a major feature is added
+4. Update `.claude/clix-backend-reference.md` if new backend patterns, services, or integrations are added
