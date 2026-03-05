@@ -19,8 +19,12 @@ async function callWebhook<T = unknown>(
     "Content-Type": "application/json",
   };
 
-  // Auto-detect Supabase Edge Function URLs and add auth header
+  // Auto-detect Supabase Edge Function URLs and add auth headers
   if (url.includes(".supabase.co/functions/")) {
+    const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
+    if (anonKey) {
+      headers["apikey"] = anonKey;
+    }
     const {
       data: { session },
     } = await supabase.auth.getSession();
