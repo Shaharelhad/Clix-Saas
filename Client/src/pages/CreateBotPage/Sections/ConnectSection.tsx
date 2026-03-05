@@ -73,7 +73,7 @@ const ConnectSection = () => {
       const result = await callGreenAPIConnect({
         user_id: user?.id ?? "",
         instance_id: instanceId.trim(),
-        token: apiToken.trim(),
+        api_token: apiToken.trim(),
       });
 
       if (result.error) throw new Error(result.error);
@@ -293,26 +293,20 @@ const ConnectSection = () => {
 
             {/* Connect Bot Button */}
             <div className="px-6 sm:px-8 pb-8">
-              <motion.button
-                variants={fadeUp}
-                whileHover={!isConnecting ? { scale: 1.01 } : undefined}
-                whileTap={!isConnecting ? { scale: 0.99 } : undefined}
+              <button
                 onClick={handleConnect}
                 disabled={isConnecting || !instanceId.trim() || !apiToken.trim()}
-                className="group w-full inline-flex items-center justify-center gap-3 bg-[#FF7E47] hover:bg-[#E86B38] text-white font-bold text-base rounded-2xl py-4 transition-all duration-300 shadow-[0_4px_20px_rgba(255,126,71,0.3)] hover:shadow-[0_6px_28px_rgba(255,126,71,0.4)] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                className="group w-full inline-flex items-center justify-center gap-3 bg-[#FF7E47] hover:bg-[#E86B38] text-white font-bold text-base rounded-2xl py-4 transition-all duration-300 shadow-[0_4px_20px_rgba(255,126,71,0.3)] hover:shadow-[0_6px_28px_rgba(255,126,71,0.4)] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 cursor-pointer"
               >
-                {isConnecting ? (
-                  <>
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    {t("connecting")}
-                  </>
-                ) : (
-                  <>
-                    {t("connectBot")}
-                    <Wifi className="w-5 h-5 transition-transform group-hover:scale-110" />
-                  </>
-                )}
-              </motion.button>
+                <span className={isConnecting ? "inline-flex items-center gap-3" : "hidden"}>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  {t("connecting")}
+                </span>
+                <span className={isConnecting ? "hidden" : "inline-flex items-center gap-3"}>
+                  {t("connectBot")}
+                  <Wifi className="w-5 h-5 transition-transform group-hover:scale-110" />
+                </span>
+              </button>
             </div>
           </>
         )}
