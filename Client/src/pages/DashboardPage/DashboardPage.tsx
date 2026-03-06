@@ -45,8 +45,6 @@ function WebhookPill({ url }: { url: string }) {
     </motion.div>
   );
 }
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/services/supabase";
 import { useAuth } from "@/hooks/useAuth";
 import ConversationsSection from "./Sections/ConversationsSection";
 import DemoChatSection from "./Sections/DemoChatSection";
@@ -73,21 +71,7 @@ export default function DashboardPage() {
   const { user } = useAuth();
   const [resetKey, setResetKey] = useState(0);
 
-  const { data: profileInfo } = useQuery({
-    queryKey: ["bot_status", user?.id],
-    queryFn: async () => {
-      if (!user?.id) return null;
-      const { data } = await supabase
-        .from("profiles")
-        .select("greenapi_instance_id")
-        .eq("id", user.id)
-        .single();
-      return data ?? null;
-    },
-    enabled: !!user?.id,
-  });
-
-  const webhookUrl = profileInfo?.greenapi_instance_id && user?.id
+  const webhookUrl = user?.id
     ? `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/flow-webhook?user_id=${user.id}`
     : null;
 
