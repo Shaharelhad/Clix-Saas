@@ -84,7 +84,7 @@ const createBot = {
   editBotPlaceholder: "e.g. Make the bot more formal, add greeting in Arabic, respond shorter...",
   editBotSubmit: "Apply Changes",
   editBotProcessing: "Applying changes...",
-  editBotSuccess: "Bot updated successfully! Try it out in the Demo tab.",
+  editBotSuccess: "Bot updated successfully! Try it out in the demo chat.",
   editBotError: "Failed to update bot. Please try again.",
   proposedChanges: "Changes Applied:",
   typingIndicator: "Bot is typing...",

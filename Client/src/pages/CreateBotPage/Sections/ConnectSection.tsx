@@ -54,6 +54,7 @@ const ConnectSection = () => {
   });
 
   const isAlreadyConnected = botStatus === "connected";
+  const [showReconnect, setShowReconnect] = useState(false);
   const [instanceId, setInstanceId] = useState("");
   const [apiToken, setApiToken] = useState("");
   const [showToken, setShowToken] = useState(false);
@@ -73,7 +74,7 @@ const ConnectSection = () => {
       const result = await callGreenAPIConnect({
         user_id: user?.id ?? "",
         instance_id: instanceId.trim(),
-        token: apiToken.trim(),
+        api_token: apiToken.trim(),
       });
 
       if (result.error) throw new Error(result.error);
@@ -199,7 +200,7 @@ const ConnectSection = () => {
         </div>
 
         {/* Already connected banner */}
-        {(isAlreadyConnected || connectStatus === "success") && (
+        {(isAlreadyConnected || connectStatus === "success") && !showReconnect && (
           <div className="px-6 sm:px-8 py-6 space-y-4">
             <motion.div
               initial={{ opacity: 0, y: 8 }}
@@ -213,22 +214,35 @@ const ConnectSection = () => {
                   : t("alreadyConnected")}
               </span>
             </motion.div>
-            <motion.button
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => navigate("/profile")}
-              className="w-full inline-flex items-center justify-center gap-2 bg-[#FF7E47] hover:bg-[#E86B38] text-white font-bold text-base rounded-2xl py-4 transition-all duration-300 shadow-[0_4px_20px_rgba(255,126,71,0.3)] hover:shadow-[0_6px_28px_rgba(255,126,71,0.4)] cursor-pointer"
-            >
-              {t("gotIt", { defaultValue: "Continue" })}
-            </motion.button>
+            <div className="flex gap-3">
+              <motion.button
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => navigate("/profile")}
+                className="flex-1 inline-flex items-center justify-center gap-2 bg-[#FF7E47] hover:bg-[#E86B38] text-white font-bold text-base rounded-2xl py-4 transition-all duration-300 shadow-[0_4px_20px_rgba(255,126,71,0.3)] hover:shadow-[0_6px_28px_rgba(255,126,71,0.4)] cursor-pointer"
+              >
+                {t("gotIt", { defaultValue: "Continue" })}
+              </motion.button>
+              <motion.button
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => setShowReconnect(true)}
+                className="flex-1 inline-flex items-center justify-center gap-2 bg-white border-2 border-[#FF7E47] text-[#FF7E47] hover:bg-[#FFF5F0] font-bold text-base rounded-2xl py-4 transition-all duration-300 cursor-pointer"
+              >
+                {t("reconnect", { defaultValue: "Reconnect" })}
+              </motion.button>
+            </div>
           </div>
         )}
 
-        {/* Form — hidden when already connected */}
-        {!isAlreadyConnected && connectStatus !== "success" && (
+        {/* Form — hidden when already connected (unless reconnecting) */}
+        {(!isAlreadyConnected || showReconnect) && connectStatus !== "success" && (
           <>
             <div className="px-6 sm:px-8 py-8">
               <div className="max-w-md mx-auto space-y-6">
