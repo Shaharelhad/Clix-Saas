@@ -14,11 +14,27 @@ class ErrorBoundary extends Component<Props, State> {
     this.state = { hasError: false };
   }
 
-  static getDerivedStateFromError(): State {
+  static getDerivedStateFromError(error: Error): State {
+    // Ignore DOM manipulation errors caused by browser extensions
+    // (Google Translate, Grammarly, etc.) that modify text nodes —
+    // React's removeChild/insertBefore fails when the DOM is out of sync.
+    if (
+      error.name === "NotFoundError" &&
+      error.message.includes("removeChild")
+    ) {
+      return { hasError: false };
+    }
     return { hasError: true };
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    // Silently ignore DOM manipulation errors from browser extensions
+    if (
+      error.name === "NotFoundError" &&
+      error.message.includes("removeChild")
+    ) {
+      return;
+    }
     console.error("ErrorBoundary caught an error:", error, errorInfo);
   }
 

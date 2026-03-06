@@ -82,7 +82,7 @@ const createBot = {
   editBotPlaceholder: "למשל: להפוך את הבוט לרשמי יותר, להוסיף ברכה בערבית, לענות בקצרה...",
   editBotSubmit: "החל שינויים",
   editBotProcessing: "מחיל שינויים...",
-  editBotSuccess: "הבוט עודכן בהצלחה! נסה אותו בלשונית ההדגמה.",
+  editBotSuccess: "הבוט עודכן בהצלחה! נסה אותו בצ'אט ההדגמה.",
   editBotError: "עדכון הבוט נכשל. נסה שוב.",
   proposedChanges: "שינויים שבוצעו:",
   typingIndicator: "הבוט מקליד...",

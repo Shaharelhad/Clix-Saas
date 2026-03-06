@@ -189,7 +189,7 @@ const CreateBotPage = () => {
       </div>
 
       {/* ── Step Content ── */}
-      <div className="relative z-10 max-w-3xl mx-auto px-4 pb-16">
+      <div className={cn("relative z-10 mx-auto px-4 pb-16", currentStep === 1 ? "max-w-6xl" : "max-w-3xl")}>
         <AnimatePresence mode="wait" custom={direction}>
           <motion.div
             key={currentStep}
