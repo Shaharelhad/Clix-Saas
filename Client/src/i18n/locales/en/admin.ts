@@ -1,7 +1,27 @@
 const admin = {
-  // Sidebar
+  // Navigation
+  navDashboard: "Dashboard",
   navApprovals: "User Approvals",
   logout: "Log Out",
+
+  // Dashboard
+  dashboardGreetingMorning: "Good morning",
+  dashboardGreetingAfternoon: "Good afternoon",
+  dashboardGreetingEvening: "Good evening",
+  dashboardSubtitle: "Here's what's happening in CLIX",
+  statTotalUsers: "Total Users",
+  statPendingApprovals: "Pending Approvals",
+  statConnectedBots: "Connected Bots",
+  statActiveWorkflows: "Active Workflows",
+  statFormSubmissions: "Form Submissions",
+  chartRegistrations: "User Registrations",
+  chartRegistrationsSub: "New signups over the last months",
+  chartUserStatus: "Users by Status",
+  chartUserStatusSub: "Approval breakdown",
+  chartBotStatus: "Bot Status",
+  chartBotStatusSub: "Distribution across users",
+  chartFormSubmissions: "Form Submissions",
+  chartFormSubmissionsSub: "Submissions over time",
 
   // Approvals page
   approvalsTitle: "Pending User Approvals",

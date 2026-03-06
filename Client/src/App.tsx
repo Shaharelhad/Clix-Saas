@@ -11,6 +11,7 @@ import AdminUsersSection from "./pages/AdminPage/Sections/AdminUsersSection";
 import FormBuilderSection from "./pages/AdminPage/Sections/FormBuilderSection";
 import UserLayout from "./pages/UserLayout";
 import DashboardPage from "./pages/DashboardPage/DashboardPage";
+import DashboardSection from "./pages/AdminPage/Sections/DashboardSection";
 
 function App() {
   return (
@@ -42,7 +43,8 @@ function App() {
           </AdminGuard>
         }
       >
-        <Route index element={<Navigate to="approvals" replace />} />
+        <Route index element={<Navigate to="dashboard" replace />} />
+        <Route path="dashboard" element={<DashboardSection />} />
         <Route path="approvals" element={<AdminApprovalsSection />} />
         <Route path="users" element={<AdminUsersSection />} />
         <Route path="form-builder" element={<FormBuilderSection />} />
