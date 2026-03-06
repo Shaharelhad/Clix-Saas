@@ -1,7 +1,7 @@
 # CLIX Migration Status
 
 > Tracks what's built vs missing compared to the [original project](https://github.com/Shaharelhad/CLIX-BOT-project).
-> **Last updated:** 2026-03-05
+> **Last updated:** 2026-03-06
 >
 > **RULE:** When implementing any feature, update this file to mark it complete and update any other affected `.claude/` files.
 
@@ -16,7 +16,8 @@
 | Landing (/) | `Landing.tsx` | [x] `HomePage/` | N/A (no backend) | Built with sections: Hero, ProductPreview, Features, Pricing, FAQ, CTA, Footer |
 | Auth (/auth) | `Auth.tsx` | [x] `AuthPage.tsx` | [x] signUp, signIn, resetPassword | 3 modes (login, signup, forgot). Original has 4 modes (+ new-password for reset link) |
 | Pending (/pending) | `Pending.tsx` | [x] `PendingPage.tsx` | [x] get_my_profile RPC | Auto-polls every 30s |
-| Profile (/profile) | — | [ ] `ProfilePage.tsx` | [ ] | **Stub only** — shows placeholder text. Not in original (Settings page handles this) |
+| Profile (/profile) | — | [x] Redirects to `/dashboard` | N/A | Redirects to Dashboard |
+| Dashboard (/dashboard) | — | [x] `DashboardPage/` | [x] `profiles.bot_status`, `subscriber_sessions`, `flow_message_log`, `callBotDemo()` | Welcome + bot status pill, Active Conversations (master-detail: phone list + message history), Demo Chat (wired to `callBotDemo()`) |
 | CreateBot (/create-bot) | `CreateBot.tsx` | [x] `CreateBotPage/` | [x] FormSection + ConnectSection | Dynamic form fields from `admin_list_form_fields` RPC, form settings from `admin_get_form_settings` RPC. Submits via `callFormSubmission()`, polls `callScrapeStatus()`. ConnectSection wired to `callGreenAPIConnect()`. PreviewSection still UI-only. |
 | Preview (/preview) | `Preview.tsx` | [ ] | — | Dual-panel chat: demo mode (`sendFlowDemoMessage`) + edit mode (`requestBotEdit`). Session persistence. Image/video/button rendering |
 | Connect (/connect) | `Connect.tsx` | [ ] | — | 4-step WhatsApp connection. Calls `connectGreenApi()`. Floating support chat calls `sendSupportMessage()` |
@@ -42,19 +43,19 @@
 
 ## Webhook Functions (services/webhooks.ts)
 
-**STATUS: 3 of 11 functions are now wired. 2 are N/A (legacy). 6 remain unwired.**
+**STATUS: 5 of 11 functions are now wired. 2 are N/A (legacy). 4 remain unwired.**
 
 | Function | Env Key | Backend | Called From | Status |
 |----------|---------|---------|-------------|--------|
 | `callFormSubmission()` | `VITE_N8N_WEBHOOK_FORM_SUBMISSION` | Edge Function (working) | `FormSection.tsx` | [x] Wired |
-| `callBotDemo()` | `VITE_N8N_WEBHOOK_BOT_DEMO` | Edge Function (working) | — | [ ] Not wired |
-| `callBotEditRequest()` | `VITE_N8N_WEBHOOK_BOT_EDIT_REQUEST` | Edge Function (working) | — | [ ] Not wired |
+| `callBotDemo()` | `VITE_N8N_WEBHOOK_BOT_DEMO` | Edge Function (working) | `DemoChatSection.tsx` | [x] Wired |
+| `callBotEditRequest()` | `VITE_N8N_WEBHOOK_BOT_EDIT_REQUEST` | Edge Function (working) | `EditBotSection.tsx` | [x] Wired |
 | `callBotEditApply()` | `VITE_N8N_WEBHOOK_BOT_EDIT_APPLY` | n8n (404 — legacy) | — | N/A — not needed |
 | `callGreenAPIConnect()` | `VITE_N8N_WEBHOOK_GREENAPI_CONNECT` | Edge Function (working) | `ConnectSection.tsx` | [x] Wired |
 | `callSupportAI()` | `VITE_N8N_WEBHOOK_SUPPORT_AI` | n8n (404 — needs backend) | — | [ ] Not wired + no backend |
 | `callScrapeStatus()` | `VITE_N8N_WEBHOOK_SCRAPE_STATUS` | Edge Function (working) | `FormSection.tsx` | [x] Wired |
-| `callScrapeTrigger()` | `VITE_N8N_WEBHOOK_SCRAPE_TRIGGER` | Edge Function (working) | — | [ ] Not wired |
-| `callFlowDemo()` | `VITE_N8N_WEBHOOK_FLOW_DEMO` | Edge Function (working) | — | [ ] Not wired |
+| `callScrapeTrigger()` | `VITE_N8N_WEBHOOK_SCRAPE_TRIGGER` | Edge Function (working) | `EditBotSection.tsx` | [x] Wired |
+| `callFlowDemo()` | `VITE_N8N_WEBHOOK_FLOW_DEMO` | Edge Function (working) | `EditBotSection.tsx` | [x] Wired |
 | `callIntegrationAdd()` | `VITE_N8N_WEBHOOK_INTEGRATION_ADD` | n8n (404 — legacy) | — | N/A — not needed |
 | `callDeepScrape()` | `VITE_N8N_WEBHOOK_DEEP_SCRAPE` | n8n (working) | — | [ ] Not wired |
 
@@ -93,8 +94,8 @@
 
 | Component | Original | Current | Notes |
 |-----------|----------|---------|-------|
-| UserLayout (auth guard + sidebar) | [x] `UserLayout.tsx` | [ ] | Wraps all user routes with auth check + sidebar |
-| AppSidebar (user nav) | [x] `AppSidebar.tsx` | [ ] | 5 items: Preview, Business Content, FAQ, Connect, Flow Builder |
+| UserLayout (auth guard + sidebar) | [x] `UserLayout.tsx` | [x] `UserLayout.tsx` | Wraps all user routes with AuthGuard + warm cream sidebar. 6 nav items |
+| AppSidebar (user nav) | [x] `AppSidebar.tsx` | [x] Built into `UserLayout.tsx` | 6 items: Dashboard, Preview, Business Content, FAQ, Connect, Flow Builder |
 | AdminLayout (admin sidebar) | [x] `AdminLayout.tsx` | [x] Built into `AdminPage.tsx` | Admin sidebar with nav + badge counts |
 | AdminGuard | [x] | [x] `AdminGuard.tsx` | Working — checks auth + admin role |
 | AuthGuard (user routes) | [x] Built into UserLayout | [ ] | Not a separate component yet |
@@ -177,7 +178,7 @@
 
 ## Build Priority (suggested order)
 
-1. **AuthGuard + UserLayout + AppSidebar** — needed before any user pages work properly
+1. ~~**AuthGuard + UserLayout + AppSidebar**~~ — DONE
 2. **Wire CreateBotPage to webhooks** — form already exists, just needs `callFormSubmission()` + `callScrapeStatus()` polling
 3. **Preview page** — core feature, uses `callBotDemo()` + `callBotEditRequest()`
 4. **Connect page** — uses `callGreenAPIConnect()`

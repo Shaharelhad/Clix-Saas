@@ -110,6 +110,11 @@ const createBot = {
   connectError: "החיבור נכשל. בדוק את הפרטים ונסה שוב.",
   alreadyConnected: "הבוט שלך כבר מחובר לוואטסאפ!",
   logout: "התנתק",
+
+  // Connect Section — Success Overlay
+  connectSuccessTitle: "!אתה מחובר",
+  connectSuccessSubtitle: "הבוט שלך פעיל בוואטסאפ ומוכן לשרת לקוחות",
+  goToDashboard: "עבור ללוח הבקרה",
 };
 
 export default createBot;

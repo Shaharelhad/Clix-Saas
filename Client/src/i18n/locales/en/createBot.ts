@@ -112,6 +112,12 @@ const createBot = {
   connectError: "Failed to connect. Please check your credentials and try again.",
   alreadyConnected: "Your bot is already connected to WhatsApp!",
   logout: "Logout",
+
+  // Connect Section — Success Overlay
+  connectSuccessTitle: "You're Connected!",
+  connectSuccessSubtitle:
+    "Your bot is live on WhatsApp and ready to serve customers",
+  goToDashboard: "Go to Dashboard",
 };
 
 export default createBot;

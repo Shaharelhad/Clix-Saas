@@ -1,6 +1,5 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import HomePage from "./pages/HomePage/HomePage";
-import ProfilePage from "./pages/ProfilePage";
 import CreateBotPage from "./pages/CreateBotPage/CreateBotPage";
 import AuthPage from "./pages/AuthPage";
 import PendingPage from "./pages/PendingPage";
@@ -10,6 +9,8 @@ import AdminPage from "./pages/AdminPage/AdminPage";
 import AdminApprovalsSection from "./pages/AdminPage/Sections/AdminApprovalsSection";
 import AdminUsersSection from "./pages/AdminPage/Sections/AdminUsersSection";
 import FormBuilderSection from "./pages/AdminPage/Sections/FormBuilderSection";
+import UserLayout from "./pages/UserLayout";
+import DashboardPage from "./pages/DashboardPage/DashboardPage";
 
 function App() {
   return (
@@ -17,8 +18,20 @@ function App() {
       <Route path="/" element={<HomePage />} />
       <Route path="/auth" element={<AuthPage />} />
       <Route path="/pending" element={<PendingPage />} />
-      <Route path="/profile" element={<ProfilePage />} />
+      <Route path="/profile" element={<Navigate to="/dashboard" replace />} />
       <Route path="/create-bot" element={<AuthGuard><CreateBotPage /></AuthGuard>} />
+
+      {/* User dashboard routes */}
+      <Route
+        path="/dashboard"
+        element={
+          <AuthGuard>
+            <UserLayout />
+          </AuthGuard>
+        }
+      >
+        <Route index element={<DashboardPage />} />
+      </Route>
 
       {/* Admin routes */}
       <Route
