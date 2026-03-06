@@ -1,8 +1,21 @@
 import { Outlet, NavLink, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { Users, UserRoundSearch, ClipboardList, LogOut } from "lucide-react";
+import {
+  LayoutDashboard,
+  Users,
+  UserRoundSearch,
+  ClipboardList,
+  LogOut,
+} from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
+
+const navItems = [
+  { to: "/admin/dashboard", icon: LayoutDashboard, labelKey: "navDashboard" },
+  { to: "/admin/approvals", icon: Users, labelKey: "navApprovals" },
+  { to: "/admin/users", icon: UserRoundSearch, labelKey: "navUsers" },
+  { to: "/admin/form-builder", icon: ClipboardList, labelKey: "navFormBuilder" },
+];
 
 export default function AdminPage() {
   const { t } = useTranslation("admin");
@@ -17,88 +30,63 @@ export default function AdminPage() {
   return (
     <div
       dir="rtl"
-      className="h-screen bg-[#0D0D0D] text-white font-secular-one flex overflow-hidden"
+      className="h-screen bg-[#F7F5F2] text-[#111111] font-secular-one flex flex-col overflow-hidden"
     >
-      {/* Sidebar */}
-      <aside className="w-60 shrink-0 flex flex-col border-l border-white/[0.06] bg-black/40 backdrop-blur-xl">
-        {/* Logo */}
-        <div className="flex items-center gap-2.5 px-5 py-5 border-b border-white/[0.06]">
-          <img
-            src="/clix-logo.svg"
-            alt="CLIX"
-            className="h-7 w-7 drop-shadow-[0_0_8px_rgba(255,107,44,0.3)]"
-          />
-          <span className="font-bold text-lg text-white tracking-wide">
-            CLIX
-          </span>
-          <span className="text-[10px] text-[#FF6B2C]/60 font-bold uppercase tracking-widest mr-auto">
-            admin
-          </span>
-        </div>
+      {/* Top Navbar */}
+      <header className="shrink-0 border-b border-black/[0.07] bg-white/80 backdrop-blur-xl">
+        <div className="flex items-center justify-between px-6 h-14">
+          {/* Logo */}
+          <div className="flex items-center gap-2.5">
+            <img
+              src="/clix-logo.svg"
+              alt="CLIX"
+              className="h-7 w-7 drop-shadow-[0_1px_3px_rgba(216,114,60,0.2)]"
+            />
+            <span className="font-bold text-lg text-[#111111] tracking-wide">
+              CLIX
+            </span>
+            <span className="text-[10px] text-[#D8723C]/60 font-bold uppercase tracking-widest">
+              admin
+            </span>
+          </div>
 
-        {/* Nav */}
-        <nav className="flex-1 px-3 py-4 space-y-1">
-          <NavLink
-            to="/admin/approvals"
-            className={({ isActive }) =>
-              cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-200",
-                isActive
-                  ? "bg-white/[0.08] text-white"
-                  : "text-white/60 hover:text-white hover:bg-white/[0.06]"
-              )
-            }
-          >
-            <Users className="w-4 h-4 shrink-0" />
-            {t("navApprovals")}
-          </NavLink>
-          <NavLink
-            to="/admin/users"
-            className={({ isActive }) =>
-              cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-200",
-                isActive
-                  ? "bg-white/[0.08] text-white"
-                  : "text-white/60 hover:text-white hover:bg-white/[0.06]"
-              )
-            }
-          >
-            <UserRoundSearch className="w-4 h-4 shrink-0" />
-            {t("navUsers")}
-          </NavLink>
-          <NavLink
-            to="/admin/form-builder"
-            className={({ isActive }) =>
-              cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-200",
-                isActive
-                  ? "bg-white/[0.08] text-white"
-                  : "text-white/60 hover:text-white hover:bg-white/[0.06]"
-              )
-            }
-          >
-            <ClipboardList className="w-4 h-4 shrink-0" />
-            {t("navFormBuilder")}
-          </NavLink>
-        </nav>
+          {/* Nav Tabs */}
+          <nav className="flex items-center gap-1 overflow-x-auto">
+            {navItems.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                className={({ isActive }) =>
+                  cn(
+                    "flex items-center gap-2 px-4 py-2 rounded-lg text-sm whitespace-nowrap transition-all duration-200",
+                    isActive
+                      ? "bg-[#D8723C]/10 text-[#D8723C] border border-[#D8723C]/25"
+                      : "text-[#666666] hover:text-[#111111] hover:bg-black/[0.04] border border-transparent"
+                  )
+                }
+              >
+                <item.icon className="w-4 h-4 shrink-0" />
+                {t(item.labelKey)}
+              </NavLink>
+            ))}
+          </nav>
 
-        {/* Bottom: user info + logout */}
-        <div className="px-3 py-4 border-t border-white/[0.06] space-y-2">
-          {user && (
-            <div className="px-3 py-2">
-              <p className="text-xs text-white/30 truncate">{user.full_name}</p>
-              <p className="text-xs text-white/20 truncate">{user.email}</p>
-            </div>
-          )}
-          <button
-            onClick={handleSignOut}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-white/40 hover:text-white/70 hover:bg-white/[0.04] transition-all duration-200 cursor-pointer"
-          >
-            <LogOut className="w-4 h-4 shrink-0" />
-            {t("logout")}
-          </button>
+          {/* User + Logout */}
+          <div className="flex items-center gap-3">
+            {user && (
+              <span className="text-xs text-[#AAAAAA] hidden sm:block">
+                {user.full_name}
+              </span>
+            )}
+            <button
+              onClick={handleSignOut}
+              className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-[#999999] hover:text-[#444444] hover:bg-black/[0.04] transition-all duration-200 cursor-pointer"
+            >
+              <LogOut className="w-4 h-4 shrink-0" />
+            </button>
+          </div>
         </div>
-      </aside>
+      </header>
 
       {/* Main content */}
       <main className="flex-1 min-w-0 overflow-auto">

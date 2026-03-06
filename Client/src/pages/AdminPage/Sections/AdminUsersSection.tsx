@@ -11,15 +11,15 @@ type StatusFilter = "all" | "pending" | "approved" | "rejected";
 type BotFilter = "all" | "not_created" | "created" | "connected";
 
 const STATUS_COLORS: Record<string, string> = {
-  pending: "bg-yellow-500/15 text-yellow-400 border-yellow-500/20",
-  approved: "bg-emerald-500/15 text-emerald-400 border-emerald-500/20",
-  rejected: "bg-red-500/15 text-red-400 border-red-500/20",
+  pending: "bg-amber-50 text-amber-700 border-amber-200",
+  approved: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  rejected: "bg-red-50 text-red-600 border-red-200",
 };
 
 const BOT_COLORS: Record<string, string> = {
-  not_created: "bg-white/[0.06] text-white/40 border-white/[0.08]",
-  created: "bg-blue-500/15 text-blue-400 border-blue-500/20",
-  connected: "bg-emerald-500/15 text-emerald-400 border-emerald-500/20",
+  not_created: "bg-gray-100 text-gray-500 border-gray-200",
+  created: "bg-blue-50 text-blue-700 border-blue-200",
+  connected: "bg-emerald-50 text-emerald-700 border-emerald-200",
 };
 
 export default function AdminUsersSection() {
@@ -41,7 +41,6 @@ export default function AdminUsersSection() {
   const filteredUsers = useMemo(() => {
     if (!users) return [];
     return users.filter((u) => {
-      // Search filter
       if (search) {
         const q = search.toLowerCase();
         const matchesSearch =
@@ -50,9 +49,7 @@ export default function AdminUsersSection() {
           u.phone?.toLowerCase().includes(q);
         if (!matchesSearch) return false;
       }
-      // Status filter
       if (statusFilter !== "all" && u.status !== statusFilter) return false;
-      // Bot status filter
       if (botFilter !== "all" && u.bot_status !== botFilter) return false;
       return true;
     });
@@ -89,8 +86,8 @@ export default function AdminUsersSection() {
         animate={{ opacity: 1, y: 0 }}
         className="mb-6"
       >
-        <h1 className="text-2xl font-bold text-white">{t("usersTitle")}</h1>
-        <p className="text-white/40 text-sm mt-1">{t("usersSubtitle")}</p>
+        <h1 className="text-2xl font-bold text-[#111111]">{t("usersTitle")}</h1>
+        <p className="text-[#999999] text-sm mt-1">{t("usersSubtitle")}</p>
       </motion.div>
 
       {/* Search + Filters */}
@@ -102,13 +99,13 @@ export default function AdminUsersSection() {
       >
         {/* Search */}
         <div className="relative">
-          <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30 pointer-events-none" />
+          <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#AAAAAA] pointer-events-none" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={t("searchPlaceholder")}
-            className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl pr-10 pl-4 py-2.5 text-sm text-white placeholder:text-white/25 focus:outline-none focus:border-[#FF6B2C]/40 transition-colors"
+            className="w-full bg-white border border-[#E8E4DF] rounded-xl pr-10 pl-4 py-2.5 text-sm text-[#111111] placeholder:text-[#BBBBBB] focus:outline-none focus:border-[#D8723C]/50 focus:ring-2 focus:ring-[#D8723C]/10 transition-colors"
           />
         </div>
 
@@ -122,15 +119,15 @@ export default function AdminUsersSection() {
               className={cn(
                 "px-3 py-1.5 rounded-lg text-xs font-medium border transition-all duration-200 cursor-pointer",
                 statusFilter === s
-                  ? "bg-[#FF6B2C]/15 text-[#FF6B2C] border-[#FF6B2C]/30"
-                  : "bg-white/[0.03] text-white/40 border-white/[0.06] hover:text-white/60 hover:border-white/[0.12]"
+                  ? "bg-[#D8723C]/10 text-[#D8723C] border-[#D8723C]/30"
+                  : "bg-transparent text-[#777777] border-[#E0DBD6] hover:text-[#333333] hover:border-[#C5BEB8]"
               )}
             >
               {statusLabel(s)}
             </button>
           ))}
 
-          <div className="w-px h-6 bg-white/[0.08] self-center mx-1" />
+          <div className="w-px h-6 bg-[#E0DBD6] self-center mx-1" />
 
           {/* Bot status filters */}
           {botFilters.map((b) => (
@@ -140,8 +137,8 @@ export default function AdminUsersSection() {
               className={cn(
                 "px-3 py-1.5 rounded-lg text-xs font-medium border transition-all duration-200 cursor-pointer",
                 botFilter === b
-                  ? "bg-[#FF6B2C]/15 text-[#FF6B2C] border-[#FF6B2C]/30"
-                  : "bg-white/[0.03] text-white/40 border-white/[0.06] hover:text-white/60 hover:border-white/[0.12]"
+                  ? "bg-[#D8723C]/10 text-[#D8723C] border-[#D8723C]/30"
+                  : "bg-transparent text-[#777777] border-[#E0DBD6] hover:text-[#333333] hover:border-[#C5BEB8]"
               )}
             >
               {botLabel(b)}
@@ -153,13 +150,13 @@ export default function AdminUsersSection() {
       {/* Loading */}
       {isLoading && (
         <div className="flex justify-center py-20">
-          <Loader2 className="w-8 h-8 animate-spin text-[#FF6B2C]" />
+          <Loader2 className="w-8 h-8 animate-spin text-[#D8723C]" />
         </div>
       )}
 
       {/* Error */}
       {isError && (
-        <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-6 py-5 text-red-400 text-sm">
+        <div className="rounded-2xl border border-red-200 bg-red-50 px-6 py-5 text-red-600 text-sm">
           {t("errorLoadFailed")}
         </div>
       )}
@@ -169,7 +166,7 @@ export default function AdminUsersSection() {
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="flex flex-col items-center justify-center py-24 text-white/20"
+          className="flex flex-col items-center justify-center py-24 text-[#CCCCCC]"
         >
           <Users className="w-12 h-12 mb-4" />
           <p className="text-base">{t("usersEmpty")}</p>
@@ -187,19 +184,19 @@ export default function AdminUsersSection() {
             exit={{ opacity: 0, scale: 0.96 }}
             transition={{ duration: 0.3, delay: i * 0.03 }}
             onClick={() => navigate(`/admin/users/${user.id}`)}
-            className="mb-2 rounded-2xl border border-white/[0.07] bg-white/[0.03] px-5 py-4 flex items-center gap-4 cursor-pointer hover:bg-white/[0.06] hover:border-white/[0.12] transition-all duration-200"
+            className="mb-2 rounded-2xl border border-[#E8E4DF] bg-white px-5 py-4 flex items-center gap-4 cursor-pointer hover:bg-[#FDF9F6] hover:border-[#D8723C]/30 hover:shadow-[0_2px_8px_rgba(0,0,0,0.06)] transition-all duration-200 shadow-[0_1px_3px_rgba(0,0,0,0.06)]"
           >
             {/* Avatar */}
-            <div className="w-10 h-10 rounded-full bg-[#FF6B2C]/15 border border-[#FF6B2C]/20 flex items-center justify-center shrink-0 text-[#FF6B2C] font-bold text-sm">
+            <div className="w-10 h-10 rounded-full bg-[#D8723C]/10 border border-[#D8723C]/20 flex items-center justify-center shrink-0 text-[#D8723C] font-bold text-sm">
               {user.full_name?.charAt(0) ?? "?"}
             </div>
 
             {/* Name + Email */}
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold text-white truncate">
+              <p className="text-sm font-bold text-[#111111] truncate">
                 {user.full_name}
               </p>
-              <p className="text-xs text-white/40 truncate">{user.email}</p>
+              <p className="text-xs text-[#999999] truncate">{user.email}</p>
             </div>
 
             {/* Status badge */}
@@ -223,12 +220,12 @@ export default function AdminUsersSection() {
             </span>
 
             {/* Plan tier */}
-            <span className="text-xs text-white/25 shrink-0 hidden md:block capitalize">
-              {user.plan_tier ?? "—"}
+            <span className="text-xs text-[#BBBBBB] shrink-0 hidden md:block capitalize">
+              {user.plan_tier ?? "\u2014"}
             </span>
 
             {/* Date */}
-            <span className="text-xs text-white/20 shrink-0 hidden lg:block">
+            <span className="text-xs text-[#CCCCCC] shrink-0 hidden lg:block">
               {new Date(user.created_at).toLocaleDateString("he-IL")}
             </span>
           </motion.div>

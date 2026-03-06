@@ -127,46 +127,46 @@ function SortableFieldCard({
       ref={setNodeRef}
       style={style}
       className={cn(
-        "mb-2 rounded-2xl border border-white/[0.07] bg-white/[0.03] px-4 py-3 flex items-center gap-3",
+        "mb-2 rounded-2xl border border-[#E8E4DF] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.06)] px-4 py-3 flex items-center gap-3",
         isDragging && "opacity-50 z-50"
       )}
     >
       <button
         {...attributes}
         {...listeners}
-        className="text-white/20 hover:text-white/40 cursor-grab active:cursor-grabbing shrink-0"
+        className="text-[#CCCCCC] hover:text-[#999999] cursor-grab active:cursor-grabbing shrink-0"
       >
         <GripVertical className="w-4 h-4" />
       </button>
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <p className="text-sm font-bold text-white truncate">{field.label}</p>
+          <p className="text-sm font-bold text-[#111111] truncate">{field.label}</p>
           {field.is_required && (
-            <span className="text-[10px] text-[#FF6B2C]">*</span>
+            <span className="text-[10px] text-[#D8723C]">*</span>
           )}
         </div>
-        <p className="text-xs text-white/30 truncate">
+        <p className="text-xs text-[#AAAAAA] truncate">
           {fieldTypeLabel(field.field_type)}
           {field.description ? ` — ${field.description}` : ""}
         </p>
       </div>
 
-      <span className="px-2 py-1 rounded-lg text-[11px] font-medium border bg-white/[0.04] text-white/40 border-white/[0.08] shrink-0">
+      <span className="px-2 py-1 rounded-lg text-[11px] font-medium border bg-white text-[#999999] border-[#E8E4DF] shrink-0">
         {fieldTypeLabel(field.field_type)}
       </span>
 
       <div className="flex items-center gap-1.5 shrink-0">
         <button
           onClick={onEdit}
-          className="w-8 h-8 rounded-lg flex items-center justify-center text-white/30 hover:text-white/60 hover:bg-white/[0.06] transition-all cursor-pointer"
+          className="w-8 h-8 rounded-lg flex items-center justify-center text-[#AAAAAA] hover:text-[#444444] hover:bg-[#FDF9F6] transition-all cursor-pointer"
         >
           <Pencil className="w-3.5 h-3.5" />
         </button>
         <button
           onClick={onDelete}
           disabled={isDeleting}
-          className="w-8 h-8 rounded-lg flex items-center justify-center text-red-400/50 hover:text-red-400 hover:bg-red-500/10 transition-all cursor-pointer disabled:opacity-40"
+          className="w-8 h-8 rounded-lg flex items-center justify-center text-red-600 hover:text-red-600 hover:bg-red-50 transition-all cursor-pointer disabled:opacity-40"
         >
           {isDeleting ? (
             <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -209,14 +209,14 @@ function FieldEditPanel({
       exit={{ opacity: 0, height: 0 }}
       className="overflow-hidden"
     >
-      <div className="mb-4 rounded-2xl border border-[#FF6B2C]/20 bg-[#FF6B2C]/[0.03] p-5 space-y-4">
+      <div className="mb-4 rounded-2xl border border-[#D8723C]/20 bg-[#D8723C]/[0.03] p-5 space-y-4">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-bold text-white">
+          <h3 className="text-sm font-bold text-[#111111]">
             {isNew ? t("addNewField") : t("editField")}
           </h3>
           <button
             onClick={onCancel}
-            className="w-7 h-7 rounded-lg flex items-center justify-center text-white/30 hover:text-white/60 hover:bg-white/[0.06] transition-all cursor-pointer"
+            className="w-7 h-7 rounded-lg flex items-center justify-center text-[#AAAAAA] hover:text-[#444444] hover:bg-[#FDF9F6] transition-all cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -225,7 +225,7 @@ function FieldEditPanel({
         {/* Field type — only for new fields */}
         {isNew && (
           <div>
-            <label className="block text-xs text-white/40 mb-1.5">
+            <label className="block text-xs text-[#999999] mb-1.5">
               {t("fieldTypeText").replace("טקסט קצר", "סוג שדה")}
             </label>
             <select
@@ -233,10 +233,10 @@ function FieldEditPanel({
               onChange={(e) =>
                 onChange({ ...data, field_type: e.target.value as FieldType })
               }
-              className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-[#FF6B2C]/40 transition-colors cursor-pointer"
+              className="w-full bg-white border border-[#E8E4DF] rounded-xl px-3 py-2.5 text-sm text-[#111111] focus:outline-none focus:border-[#D8723C]/50 transition-colors cursor-pointer"
             >
               {FIELD_TYPES.map((ft) => (
-                <option key={ft} value={ft} className="bg-[#1a1a1a]">
+                <option key={ft} value={ft} className="bg-white">
                   {fieldTypeLabel(ft)}
                 </option>
               ))}
@@ -246,40 +246,40 @@ function FieldEditPanel({
 
         {/* Label */}
         <div>
-          <label className="block text-xs text-white/40 mb-1.5">
+          <label className="block text-xs text-[#999999] mb-1.5">
             {t("fieldLabel")}
           </label>
           <input
             type="text"
             value={data.label}
             onChange={(e) => onChange({ ...data, label: e.target.value })}
-            className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-3 py-2.5 text-sm text-white placeholder:text-white/25 focus:outline-none focus:border-[#FF6B2C]/40 transition-colors"
+            className="w-full bg-white border border-[#E8E4DF] rounded-xl px-3 py-2.5 text-sm text-[#111111] placeholder:text-[#BBBBBB] focus:outline-none focus:border-[#D8723C]/50 transition-colors"
           />
         </div>
 
         {/* Placeholder */}
         <div>
-          <label className="block text-xs text-white/40 mb-1.5">
+          <label className="block text-xs text-[#999999] mb-1.5">
             {t("fieldPlaceholder")}
           </label>
           <input
             type="text"
             value={data.placeholder}
             onChange={(e) => onChange({ ...data, placeholder: e.target.value })}
-            className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-3 py-2.5 text-sm text-white placeholder:text-white/25 focus:outline-none focus:border-[#FF6B2C]/40 transition-colors"
+            className="w-full bg-white border border-[#E8E4DF] rounded-xl px-3 py-2.5 text-sm text-[#111111] placeholder:text-[#BBBBBB] focus:outline-none focus:border-[#D8723C]/50 transition-colors"
           />
         </div>
 
         {/* Description */}
         <div>
-          <label className="block text-xs text-white/40 mb-1.5">
+          <label className="block text-xs text-[#999999] mb-1.5">
             {t("fieldDescription")}
           </label>
           <input
             type="text"
             value={data.description}
             onChange={(e) => onChange({ ...data, description: e.target.value })}
-            className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-3 py-2.5 text-sm text-white placeholder:text-white/25 focus:outline-none focus:border-[#FF6B2C]/40 transition-colors"
+            className="w-full bg-white border border-[#E8E4DF] rounded-xl px-3 py-2.5 text-sm text-[#111111] placeholder:text-[#BBBBBB] focus:outline-none focus:border-[#D8723C]/50 transition-colors"
           />
         </div>
 
@@ -291,8 +291,8 @@ function FieldEditPanel({
             className={cn(
               "w-10 h-6 rounded-full transition-all duration-200 relative cursor-pointer",
               data.is_required
-                ? "bg-[#FF6B2C]"
-                : "bg-white/[0.1]"
+                ? "bg-[#D8723C]"
+                : "bg-[#E8E4DF]"
             )}
           >
             <span
@@ -302,13 +302,13 @@ function FieldEditPanel({
               )}
             />
           </button>
-          <span className="text-sm text-white/60">{t("fieldRequired")}</span>
+          <span className="text-sm text-[#444444]">{t("fieldRequired")}</span>
         </label>
 
         {/* Options — for select/radio/checkbox */}
         {showOptions && (
           <div>
-            <label className="block text-xs text-white/40 mb-1.5">
+            <label className="block text-xs text-[#999999] mb-1.5">
               {t("fieldOptions")}
             </label>
             <div className="space-y-2">
@@ -322,7 +322,7 @@ function FieldEditPanel({
                       newOpts[i] = e.target.value;
                       onChange({ ...data, options: newOpts });
                     }}
-                    className="flex-1 bg-white/[0.04] border border-white/[0.08] rounded-xl px-3 py-2 text-sm text-white placeholder:text-white/25 focus:outline-none focus:border-[#FF6B2C]/40 transition-colors"
+                    className="flex-1 bg-white border border-[#E8E4DF] rounded-xl px-3 py-2 text-sm text-[#111111] placeholder:text-[#BBBBBB] focus:outline-none focus:border-[#D8723C]/50 transition-colors"
                   />
                   {data.options.length > 1 && (
                     <button
@@ -330,7 +330,7 @@ function FieldEditPanel({
                         const newOpts = data.options.filter((_, j) => j !== i);
                         onChange({ ...data, options: newOpts });
                       }}
-                      className="w-8 h-8 rounded-lg flex items-center justify-center text-red-400/50 hover:text-red-400 hover:bg-red-500/10 transition-all cursor-pointer"
+                      className="w-8 h-8 rounded-lg flex items-center justify-center text-red-600 hover:text-red-600 hover:bg-red-50 transition-all cursor-pointer"
                     >
                       <X className="w-3.5 h-3.5" />
                     </button>
@@ -341,7 +341,7 @@ function FieldEditPanel({
                 onClick={() =>
                   onChange({ ...data, options: [...data.options, ""] })
                 }
-                className="text-xs text-[#FF6B2C]/70 hover:text-[#FF6B2C] transition-colors cursor-pointer"
+                className="text-xs text-[#D8723C]/70 hover:text-[#D8723C] transition-colors cursor-pointer"
               >
                 + {t("addOption")}
               </button>
@@ -357,8 +357,8 @@ function FieldEditPanel({
                 className={cn(
                   "w-10 h-6 rounded-full transition-all duration-200 relative cursor-pointer",
                   data.allow_other
-                    ? "bg-[#FF6B2C]"
-                    : "bg-white/[0.1]"
+                    ? "bg-[#D8723C]"
+                    : "bg-[#E8E4DF]"
                 )}
               >
                 <span
@@ -368,7 +368,7 @@ function FieldEditPanel({
                   )}
                 />
               </button>
-              <span className="text-sm text-white/60">{t("allowOther")}</span>
+              <span className="text-sm text-[#444444]">{t("allowOther")}</span>
             </label>
           </div>
         )}
@@ -380,7 +380,7 @@ function FieldEditPanel({
             disabled={isSaving || !data.label.trim()}
             className={cn(
               "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer",
-              "bg-[#FF6B2C] text-white hover:bg-[#FF7E47]",
+              "bg-[#D8723C] text-white hover:bg-[#C4662F]",
               (isSaving || !data.label.trim()) && "opacity-40 pointer-events-none"
             )}
           >
@@ -393,7 +393,7 @@ function FieldEditPanel({
           </button>
           <button
             onClick={onCancel}
-            className="px-4 py-2 rounded-xl text-sm text-white/40 hover:text-white/60 hover:bg-white/[0.04] transition-all cursor-pointer"
+            className="px-4 py-2 rounded-xl text-sm text-[#999999] hover:text-[#444444] hover:bg-[#FDF9F6] transition-all cursor-pointer"
           >
             {t("cancel")}
           </button>
@@ -661,17 +661,17 @@ export default function FormBuilderSection() {
         animate={{ opacity: 1, y: 0 }}
         className="mb-8"
       >
-        <h1 className="text-2xl font-bold text-white">
+        <h1 className="text-2xl font-bold text-[#111111]">
           {t("formBuilderTitle")}
         </h1>
-        <p className="text-white/40 text-sm mt-1">
+        <p className="text-[#999999] text-sm mt-1">
           {t("formBuilderSubtitle")}
         </p>
       </motion.div>
 
       {isLoading && (
         <div className="flex justify-center py-20">
-          <Loader2 className="w-8 h-8 animate-spin text-[#FF6B2C]" />
+          <Loader2 className="w-8 h-8 animate-spin text-[#D8723C]" />
         </div>
       )}
 
@@ -683,13 +683,13 @@ export default function FormBuilderSection() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.05 }}
           >
-            <h2 className="text-lg font-bold text-white mb-4">
+            <h2 className="text-lg font-bold text-[#111111] mb-4">
               {t("formSettingsTitle")}
             </h2>
-            <div className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-5 space-y-5">
+            <div className="rounded-2xl border border-[#E8E4DF] bg-[#FAFAF8] p-5 space-y-5">
               {/* Opening title */}
               <div>
-                <label className="block text-xs text-white/40 mb-1.5">
+                <label className="block text-xs text-[#999999] mb-1.5">
                   {t("openingTitle")}
                 </label>
                 <input
@@ -698,13 +698,13 @@ export default function FormBuilderSection() {
                   onChange={(e) =>
                     updateSetting("opening_title", e.target.value)
                   }
-                  className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-3 py-2.5 text-sm text-white placeholder:text-white/25 focus:outline-none focus:border-[#FF6B2C]/40 transition-colors"
+                  className="w-full bg-white border border-[#E8E4DF] rounded-xl px-3 py-2.5 text-sm text-[#111111] placeholder:text-[#BBBBBB] focus:outline-none focus:border-[#D8723C]/50 transition-colors"
                 />
               </div>
 
               {/* Opening text (rich) */}
               <div>
-                <label className="block text-xs text-white/40 mb-1.5">
+                <label className="block text-xs text-[#999999] mb-1.5">
                   {t("openingText")}
                 </label>
                 <RichTextEditor
@@ -715,7 +715,7 @@ export default function FormBuilderSection() {
 
               {/* Closing title */}
               <div>
-                <label className="block text-xs text-white/40 mb-1.5">
+                <label className="block text-xs text-[#999999] mb-1.5">
                   {t("closingTitle")}
                 </label>
                 <input
@@ -724,13 +724,13 @@ export default function FormBuilderSection() {
                   onChange={(e) =>
                     updateSetting("closing_title", e.target.value)
                   }
-                  className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-3 py-2.5 text-sm text-white placeholder:text-white/25 focus:outline-none focus:border-[#FF6B2C]/40 transition-colors"
+                  className="w-full bg-white border border-[#E8E4DF] rounded-xl px-3 py-2.5 text-sm text-[#111111] placeholder:text-[#BBBBBB] focus:outline-none focus:border-[#D8723C]/50 transition-colors"
                 />
               </div>
 
               {/* Closing text (rich) */}
               <div>
-                <label className="block text-xs text-white/40 mb-1.5">
+                <label className="block text-xs text-[#999999] mb-1.5">
                   {t("closingText")}
                 </label>
                 <RichTextEditor
@@ -748,7 +748,7 @@ export default function FormBuilderSection() {
                   }
                   className={cn(
                     "flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer",
-                    "bg-[#FF6B2C] text-white hover:bg-[#FF7E47]",
+                    "bg-[#D8723C] text-white hover:bg-[#C4662F]",
                     (!settingsDirty || saveSettingsMutation.isPending) &&
                       "opacity-40 pointer-events-none"
                   )}
@@ -764,13 +764,13 @@ export default function FormBuilderSection() {
                   <motion.span
                     initial={{ opacity: 0, x: -8 }}
                     animate={{ opacity: 1, x: 0 }}
-                    className="text-xs text-emerald-400"
+                    className="text-xs text-emerald-700"
                   >
                     {t("settingsSaved")}
                   </motion.span>
                 )}
                 {saveSettingsMutation.isError && (
-                  <span className="text-xs text-red-400">
+                  <span className="text-xs text-red-600">
                     {t("settingsError")}
                   </span>
                 )}
@@ -785,7 +785,7 @@ export default function FormBuilderSection() {
             transition={{ delay: 0.1 }}
           >
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-white">
+              <h2 className="text-lg font-bold text-[#111111]">
                 {t("formFieldsTitle")}
               </h2>
               <button
@@ -793,7 +793,7 @@ export default function FormBuilderSection() {
                 disabled={editingField === "new"}
                 className={cn(
                   "flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium transition-all duration-200 cursor-pointer",
-                  "bg-[#FF6B2C]/15 text-[#FF6B2C] border border-[#FF6B2C]/20 hover:bg-[#FF6B2C]/25",
+                  "bg-[#D8723C]/15 text-[#D8723C] border border-[#D8723C]/20 hover:bg-[#D8723C]/25",
                   editingField === "new" && "opacity-40 pointer-events-none"
                 )}
               >
@@ -819,7 +819,7 @@ export default function FormBuilderSection() {
             </AnimatePresence>
 
             {fieldsError && (
-              <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-6 py-5 text-red-400 text-sm mb-4">
+              <div className="rounded-2xl border border-red-200 bg-red-50 px-6 py-5 text-red-600 text-sm mb-4">
                 {t("errorLoadFailed")}
               </div>
             )}
@@ -829,7 +829,7 @@ export default function FormBuilderSection() {
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="flex flex-col items-center justify-center py-16 text-white/20"
+                className="flex flex-col items-center justify-center py-16 text-[#CCCCCC]"
               >
                 <ListChecks className="w-12 h-12 mb-4" />
                 <p className="text-base">{t("noFields")}</p>
@@ -890,16 +890,16 @@ export default function FormBuilderSection() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 8, scale: 0.97 }}
             transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-            className="fixed bottom-6 left-6 z-50 flex items-center gap-3 px-4 py-3 rounded-2xl border border-emerald-500/20 bg-[#0D0D0D] shadow-[0_0_0_1px_rgba(16,185,129,0.08),0_8px_32px_rgba(0,0,0,0.6)]"
+            className="fixed bottom-6 left-6 z-50 flex items-center gap-3 px-4 py-3 rounded-2xl border border-emerald-200 bg-[#111111] shadow-[0_0_0_1px_rgba(16,185,129,0.08),0_8px_32px_rgba(0,0,0,0.1)]"
           >
-            <div className="w-7 h-7 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
-              <Check className="w-3.5 h-3.5 text-emerald-400" />
+            <div className="w-7 h-7 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center shrink-0">
+              <Check className="w-3.5 h-3.5 text-emerald-700" />
             </div>
             <div>
               <p className="text-sm font-medium text-white leading-none mb-0.5">
                 {t("fieldSaved")}
               </p>
-              <p className="text-[11px] text-white/35 leading-none">
+              <p className="text-[11px] text-[#AAAAAA] leading-none">
                 {t("fieldSavedSub")}
               </p>
             </div>

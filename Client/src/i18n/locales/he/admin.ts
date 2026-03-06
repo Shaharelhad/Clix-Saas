@@ -1,7 +1,27 @@
 const admin = {
-  // Sidebar
+  // Navigation
+  navDashboard: "לוח בקרה",
   navApprovals: "אישור משתמשים",
   logout: "התנתק",
+
+  // Dashboard
+  dashboardGreetingMorning: "בוקר טוב",
+  dashboardGreetingAfternoon: "צהריים טובים",
+  dashboardGreetingEvening: "ערב טוב",
+  dashboardSubtitle: "הנה מה שקורה ב-CLIX",
+  statTotalUsers: "סה\"כ משתמשים",
+  statPendingApprovals: "ממתינים לאישור",
+  statConnectedBots: "בוטים מחוברים",
+  statActiveWorkflows: "תהליכים פעילים",
+  statFormSubmissions: "הגשות טפסים",
+  chartRegistrations: "הרשמות משתמשים",
+  chartRegistrationsSub: "הרשמות חדשות בחודשים האחרונים",
+  chartUserStatus: "משתמשים לפי סטטוס",
+  chartUserStatusSub: "התפלגות אישורים",
+  chartBotStatus: "סטטוס בוטים",
+  chartBotStatusSub: "התפלגות בין משתמשים",
+  chartFormSubmissions: "הגשות טפסים",
+  chartFormSubmissionsSub: "הגשות לאורך זמן",
 
   // Approvals page
   approvalsTitle: "משתמשים ממתינים לאישור",
