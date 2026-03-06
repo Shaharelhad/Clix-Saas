@@ -33,6 +33,22 @@ const dashboard = {
     "ספר לי מה תרצה לשנות בהתנהגות הבוט שלך. אני אבצע את השינויים עבורך.",
   editBotSuccess: "השינויים הוחלו בהצלחה!",
   editBotError: "משהו השתבש. נסה שוב.",
+
+  // Business Content Section
+  businessContentTitle: "תוכן עסקי",
+  businessContentSubtitle: "ערכו את המידע העסקי שהבוט שלכם משתמש בו כדי להגיב ללקוחות.",
+  businessName: "שם העסק",
+  businessDescription: "תיאור העסק",
+  targetAudience: "קהל יעד",
+  tone: "טון / סגנון",
+  websiteUrl: "כתובת אתר",
+  additionalInfo: "מידע נוסף",
+  saveChanges: "שמור שינויים",
+  saving: "שומר...",
+  savedSuccessfully: "נשמר בהצלחה!",
+  saveError: "שמירה נכשלה. נסה שוב.",
+  noFormData: "לא נמצא תוכן עסקי. צרו את הבוט שלכם תחילה.",
+  goToCreateBot: "צור בוט",
 };
 
 export default dashboard;

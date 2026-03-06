@@ -34,6 +34,22 @@ const dashboard = {
     "Tell me what you'd like to change about your bot's behavior. I'll apply the changes for you.",
   editBotSuccess: "Changes applied successfully!",
   editBotError: "Something went wrong. Please try again.",
+
+  // Business Content Section
+  businessContentTitle: "Business Content",
+  businessContentSubtitle: "Edit the business information your bot uses to respond to customers.",
+  businessName: "Business Name",
+  businessDescription: "Business Description",
+  targetAudience: "Target Audience",
+  tone: "Tone / Style",
+  websiteUrl: "Website URL",
+  additionalInfo: "Additional Info",
+  saveChanges: "Save Changes",
+  saving: "Saving...",
+  savedSuccessfully: "Saved successfully!",
+  saveError: "Failed to save. Please try again.",
+  noFormData: "No business content found. Please create your bot first.",
+  goToCreateBot: "Create Bot",
 };
 
 export default dashboard;
