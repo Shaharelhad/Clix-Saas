@@ -11,6 +11,8 @@ import AdminUsersSection from "./pages/AdminPage/Sections/AdminUsersSection";
 import FormBuilderSection from "./pages/AdminPage/Sections/FormBuilderSection";
 import UserLayout from "./pages/UserLayout";
 import DashboardPage from "./pages/DashboardPage/DashboardPage";
+import BusinessContentSection from "./pages/DashboardPage/Sections/BusinessContentSection";
+import FaqSection from "./pages/DashboardPage/Sections/FaqSection";
 import DashboardSection from "./pages/AdminPage/Sections/DashboardSection";
 
 function App() {
@@ -32,6 +34,8 @@ function App() {
         }
       >
         <Route index element={<DashboardPage />} />
+        <Route path="business-content" element={<BusinessContentSection />} />
+        <Route path="faq" element={<FaqSection />} />
       </Route>
 
       {/* Admin routes */}

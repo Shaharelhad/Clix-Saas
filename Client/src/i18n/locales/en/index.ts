@@ -6,5 +6,6 @@ import pending from "./pending";
 import admin from "./admin";
 import sidebar from "./sidebar";
 import dashboard from "./dashboard";
+import faq from "./faq";
 
-export default { landing, common, createBot, auth, pending, admin, sidebar, dashboard };
+export default { landing, common, createBot, auth, pending, admin, sidebar, dashboard, faq };
