@@ -9,8 +9,7 @@ import {
   Check,
   AlertCircle,
   Sparkles,
-  ArrowLeft,
-  Bot,
+  RefreshCw,
 } from "lucide-react";
 import DOMPurify from "dompurify";
 import { cn } from "@/lib/utils";
@@ -19,7 +18,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useFormFields } from "@/hooks/useFormFields";
 import { useFileUpload } from "@/hooks/useFileUpload";
 import { FormFieldRenderer } from "@/components/form/FormFieldRenderer";
-import { callFormSubmission, callScrapeStatus } from "@/services/webhooks";
+import { callFormUpdate, callScrapeStatus } from "@/services/webhooks";
 import type { FormField, FormSettings } from "@/types/form";
 
 /* ── Animation helpers ── */
@@ -118,7 +117,7 @@ function SubmissionProgress({
   phase: "prompt" | "scraping" | "done";
   scrapeProgress: { pages: number; products: number };
 }) {
-  const { t } = useTranslation("createBot");
+  const { t } = useTranslation("dashboard");
 
   return (
     <motion.div
@@ -131,19 +130,19 @@ function SubmissionProgress({
         transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
         className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#FF7E47] to-[#E86B38] flex items-center justify-center shadow-[0_4px_24px_rgba(255,126,71,0.3)] mb-6"
       >
-        <Bot className="w-8 h-8 text-white" />
+        <RefreshCw className="w-8 h-8 text-white" />
       </motion.div>
 
       <h3 className="text-xl font-bold text-[#2D2A26] mb-2">
-        {phase === "prompt" && t("creatingBot")}
+        {phase === "prompt" && t("updatingBot")}
         {phase === "scraping" && t("scrapingWebsite")}
-        {phase === "done" && t("botCreated")}
+        {phase === "done" && t("botUpdated")}
       </h3>
 
       <p className="text-sm text-[#7A7267] max-w-xs">
-        {phase === "prompt" && t("creatingBotDesc")}
+        {phase === "prompt" && t("updatingBotDesc")}
         {phase === "scraping" && t("scrapingDesc")}
-        {phase === "done" && t("botReadyForPreview")}
+        {phase === "done" && t("botUpdatedDesc")}
       </p>
 
       {phase === "scraping" &&
@@ -335,7 +334,7 @@ export default function BusinessContentSection() {
     setLoadingPhase("prompt");
 
     try {
-      const result = await callFormSubmission({
+      const result = await callFormUpdate({
         user_id: user?.id ?? "",
         full_name: user?.full_name ?? "",
         fields: fieldsPayload,
@@ -549,7 +548,6 @@ export default function BusinessContentSection() {
           >
             {t("saveChanges")}
             <Sparkles className="w-4.5 h-4.5 transition-transform group-hover:rotate-12" />
-            <ArrowLeft className="w-4 h-4 rtl:rotate-0 ltr:rotate-180 transition-transform group-hover:ltr:-translate-x-0.5 group-hover:rtl:translate-x-0.5" />
           </motion.button>
         </motion.div>
       </form>

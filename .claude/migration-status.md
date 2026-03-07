@@ -43,7 +43,7 @@
 
 ## Webhook Functions (services/webhooks.ts)
 
-**STATUS: 5 of 11 functions are now wired. 2 are N/A (legacy). 4 remain unwired.**
+**STATUS: 6 of 12 functions are now wired. 2 are N/A (legacy). 4 remain unwired.**
 
 | Function | Env Key | Backend | Called From | Status |
 |----------|---------|---------|-------------|--------|
@@ -57,6 +57,7 @@
 | `callScrapeTrigger()` | `VITE_N8N_WEBHOOK_SCRAPE_TRIGGER` | Edge Function (working) | `EditBotSection.tsx` | [x] Wired |
 | `callFlowDemo()` | `VITE_N8N_WEBHOOK_FLOW_DEMO` | Edge Function (working) | `EditBotSection.tsx` | [x] Wired |
 | `callIntegrationAdd()` | `VITE_N8N_WEBHOOK_INTEGRATION_ADD` | n8n (404 — legacy) | — | N/A — not needed |
+| `callFormUpdate()` | `VITE_N8N_WEBHOOK_FORM_UPDATE` | Edge Function (working) | `BusinessContentSection.tsx` | [x] Wired |
 | `callDeepScrape()` | `VITE_N8N_WEBHOOK_DEEP_SCRAPE` | n8n (working) | — | [ ] Not wired |
 
 ---

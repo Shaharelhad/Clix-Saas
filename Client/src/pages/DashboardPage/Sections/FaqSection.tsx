@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Trash2, Loader2, HelpCircle } from "lucide-react";
+import { Plus, Trash2, Loader2, HelpCircle, Check, AlertCircle, Sparkles } from "lucide-react";
 import { supabase } from "@/services/supabase";
 import { useAuth } from "@/hooks/useAuth";
 import type { Tables } from "@/types/database";
@@ -9,7 +9,6 @@ import type { Tables } from "@/types/database";
 type FaqEntry = Tables<"faq_entries">;
 
 const EASE = [0.22, 1, 0.36, 1] as const;
-const DEBOUNCE_MS = 800;
 
 const stagger = {
   hidden: {},
@@ -27,8 +26,10 @@ export default function FaqSection() {
 
   const [entries, setEntries] = useState<FaqEntry[]>([]);
   const [loading, setLoading] = useState(true);
-  const [savingIds, setSavingIds] = useState<Set<string>>(new Set());
-  const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [dirty, setDirty] = useState(false);
 
   // Fetch entries
   useEffect(() => {
@@ -44,82 +45,71 @@ export default function FaqSection() {
     })();
   }, [user?.id]);
 
-  // Cleanup timers
-  useEffect(() => {
-    const t = timers.current;
-    return () => Object.values(t).forEach(clearTimeout);
-  }, []);
-
-  const saveEntry = async (entry: FaqEntry) => {
-    setSavingIds((prev) => new Set(prev).add(entry.id));
-    const { error } = await supabase
-      .from("faq_entries")
-      .update({
-        question: entry.question,
-        answer: entry.answer,
-        is_active: entry.is_active,
-      })
-      .eq("id", entry.id);
-
-    setSavingIds((prev) => {
-      const next = new Set(prev);
-      next.delete(entry.id);
-      return next;
-    });
-
-    if (error) console.error(t("saveError"), error);
-  };
-
-  const debouncedSave = (entry: FaqEntry) => {
-    if (timers.current[entry.id]) clearTimeout(timers.current[entry.id]);
-    timers.current[entry.id] = setTimeout(() => saveEntry(entry), DEBOUNCE_MS);
-  };
-
   const updateField = (id: string, field: "question" | "answer", value: string) => {
     setEntries((prev) =>
-      prev.map((e) => {
-        if (e.id !== id) return e;
-        const updated = { ...e, [field]: value };
-        debouncedSave(updated);
-        return updated;
-      })
+      prev.map((e) => (e.id !== id ? e : { ...e, [field]: value }))
     );
+    setDirty(true);
   };
 
   const toggleActive = (id: string) => {
     setEntries((prev) =>
-      prev.map((e) => {
-        if (e.id !== id) return e;
-        const updated = { ...e, is_active: !e.is_active };
-        saveEntry(updated);
-        return updated;
-      })
+      prev.map((e) => (e.id !== id ? e : { ...e, is_active: !e.is_active }))
     );
+    setDirty(true);
   };
 
   const addEntry = async () => {
     if (!user?.id) return;
     const nextOrder = entries.length > 0 ? Math.max(...entries.map((e) => e.sort_order ?? 0)) + 1 : 0;
-    const { data, error } = await supabase
+    const { data, error: insertErr } = await supabase
       .from("faq_entries")
       .insert({ user_id: user.id, question: "", answer: "", sort_order: nextOrder, is_active: true })
       .select()
       .single();
 
-    if (error || !data) {
-      console.error(t("saveError"), error);
+    if (insertErr || !data) {
+      setError(t("saveError"));
       return;
     }
     setEntries((prev) => [...prev, data]);
   };
 
   const deleteEntry = async (id: string) => {
-    const { error } = await supabase.from("faq_entries").delete().eq("id", id);
-    if (error) {
-      console.error(t("deleteError"), error);
+    const { error: delErr } = await supabase.from("faq_entries").delete().eq("id", id);
+    if (delErr) {
+      setError(t("deleteError"));
       return;
     }
     setEntries((prev) => prev.filter((e) => e.id !== id));
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    setError(null);
+
+    try {
+      for (const entry of entries) {
+        const { error: updateErr } = await supabase
+          .from("faq_entries")
+          .update({
+            question: entry.question,
+            answer: entry.answer,
+            is_active: entry.is_active,
+          })
+          .eq("id", entry.id);
+
+        if (updateErr) throw updateErr;
+      }
+
+      setDirty(false);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } catch {
+      setError(t("saveError"));
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (loading) {
@@ -172,11 +162,7 @@ export default function FaqSection() {
             >
               {/* Row number */}
               <span className="text-xs text-[#A39B90] font-mono">
-                {savingIds.has(entry.id) ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin text-[#FF7E47]" />
-                ) : (
-                  idx + 1
-                )}
+                {idx + 1}
               </span>
 
               {/* Question */}
@@ -244,6 +230,59 @@ export default function FaqSection() {
           </button>
         </div>
       </motion.div>
+
+      {/* Error */}
+      {error && (
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex items-center gap-3 bg-red-50 border border-red-200 text-red-700 rounded-xl px-5 py-3.5 text-sm mt-6"
+        >
+          <AlertCircle className="w-4.5 h-4.5 flex-shrink-0" />
+          {error}
+        </motion.div>
+      )}
+
+      {/* Success feedback */}
+      {saved && (
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex items-center gap-3 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl px-5 py-3.5 text-sm mt-6"
+        >
+          <Check className="w-4.5 h-4.5 flex-shrink-0" />
+          {t("savedSuccessfully")}
+        </motion.div>
+      )}
+
+      {/* Save Button */}
+      {entries.length > 0 && (
+        <motion.div variants={fadeUp} className="flex justify-center pt-6 pb-4">
+          <motion.button
+            onClick={handleSave}
+            disabled={saving || !dirty}
+            whileHover={dirty ? { scale: 1.02 } : {}}
+            whileTap={dirty ? { scale: 0.98 } : {}}
+            className={`group relative w-full sm:w-auto inline-flex items-center justify-center gap-2.5 font-bold text-base rounded-2xl px-10 py-4 transition-all duration-300 ${
+              dirty
+                ? "bg-[#FF7E47] hover:bg-[#E86B38] text-white shadow-[0_4px_20px_rgba(255,126,71,0.3)] hover:shadow-[0_6px_28px_rgba(255,126,71,0.4)]"
+                : "bg-[#EDE6DD] text-[#A39B90] cursor-not-allowed"
+            }`}
+          >
+            {saving ? (
+              <>
+                <Loader2 className="w-4.5 h-4.5 animate-spin" />
+                {t("saving")}
+              </>
+            ) : (
+              <>
+                {t("saveChanges")}
+                <Sparkles className="w-4.5 h-4.5 transition-transform group-hover:rotate-12" />
+              </>
+            )}
+          </motion.button>
+        </motion.div>
+      )}
     </motion.div>
   );
 }

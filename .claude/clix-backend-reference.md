@@ -380,7 +380,8 @@ The `callWebhook()` helper:
 
 | Function | Purpose | Expected Payload | Needs Wiring To |
 |---|---|---|---|
-| `callFormSubmission()` | Submit bot creation form | `{ user_id, business_name, business_description, website_url, ... }` | CreateBotPage |
+| `callFormSubmission()` | Submit bot creation form | `{ user_id, full_name, fields }` | CreateBotPage |
+| `callFormUpdate()` | Update existing form data (smart re-scrape) | `{ user_id, full_name, fields }` | BusinessContentSection (wired) |
 | `callBotDemo()` | Send message in preview chat | `{ user_id, message, conversation_id? }` | Preview page |
 | `callBotEditRequest()` | Request bot personality change | `{ user_id, edit_request }` | Preview page |
 | `callGreenAPIConnect()` | Connect WhatsApp account | `{ user_id, instance_id, token }` | Connect page |
@@ -404,6 +405,7 @@ Each runs server-side in Supabase's Deno runtime with service role key + API sec
 | Edge Function | What It Does Server-Side |
 |---|---|
 | `form-submission` | Scrapes URL via Firecrawl → Claude generates Hebrew bot prompt → saves to `form_responses` → fires `scrape-trigger` |
+| `form-update` | Fetches existing `form_responses` → compares URLs → re-scrapes only if URLs changed → regenerates bot prompt → updates row → conditionally fires `scrape-trigger` |
 | `bot-demo` | Fetches bot prompt + scraped content → searches products → gets FAQs → gets history → Gemini (fallback Claude) → saves to `demo_conversations` |
 | `bot-edit` | Fetches current prompt → Claude generates updated prompt + summary → updates `form_responses` → inserts `bot_edit_history` |
 | `greenapi-connect` | Validates GreenAPI credentials → updates `profiles` → configures webhook URL → points to `flow-webhook` |
@@ -434,6 +436,7 @@ if (error) {
 | Env Variable | Endpoint | Status |
 |---|---|---|
 | `VITE_N8N_WEBHOOK_FORM_SUBMISSION` | supabase.co/functions/v1/form-submission | **WORKING** |
+| `VITE_N8N_WEBHOOK_FORM_UPDATE` | supabase.co/functions/v1/form-update | **WORKING** |
 | `VITE_N8N_WEBHOOK_BOT_DEMO` | supabase.co/functions/v1/bot-demo | **WORKING** |
 | `VITE_N8N_WEBHOOK_BOT_EDIT_REQUEST` | supabase.co/functions/v1/bot-edit | **WORKING** |
 | `VITE_N8N_WEBHOOK_BOT_EDIT_APPLY` | seai.shop/webhook/clix-bot-edit-apply | **404 — LEGACY** |

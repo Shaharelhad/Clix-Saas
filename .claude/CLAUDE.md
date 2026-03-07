@@ -29,7 +29,7 @@ Only `Client/` has a package.json. Run `npm install` from there.
 - **Components:** `src/components/` — reusable UI (includes `ErrorBoundary`)
 - **Services:**
   - `src/services/supabase.ts` — typed Supabase client (`createClient<Database>`)
-  - `src/services/webhooks.ts` — 11 webhook functions for Supabase edge functions + n8n
+  - `src/services/webhooks.ts` — 12 webhook functions for Supabase edge functions + n8n
 - **Hooks:** `src/hooks/useAuth.ts` — auth hook (signUp, signIn, signOut, resetPassword, profile)
 - **Store:** `src/store/auth.store.ts` — Zustand auth state (user, session, loading)
 - **Types:** `src/types/database.ts` — auto-generated Supabase types (20 tables, RPCs, enums)
@@ -39,8 +39,8 @@ Only `Client/` has a package.json. Run `npm install` from there.
 ### Backend (Supabase — no local server)
 - **Auth:** Supabase Auth with `handle_new_user()` trigger → auto-creates `profiles` row
 - **Database:** 20 tables in Supabase PostgreSQL (see `clix-backend-reference.md` for schema)
-- **Edge Functions:** 8 deployed at `https://gctijcljpjtmpyuzaohm.supabase.co/functions/v1/`
-  - form-submission, bot-demo, bot-edit, greenapi-connect, flow-webhook, flow-demo, scrape-trigger, scrape-status
+- **Edge Functions:** 9 deployed at `https://gctijcljpjtmpyuzaohm.supabase.co/functions/v1/`
+  - form-submission, form-update, bot-demo, bot-edit, greenapi-connect, flow-webhook, flow-demo, scrape-trigger, scrape-status
 - **RPC Functions:** 17 PostgreSQL functions (admin operations, profile, product search, etc.)
 - **n8n Webhooks:** 4 endpoints on seai.shop (1 working: deep-scrape; 2 legacy/unused: bot-edit-apply, integration-add; 1 needs deployment or replacement: support-ai)
 

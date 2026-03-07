@@ -57,6 +57,10 @@ export function callFormSubmission(data: Record<string, unknown>) {
   return callWebhook("VITE_N8N_WEBHOOK_FORM_SUBMISSION", data);
 }
 
+export function callFormUpdate(data: Record<string, unknown>) {
+  return callWebhook("VITE_N8N_WEBHOOK_FORM_UPDATE", data);
+}
+
 export function callBotDemo(data: Record<string, unknown>) {
   return callWebhook("VITE_N8N_WEBHOOK_BOT_DEMO", data);
 }
