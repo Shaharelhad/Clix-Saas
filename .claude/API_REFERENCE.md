@@ -100,7 +100,50 @@ Content-Type: multipart/form-data
 
 ---
 
-### 5. Delete/Disconnect Session
+### 5. Send Interactive Buttons
+
+```
+POST /api/session/send-buttons/:customerId
+Content-Type: application/json
+```
+
+**Body:**
+```json
+{
+  "to": "63XXXXXXXXXX",
+  "body": "Please choose an option:",
+  "header": "Welcome",
+  "footer": "Tap a button to reply",
+  "buttons": [
+    { "buttonId": "1", "buttonText": "Option A" },
+    { "buttonId": "2", "buttonText": "Option B" },
+    { "buttonId": "3", "buttonText": "Option C" }
+  ]
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `to` | string | Yes | Phone number |
+| `body` | string | Yes | Message text |
+| `buttons` | array | Yes | 1-10 button objects |
+| `header` | string | No | Title text above body |
+| `footer` | string | No | Footer text below buttons |
+
+Each button: `{ "buttonId": "unique-id", "buttonText": "Label (max 25 chars)" }`
+
+**Response:**
+```json
+{
+  "status": "sent"
+}
+```
+
+> Note: Maximum 10 buttons per message. Uses native flow format via `relayMessage`.
+
+---
+
+### 6. Delete/Disconnect Session
 
 ```
 DELETE /api/session/:customerId
@@ -115,7 +158,7 @@ DELETE /api/session/:customerId
 
 ---
 
-### 6. Health Check (no auth needed)
+### 7. Health Check (no auth needed)
 
 ```
 GET /health
@@ -130,13 +173,15 @@ GET /health
 
 ---
 
-## Incoming Message Webhook
+## Message Webhook
 
-When a WhatsApp message is received, the gateway POSTs to `MAIN_SAAS_WEBHOOK_URL` with:
+The gateway forwards **both incoming and outgoing** messages to `MAIN_SAAS_WEBHOOK_URL` via POST:
 
+**Incoming message (someone messages the connected number):**
 ```json
 {
   "customerId": "customer1",
+  "type": "incoming",
   "from": "80376773001374@lid",
   "pushName": "John Doe",
   "message": "Hi there!",
@@ -144,10 +189,30 @@ When a WhatsApp message is received, the gateway POSTs to `MAIN_SAAS_WEBHOOK_URL
 }
 ```
 
-> `from` is a WhatsApp LID (Linked Identity) — NOT a phone number. Format: `<id>@lid`.
+**Outgoing message (the connected number sends a message):**
+```json
+{
+  "customerId": "customer1",
+  "type": "outgoing",
+  "from": "639516185785@s.whatsapp.net",
+  "pushName": null,
+  "message": "Thanks for reaching out!",
+  "timestamp": 1709812350
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `customerId` | string | The session/customer ID |
+| `type` | string | `"incoming"` or `"outgoing"` |
+| `from` | string | Remote JID (LID for incoming, phone@s.whatsapp.net for outgoing) |
+| `pushName` | string\|null | Sender's WhatsApp display name (usually null for outgoing) |
+| `message` | string | The message text |
+| `timestamp` | number | Unix seconds |
+
+> `from` for incoming is a WhatsApp LID (Linked Identity) — NOT a phone number. Format: `<id>@lid`.
 > This is how Baileys v7 identifies contacts. Use `pushName` for display and store `from` as-is for sending replies.
-> `pushName` is the sender's WhatsApp display name (can be null).
-> `timestamp` is Unix seconds.
+> `from` for outgoing is the recipient's JID (phone@s.whatsapp.net).
 
 ---
 
@@ -161,14 +226,15 @@ When a WhatsApp message is received, the gateway POSTs to `MAIN_SAAS_WEBHOOK_URL
 | `GET /waInstance.../getStateInstance` | `GET /api/session/status/:customerId` |
 | `POST /waInstance.../logout` | `DELETE /api/session/:customerId` |
 | Webhook: `stateInstanceChanged` | `GET /api/session/status/:customerId` (poll) |
-| Webhook: `incomingMessageReceived` | Our gateway POSTs to `MAIN_SAAS_WEBHOOK_URL` |
+| Webhook: `incomingMessageReceived` | Our gateway POSTs to `MAIN_SAAS_WEBHOOK_URL` (type: `incoming`) |
+| Webhook: `outgoingMessageStatus` | Our gateway POSTs to `MAIN_SAAS_WEBHOOK_URL` (type: `outgoing`) |
 
 ### Key differences from Green API:
 1. **No instance creation** — just call `/api/session/start/:customerId` with any customer ID
 2. **Single API key** for all sessions (not per-instance like Green API)
 3. **QR code returned as base64 PNG** directly in the response (no separate getQRCode call)
 4. **Phone number format** — send `to` as plain number (`63XXXXXXXXXX`), no need for `@c.us` suffix
-5. **Webhook payload is simpler** — flat object with `customerId`, `from`, `pushName`, `message`, `timestamp`
+5. **Webhook payload is simpler** — flat object with `customerId`, `type`, `from`, `pushName`, `message`, `timestamp`
 6. **No chatId@c.us** — our gateway uses LID format (`<id>@lid`) for incoming messages. For sending, use plain phone numbers.
 
 ---
@@ -206,13 +272,19 @@ const data = await res.json();
 // data.qr = "data:image/png;base64,..." (display this in your frontend)
 ```
 
-## Example: Supabase Edge Function - Receive Incoming Messages
+## Example: Supabase Edge Function - Receive Messages
 
 ```typescript
 // This edge function URL goes in the gateway's MAIN_SAAS_WEBHOOK_URL env var
 const payload = await req.json();
-// payload = { customerId, from, pushName, message, timestamp }
+// payload = { customerId, type, from, pushName, message, timestamp }
 
-// payload.from is a LID like "80376773001374@lid" — use as-is for replies
-// Use payload.pushName for display name
+if (payload.type === "incoming") {
+  // Someone messaged the connected WhatsApp number
+  // payload.from is a LID like "80376773001374@lid" — use as-is for replies
+  // Use payload.pushName for display name
+} else if (payload.type === "outgoing") {
+  // The connected WhatsApp number sent a message (e.g. typed from phone)
+  // payload.from is the recipient like "639516185785@s.whatsapp.net"
+}
 ```

@@ -1,21 +1,18 @@
-import { useState, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Play,
-  ExternalLink,
-  Link2,
-  Eye,
-  EyeOff,
   Wifi,
   Loader2,
   CheckCircle2,
   AlertCircle,
   ArrowRight,
+  RefreshCw,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { callGreenAPIConnect } from "@/services/webhooks";
+import { callWClixAPIConnect } from "@/services/webhooks";
 import { supabase } from "@/services/supabase";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -63,7 +60,6 @@ function SuccessOverlay({ onGoToDashboard, t }: { onGoToDashboard: () => void; t
       className="fixed inset-0 z-50 flex items-center justify-center"
       style={{ background: "rgba(253, 248, 242, 0.92)", backdropFilter: "blur(8px)" }}
     >
-      {/* Confetti particles */}
       {particles.map((p) => (
         <motion.div
           key={p.id}
@@ -86,14 +82,12 @@ function SuccessOverlay({ onGoToDashboard, t }: { onGoToDashboard: () => void; t
       ))}
 
       <div className="flex flex-col items-center gap-6">
-        {/* Animated checkmark */}
         <motion.div
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
           transition={{ type: "spring", stiffness: 200, damping: 15, delay: 0.1 }}
           className="relative"
         >
-          {/* Glow ring */}
           <motion.div
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: [1, 1.5, 1.3], opacity: [0.5, 0, 0] }}
@@ -102,7 +96,6 @@ function SuccessOverlay({ onGoToDashboard, t }: { onGoToDashboard: () => void; t
             style={{ background: "radial-gradient(circle, rgba(255,126,71,0.3) 0%, transparent 70%)" }}
           />
           <svg width="96" height="96" viewBox="0 0 96 96" className="relative">
-            {/* Circle background */}
             <motion.circle
               cx="48"
               cy="48"
@@ -113,7 +106,6 @@ function SuccessOverlay({ onGoToDashboard, t }: { onGoToDashboard: () => void; t
               transition={{ type: "spring", stiffness: 200, damping: 15, delay: 0.1 }}
               style={{ transformOrigin: "center" }}
             />
-            {/* Checkmark path */}
             <motion.path
               d="M28 50 L42 64 L68 34"
               fill="none"
@@ -128,7 +120,6 @@ function SuccessOverlay({ onGoToDashboard, t }: { onGoToDashboard: () => void; t
           </svg>
         </motion.div>
 
-        {/* Text */}
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
@@ -143,7 +134,6 @@ function SuccessOverlay({ onGoToDashboard, t }: { onGoToDashboard: () => void; t
           </p>
         </motion.div>
 
-        {/* CTA Button */}
         <motion.button
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
@@ -182,32 +172,59 @@ const ConnectSection = () => {
 
   const isAlreadyConnected = botStatus === "connected";
   const [showReconnect, setShowReconnect] = useState(false);
-  const [instanceId, setInstanceId] = useState("");
-  const [apiToken, setApiToken] = useState("");
-  const [showToken, setShowToken] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [qrCode, setQrCode] = useState<string | null>(null);
+  const [isPolling, setIsPolling] = useState(false);
   const [connectStatus, setConnectStatus] = useState<
-    "idle" | "success" | "error"
+    "idle" | "qr" | "success" | "error"
   >("idle");
   const [connectError, setConnectError] = useState("");
   const [errorCount, setErrorCount] = useState(0);
 
+  // Poll session status when QR is shown
+  const pollStatus = useCallback(async () => {
+    if (!user?.id) return;
+    const result = await callWClixAPIConnect({
+      user_id: user.id,
+      action: "status",
+    });
+    if (result.data && (result.data as { status: string }).status === "connected") {
+      setIsPolling(false);
+      setConnectStatus("success");
+      await Promise.all([refreshProfile(), refetchBotStatus()]);
+    }
+  }, [user?.id, refreshProfile, refetchBotStatus]);
+
+  useEffect(() => {
+    if (!isPolling) return;
+    const interval = setInterval(pollStatus, 3000);
+    return () => clearInterval(interval);
+  }, [isPolling, pollStatus]);
+
   const handleConnect = async () => {
-    if (!instanceId.trim() || !apiToken.trim()) return;
+    if (!user?.id) return;
     setIsConnecting(true);
     setConnectStatus("idle");
     setConnectError("");
+    setQrCode(null);
 
     try {
-      const result = await callGreenAPIConnect({
-        user_id: user?.id ?? "",
-        instance_id: instanceId.trim(),
-        api_token: apiToken.trim(),
-      });
+      const result = await callWClixAPIConnect({ user_id: user.id });
 
       if (result.error) throw new Error(result.error);
-      setConnectStatus("success");
-      await Promise.all([refreshProfile(), refetchBotStatus()]);
+
+      const data = result.data as { status: string; qr?: string };
+
+      if (data.status === "already_connected") {
+        setConnectStatus("success");
+        await Promise.all([refreshProfile(), refetchBotStatus()]);
+      } else if (data.status === "qr_generated" && data.qr) {
+        setQrCode(data.qr);
+        setConnectStatus("qr");
+        setIsPolling(true);
+      } else {
+        throw new Error(t("connectError"));
+      }
     } catch (err) {
       setConnectStatus("error");
       setErrorCount((c) => c + 1);
@@ -221,7 +238,6 @@ const ConnectSection = () => {
 
   return (
     <>
-      {/* Full-screen success overlay */}
       <AnimatePresence>
         {connectStatus === "success" && (
           <SuccessOverlay
@@ -242,7 +258,6 @@ const ConnectSection = () => {
           variants={fadeUp}
           className="bg-white rounded-2xl overflow-hidden shadow-[0_2px_24px_rgba(45,42,38,0.05)] border border-[#EDE6DD]/50"
         >
-          {/* Title */}
           <div className="px-6 sm:px-8 pt-8 pb-4">
             <div className="flex items-center justify-center gap-3">
               <h2 className="text-xl sm:text-2xl font-bold text-[#2D2A26] text-center">
@@ -312,9 +327,6 @@ const ConnectSection = () => {
                   </div>
                   <p className="text-sm text-[#4A4640] leading-relaxed pt-0.5">
                     {step}
-                    {i === 0 && (
-                      <ExternalLink className="inline w-3 h-3 ms-1 text-[#FF7E47] -mt-0.5" />
-                    )}
                   </p>
                 </motion.div>
               ))}
@@ -322,7 +334,7 @@ const ConnectSection = () => {
           </div>
         </motion.div>
 
-        {/* ── GreenAPI Credentials Card ── */}
+        {/* ── WhatsApp Connect Card ── */}
         <motion.div
           key={`credentials-${errorCount}`}
           variants={fadeUp}
@@ -342,10 +354,10 @@ const ConnectSection = () => {
           <div className="px-6 sm:px-8 pt-8 pb-2">
             <div className="flex items-center justify-center gap-3">
               <h2 className="text-xl sm:text-2xl font-bold text-[#2D2A26] text-center">
-                {t("greenApiTitle")}
+                {t("connectWhatsApp")}
               </h2>
               <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#FF7E47] to-[#E86B38] flex items-center justify-center flex-shrink-0 shadow-[0_2px_10px_rgba(255,126,71,0.3)]">
-                <Link2 className="w-4 h-4 text-white" />
+                <Wifi className="w-4 h-4 text-white" />
               </div>
             </div>
           </div>
@@ -392,53 +404,50 @@ const ConnectSection = () => {
             </div>
           )}
 
-          {/* Form — hidden when already connected (unless reconnecting) */}
+          {/* QR Code + Connect flow — shown when not connected or reconnecting */}
           {(!isAlreadyConnected || showReconnect) && connectStatus !== "success" && (
             <>
               <div className="px-6 sm:px-8 py-8">
                 <div className="max-w-md mx-auto space-y-6">
-                  {/* Instance ID */}
-                  <motion.div variants={fadeUp}>
-                    <label className="block text-xs font-bold text-[#7A7267] uppercase tracking-wider mb-2 text-end">
-                      {t("instanceIdLabel")}
-                    </label>
-                    <input
-                      type="text"
-                      dir="ltr"
-                      value={instanceId}
-                      onChange={(e) => setInstanceId(e.target.value)}
-                      placeholder={t("instanceIdPlaceholder")}
-                      className="w-full bg-[#FAF7F3] border border-[#E5DDD3] rounded-xl px-5 py-4 text-sm text-[#2D2A26] placeholder-[#C4BAB0] focus:border-[#FF7E47] focus:ring-2 focus:ring-[#FF7E47]/15 outline-none transition-all duration-200 font-mono tracking-wide"
-                    />
-                  </motion.div>
-
-                  {/* API Token */}
-                  <motion.div variants={fadeUp}>
-                    <label className="block text-xs font-bold text-[#7A7267] uppercase tracking-wider mb-2 text-end">
-                      {t("apiTokenLabel")}
-                    </label>
-                    <div className="relative">
-                      <input
-                        type={showToken ? "text" : "password"}
-                        dir="ltr"
-                        value={apiToken}
-                        onChange={(e) => setApiToken(e.target.value)}
-                        placeholder={t("apiTokenPlaceholder")}
-                        className="w-full bg-[#FAF7F3] border border-[#E5DDD3] rounded-xl ps-12 pe-5 py-4 text-sm text-[#2D2A26] placeholder-[#C4BAB0] focus:border-[#FF7E47] focus:ring-2 focus:ring-[#FF7E47]/15 outline-none transition-all duration-200 font-mono tracking-wide"
-                      />
+                  {/* QR Code display */}
+                  {connectStatus === "qr" && qrCode && (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className="flex flex-col items-center gap-4"
+                    >
+                      <p className="text-sm text-[#7A7267] text-center">
+                        {t("scanQrCode")}
+                      </p>
+                      <div className="bg-white p-4 rounded-2xl shadow-[0_4px_24px_rgba(45,42,38,0.08)] border border-[#EDE6DD]/50">
+                        <img
+                          src={qrCode}
+                          alt="WhatsApp QR Code"
+                          className="w-64 h-64 object-contain"
+                        />
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-[#A39B90]">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        {t("waitingForScan")}
+                      </div>
                       <button
-                        type="button"
-                        onClick={() => setShowToken(!showToken)}
-                        className="absolute start-3 top-1/2 -translate-y-1/2 p-1 rounded-lg text-[#A39B90] hover:text-[#FF7E47] transition-colors"
+                        onClick={handleConnect}
+                        className="inline-flex items-center gap-2 text-sm text-[#FF7E47] hover:text-[#E86B38] font-medium transition-colors cursor-pointer"
                       >
-                        {showToken ? (
-                          <EyeOff className="w-4.5 h-4.5" />
-                        ) : (
-                          <Eye className="w-4.5 h-4.5" />
-                        )}
+                        <RefreshCw className="w-4 h-4" />
+                        {t("refreshQr", { defaultValue: "Refresh QR Code" })}
                       </button>
-                    </div>
-                  </motion.div>
+                    </motion.div>
+                  )}
+
+                  {/* Initial state — show connect button */}
+                  {connectStatus !== "qr" && (
+                    <motion.div variants={fadeUp} className="text-center">
+                      <p className="text-sm text-[#7A7267] mb-4">
+                        {t("connectDescription")}
+                      </p>
+                    </motion.div>
+                  )}
                 </div>
               </div>
 
@@ -471,23 +480,25 @@ const ConnectSection = () => {
                 )}
               </AnimatePresence>
 
-              {/* Connect Bot Button */}
-              <div className="px-6 sm:px-8 pb-8">
-                <button
-                  onClick={handleConnect}
-                  disabled={isConnecting || !instanceId.trim() || !apiToken.trim()}
-                  className="group w-full inline-flex items-center justify-center gap-3 bg-[#FF7E47] hover:bg-[#E86B38] text-white font-bold text-base rounded-2xl py-4 transition-all duration-300 shadow-[0_4px_20px_rgba(255,126,71,0.3)] hover:shadow-[0_6px_28px_rgba(255,126,71,0.4)] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 cursor-pointer"
-                >
-                  <span className={isConnecting ? "inline-flex items-center gap-3" : "hidden"}>
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    {t("connecting")}
-                  </span>
-                  <span className={isConnecting ? "hidden" : "inline-flex items-center gap-3"}>
-                    {t("connectBot")}
-                    <Wifi className="w-5 h-5 transition-transform group-hover:scale-110" />
-                  </span>
-                </button>
-              </div>
+              {/* Connect Button (only shown when not showing QR) */}
+              {connectStatus !== "qr" && (
+                <div className="px-6 sm:px-8 pb-8">
+                  <button
+                    onClick={handleConnect}
+                    disabled={isConnecting}
+                    className="group w-full inline-flex items-center justify-center gap-3 bg-[#FF7E47] hover:bg-[#E86B38] text-white font-bold text-base rounded-2xl py-4 transition-all duration-300 shadow-[0_4px_20px_rgba(255,126,71,0.3)] hover:shadow-[0_6px_28px_rgba(255,126,71,0.4)] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 cursor-pointer"
+                  >
+                    <span className={isConnecting ? "inline-flex items-center gap-3" : "hidden"}>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      {t("connecting")}
+                    </span>
+                    <span className={isConnecting ? "hidden" : "inline-flex items-center gap-3"}>
+                      {t("connectBot")}
+                      <Wifi className="w-5 h-5 transition-transform group-hover:scale-110" />
+                    </span>
+                  </button>
+                </div>
+              )}
             </>
           )}
         </motion.div>

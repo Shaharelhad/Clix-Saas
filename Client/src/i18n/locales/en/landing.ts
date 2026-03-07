@@ -87,7 +87,7 @@ export default {
   faqQ2: "Do I need programming knowledge?",
   faqA2: "Not at all. CLIX is built for business owners. The interface is intuitive and requires no technical knowledge.",
   faqQ3: "How do I connect WhatsApp?",
-  faqA3: "Simple QR scan through GreenAPI. Setup takes less than a minute and is completely secure.",
+  faqA3: "Simple QR scan from your dashboard. Setup takes less than a minute and is completely secure.",
   faqQ4: "What happens when the bot doesn't know the answer?",
   faqA4: "The bot uses advanced AI that learns from your content. If unsure, it forwards the customer to a human agent.",
   faqQ5: "Can I try for free?",

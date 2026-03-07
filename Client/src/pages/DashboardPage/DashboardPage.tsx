@@ -72,7 +72,7 @@ export default function DashboardPage() {
   const [resetKey, setResetKey] = useState(0);
 
   const webhookUrl = user?.id
-    ? `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/flow-webhook?user_id=${user.id}`
+    ? `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/flow-webhook`
     : null;
 
   return (

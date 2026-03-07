@@ -40,7 +40,7 @@ Only `Client/` has a package.json. Run `npm install` from there.
 - **Auth:** Supabase Auth with `handle_new_user()` trigger → auto-creates `profiles` row
 - **Database:** 20 tables in Supabase PostgreSQL (see `clix-backend-reference.md` for schema)
 - **Edge Functions:** 9 deployed at `https://gctijcljpjtmpyuzaohm.supabase.co/functions/v1/`
-  - form-submission, form-update, bot-demo, bot-edit, greenapi-connect, flow-webhook, flow-demo, scrape-trigger, scrape-status
+  - form-submission, form-update, bot-demo, bot-edit, wclixapi-connect, flow-webhook, flow-demo, scrape-trigger, scrape-status
 - **RPC Functions:** 17 PostgreSQL functions (admin operations, profile, product search, etc.)
 - **n8n Webhooks:** 4 endpoints on seai.shop (1 working: deep-scrape; 2 legacy/unused: bot-edit-apply, integration-add; 1 needs deployment or replacement: support-ai)
 
@@ -81,8 +81,8 @@ Only `Client/` has a package.json. Run `npm install` from there.
 ### Backend Connections
 - Supabase client with typed Database generics
 - Auth flow (signUp → pending → admin approval → approved)
-- 11 webhook functions defined in `webhooks.ts` with auto-auth for Supabase edge functions
-  - **WARNING:** All 11 are defined but NONE are called from any page yet — they need to be wired in
+- 12 webhook functions defined in `webhooks.ts` with auto-auth for Supabase edge functions
+  - `callWClixAPIConnect()` is wired to ConnectSection (QR code flow)
 - All 20 DB tables exist and are queryable
 - All 8 edge functions deployed and responding
 - 10/17 RPC functions used from frontend (7 unused — see `migration-status.md`)

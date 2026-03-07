@@ -43,7 +43,7 @@
         ▼
 ┌───────────────┐
 │ External APIs │
-│ GreenAPI      │
+│ WClixAPI      │
 │ Claude/Gemini │
 │ Firecrawl     │
 └───────────────┘
@@ -384,7 +384,7 @@ The `callWebhook()` helper:
 | `callFormUpdate()` | Update existing form data (smart re-scrape) | `{ user_id, full_name, fields }` | BusinessContentSection (wired) |
 | `callBotDemo()` | Send message in preview chat | `{ user_id, message, conversation_id? }` | Preview page |
 | `callBotEditRequest()` | Request bot personality change | `{ user_id, edit_request }` | Preview page |
-| `callGreenAPIConnect()` | Connect WhatsApp account | `{ user_id, instance_id, token }` | Connect page |
+| `callWClixAPIConnect()` | Connect WhatsApp (QR code) | `{ user_id, action? }` | Connect page |
 | `callFlowDemo()` | Flow builder preview message | `{ user_id, workflow_id, message }` | FlowBuilder page |
 | `callScrapeTrigger()` | Trigger website scraping | `{ user_id, url }` | CreateBot/BusinessContent |
 | `callScrapeStatus()` | Poll scraping progress | `{ user_id, scrape_job_id }` | CreateBot/BusinessContent |
@@ -408,8 +408,8 @@ Each runs server-side in Supabase's Deno runtime with service role key + API sec
 | `form-update` | Fetches existing `form_responses` → compares URLs → re-scrapes only if URLs changed → regenerates bot prompt → updates row → conditionally fires `scrape-trigger` |
 | `bot-demo` | Fetches bot prompt + scraped content → searches products → gets FAQs → gets history → Gemini (fallback Claude) → saves to `demo_conversations` |
 | `bot-edit` | Fetches current prompt → Claude generates updated prompt + summary → updates `form_responses` → inserts `bot_edit_history` |
-| `greenapi-connect` | Validates GreenAPI credentials → updates `profiles` → configures webhook URL → points to `flow-webhook` |
-| `flow-webhook` | Receives WhatsApp messages → deduplicates → finds user → executes flow engine → LLM fallback if no trigger matches |
+| `wclixapi-connect` | Starts WClixAPI session → returns QR code → polls status → updates `bot_status` |
+| `flow-webhook` | Receives WhatsApp messages from WClixAPI → deduplicates → finds user by customerId → executes flow engine → LLM fallback if no trigger matches |
 | `flow-demo` | Same flow engine as `flow-webhook` but in browser preview using `demo_conversations` |
 | `scrape-trigger` | Scrapes URLs via Firecrawl (up to 5) → discovers subpages (up to 10) → re-generates enhanced bot prompt → updates `form_responses` |
 | `scrape-status` | Returns `{ status, total_pages, scraped_pages, products_found }` |
@@ -440,7 +440,7 @@ if (error) {
 | `VITE_N8N_WEBHOOK_BOT_DEMO` | supabase.co/functions/v1/bot-demo | **WORKING** |
 | `VITE_N8N_WEBHOOK_BOT_EDIT_REQUEST` | supabase.co/functions/v1/bot-edit | **WORKING** |
 | `VITE_N8N_WEBHOOK_BOT_EDIT_APPLY` | seai.shop/webhook/clix-bot-edit-apply | **404 — LEGACY** |
-| `VITE_N8N_WEBHOOK_GREENAPI_CONNECT` | supabase.co/functions/v1/greenapi-connect | **WORKING** |
+| `VITE_N8N_WEBHOOK_WCLIXAPI_CONNECT` | supabase.co/functions/v1/wclixapi-connect | **WORKING** |
 | `VITE_N8N_WEBHOOK_SUPPORT_AI` | seai.shop/webhook/clix-support-ai | **404 — NEEDS BACKEND** |
 | `VITE_N8N_WEBHOOK_INTEGRATION_ADD` | seai.shop/webhook/clix-integration-add | **404 — LEGACY** |
 | `VITE_N8N_WEBHOOK_SCRAPE_STATUS` | supabase.co/functions/v1/scrape-status | **WORKING** |
@@ -568,20 +568,28 @@ if (error) { console.error("RPC failed:", error.message); return; }
 
 ---
 
-## 8. GreenAPI Integration (WhatsApp)
+## 8. WClixAPI Integration (WhatsApp)
 
-1. User provides Instance ID + API Token from GreenAPI dashboard
-2. `greenapi-connect` edge function validates via `GET /waInstance{id}/getStateInstance/{token}` → must return `stateInstance: "authorized"`
-3. Updates `profiles` with credentials + `bot_status: "connected"`
-4. Auto-configures webhook: `POST /waInstance{id}/setSettings/{token}` → points to `flow-webhook`
-5. All incoming WhatsApp messages → `flow-webhook` edge function
+> Custom WhatsApp gateway at `https://wa.clixwapp.online`. See `.claude/API_REFERENCE.md` for full API docs.
 
-**GreenAPI API calls:**
-- `GET /waInstance{id}/getStateInstance/{token}` — validate credentials
-- `POST /waInstance{id}/setSettings/{token}` — configure webhook
-- `POST /waInstance{id}/sendMessage/{token}` — send text
-- `POST /waInstance{id}/sendInteractiveButtonsReply/{token}` — send buttons (max 3, 25 chars each)
-- `POST /waInstance{id}/sendFileByUrl/{token}` — send image/file
+1. User clicks "Connect WhatsApp" in the frontend
+2. `wclixapi-connect` edge function calls `POST /api/session/start/{user_id}` → returns QR code
+3. User scans QR with WhatsApp phone
+4. Frontend polls `POST /api/session/status/{user_id}` until `connected`
+5. Profile updated: `bot_status: "connected"`
+6. Gateway's `MAIN_SAAS_WEBHOOK_URL` is set to `flow-webhook` edge function
+7. All incoming WhatsApp messages → `flow-webhook` edge function
+
+**WClixAPI endpoints used:**
+- `POST /api/session/start/:customerId` — start session, get QR code
+- `GET /api/session/status/:customerId` — check connection status
+- `POST /api/session/send/:customerId` — send text message
+- `POST /api/session/send-buttons/:customerId` — send interactive buttons (max 10)
+- `POST /api/session/send-file/:customerId` — send image/file (multipart)
+- `DELETE /api/session/:customerId` — disconnect session
+
+**Auth:** Single `x-api-key` header (stored as `WA_GATEWAY_API_KEY` in Supabase secrets)
+**Customer ID:** Uses Supabase user UUID (`profile.id`) as `customerId`
 
 ---
 
@@ -593,7 +601,7 @@ if (error) { console.error("RPC failed:", error.message); return; }
 | `start` | Entry point with trigger text keyword |
 | `text` | Send text message (optional expectedReply, continueAuto) |
 | `image` | Send image with caption |
-| `buttons` | Interactive buttons (max 3) with per-button edges |
+| `buttons` | Interactive buttons (max 10) with per-button edges |
 | `collect_input` | Prompt user, store reply in variable `{{variableName}}` |
 | `delay` | Pause flow for N minutes |
 | `follow_up` | Send delayed message after N minutes |
@@ -688,7 +696,7 @@ Variables prefixed with `VITE_` are exposed to the browser. Non-prefixed variabl
 | Service | Purpose | API Base |
 |---|---|---|
 | Supabase | Auth, DB, Edge Functions, Storage | gctijcljpjtmpyuzaohm.supabase.co |
-| GreenAPI | WhatsApp Business API | api.green-api.com |
+| WClixAPI | Custom WhatsApp Gateway (Baileys) | wa.clixwapp.online |
 | Anthropic Claude | Prompt generation, bot editing, fallback AI | api.anthropic.com |
 | Google Gemini | Primary AI for bot responses | generativelanguage.googleapis.com |
 | Firecrawl | Website scraping | api.firecrawl.dev |

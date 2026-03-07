@@ -18,9 +18,9 @@
 | Pending (/pending) | `Pending.tsx` | [x] `PendingPage.tsx` | [x] get_my_profile RPC | Auto-polls every 30s |
 | Profile (/profile) | — | [x] Redirects to `/dashboard` | N/A | Redirects to Dashboard |
 | Dashboard (/dashboard) | — | [x] `DashboardPage/` | [x] `profiles.bot_status`, `subscriber_sessions`, `flow_message_log`, `callBotDemo()` | Welcome + bot status pill, Active Conversations (master-detail: phone list + message history), Demo Chat (wired to `callBotDemo()`) |
-| CreateBot (/create-bot) | `CreateBot.tsx` | [x] `CreateBotPage/` | [x] FormSection + ConnectSection | Dynamic form fields from `admin_list_form_fields` RPC, form settings from `admin_get_form_settings` RPC. Submits via `callFormSubmission()`, polls `callScrapeStatus()`. ConnectSection wired to `callGreenAPIConnect()`. PreviewSection still UI-only. |
+| CreateBot (/create-bot) | `CreateBot.tsx` | [x] `CreateBotPage/` | [x] FormSection + ConnectSection | Dynamic form fields from `admin_list_form_fields` RPC, form settings from `admin_get_form_settings` RPC. Submits via `callFormSubmission()`, polls `callScrapeStatus()`. ConnectSection wired to `callWClixAPIConnect()`. PreviewSection still UI-only. |
 | Preview (/preview) | `Preview.tsx` | [ ] | — | Dual-panel chat: demo mode (`sendFlowDemoMessage`) + edit mode (`requestBotEdit`). Session persistence. Image/video/button rendering |
-| Connect (/connect) | `Connect.tsx` | [ ] | — | 4-step WhatsApp connection. Calls `connectGreenApi()`. Floating support chat calls `sendSupportMessage()` |
+| Connect (/connect) | `Connect.tsx` | [ ] | — | 4-step WhatsApp connection. Calls `callWClixAPIConnect()`. Floating support chat calls `sendSupportMessage()` |
 | FlowBuilder (/flow-builder) | `FlowBuilder.tsx` | [ ] | — | @xyflow/react visual editor. 11 flow components. `useFlowBuilder` hook. Auto-save. Keyboard shortcuts |
 | BusinessContent (/business-content) | `BusinessContent.tsx` | [ ] | — | Dynamic form + file uploads + URL scraping. Calls `submitBotForm()`, `triggerScrape()` |
 | FaqManager (/faq) | `FaqManager.tsx` | [ ] | — | CRUD table for `faq_entries`. 800ms debounce auto-save |
@@ -51,7 +51,7 @@
 | `callBotDemo()` | `VITE_N8N_WEBHOOK_BOT_DEMO` | Edge Function (working) | `DemoChatSection.tsx` | [x] Wired |
 | `callBotEditRequest()` | `VITE_N8N_WEBHOOK_BOT_EDIT_REQUEST` | Edge Function (working) | `EditBotSection.tsx` | [x] Wired |
 | `callBotEditApply()` | `VITE_N8N_WEBHOOK_BOT_EDIT_APPLY` | n8n (404 — legacy) | — | N/A — not needed |
-| `callGreenAPIConnect()` | `VITE_N8N_WEBHOOK_GREENAPI_CONNECT` | Edge Function (working) | `ConnectSection.tsx` | [x] Wired |
+| `callWClixAPIConnect()` | `VITE_N8N_WEBHOOK_WCLIXAPI_CONNECT` | Edge Function (working) | `ConnectSection.tsx` | [x] Wired |
 | `callSupportAI()` | `VITE_N8N_WEBHOOK_SUPPORT_AI` | n8n (404 — needs backend) | — | [ ] Not wired + no backend |
 | `callScrapeStatus()` | `VITE_N8N_WEBHOOK_SCRAPE_STATUS` | Edge Function (working) | `FormSection.tsx` | [x] Wired |
 | `callScrapeTrigger()` | `VITE_N8N_WEBHOOK_SCRAPE_TRIGGER` | Edge Function (working) | `EditBotSection.tsx` | [x] Wired |
@@ -100,7 +100,7 @@
 | AdminLayout (admin sidebar) | [x] `AdminLayout.tsx` | [x] Built into `AdminPage.tsx` | Admin sidebar with nav + badge counts |
 | AdminGuard | [x] | [x] `AdminGuard.tsx` | Working — checks auth + admin role |
 | AuthGuard (user routes) | [x] Built into UserLayout | [ ] | Not a separate component yet |
-| IntegrationsDialog | [x] | [ ] | Dialog for GreenAPI, n8n, Claude connections |
+| IntegrationsDialog | [x] | [ ] | Dialog for WClixAPI, n8n, Claude connections |
 | Logo | [x] | [ ] | Reusable logo component |
 | NavLink | [x] | [ ] | Active link styling |
 
@@ -182,7 +182,7 @@
 1. ~~**AuthGuard + UserLayout + AppSidebar**~~ — DONE
 2. **Wire CreateBotPage to webhooks** — form already exists, just needs `callFormSubmission()` + `callScrapeStatus()` polling
 3. **Preview page** — core feature, uses `callBotDemo()` + `callBotEditRequest()`
-4. **Connect page** — uses `callGreenAPIConnect()`
+4. **Connect page** — uses `callWClixAPIConnect()`
 5. **FaqManager page** — simple CRUD, direct Supabase queries
 6. **Settings page** — simple form, direct Supabase queries
 7. **BusinessContent page** — similar to CreateBot, uses webhooks

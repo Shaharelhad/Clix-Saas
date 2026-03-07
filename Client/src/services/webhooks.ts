@@ -73,8 +73,8 @@ export function callBotEditApply(data: Record<string, unknown>) {
   return callWebhook("VITE_N8N_WEBHOOK_BOT_EDIT_APPLY", data);
 }
 
-export function callGreenAPIConnect(data: Record<string, unknown>) {
-  return callWebhook("VITE_N8N_WEBHOOK_GREENAPI_CONNECT", data);
+export function callWClixAPIConnect(data: Record<string, unknown>) {
+  return callWebhook("VITE_N8N_WEBHOOK_WCLIXAPI_CONNECT", data);
 }
 
 export function callSupportAI(data: Record<string, unknown>) {

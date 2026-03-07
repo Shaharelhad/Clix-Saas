@@ -1,5 +1,8 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { corsHeaders } from "../_shared/cors.ts";
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -144,8 +147,7 @@ async function callOpenLLM(
   userMessage: string,
   sessionId: string,
   workflowId: string,
-  instanceId: string,
-  token: string,
+  customerId: string,
   phone: string
 ): Promise<void> {
   // Fetch bot prompt and scraped content
@@ -291,8 +293,8 @@ async function callOpenLLM(
     botResponse = "איך אפשר לעזור?";
   }
 
-  // Send response via GreenAPI
-  await sendTextMessage(instanceId, token, phone, botResponse);
+  // Send response via WClixAPI
+  await sendTextMessage(customerId, phone, botResponse);
 
   // Log outbound message
   await supabase.from("flow_message_log").insert({
@@ -305,35 +307,36 @@ async function callOpenLLM(
   });
 }
 
-// ── GreenAPI Message Sending ────────────────────────────────
+// ── WClixAPI Gateway Base URL & Auth ────────────────────────
+const WA_GATEWAY_BASE = "https://wa.clixwapp.online";
+const WA_GATEWAY_API_KEY = Deno.env.get("WA_GATEWAY_API_KEY")!;
+
+// ── WClixAPI Message Sending ────────────────────────────────
 async function sendTextMessage(
-  instanceId: string,
-  token: string,
-  phone: string,
+  customerId: string,
+  to: string,
   text: string
 ) {
-  const chatId = phone.includes("@") ? phone : `${phone}@c.us`;
-  const url = `https://api.greenapi.com/waInstance${instanceId}/sendMessage/${token}`;
+  const url = `${WA_GATEWAY_BASE}/api/session/send/${customerId}`;
   const res = await fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chatId, message: text }),
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": WA_GATEWAY_API_KEY,
+    },
+    body: JSON.stringify({ to, message: text }),
   });
   return res.json();
 }
 
 async function sendButtonsMessage(
-  instanceId: string,
-  token: string,
-  phone: string,
+  customerId: string,
+  to: string,
   message: string,
   buttons: ButtonItem[]
 ) {
-  const chatId = phone.includes("@") ? phone : `${phone}@c.us`;
-
-  // Use GreenAPI interactive reply buttons (clickable)
-  const url = `https://api.greenapi.com/waInstance${instanceId}/sendInteractiveButtonsReply/${token}`;
-  const greenApiButtons = buttons.slice(0, 3).map((b) => ({
+  const url = `${WA_GATEWAY_BASE}/api/session/send-buttons/${customerId}`;
+  const wclixButtons = buttons.slice(0, 10).map((b) => ({
     buttonId: b.id,
     buttonText: b.label.substring(0, 25),
   }));
@@ -341,11 +344,14 @@ async function sendButtonsMessage(
   try {
     const res = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": WA_GATEWAY_API_KEY,
+      },
       body: JSON.stringify({
-        chatId,
+        to,
         body: message,
-        buttons: greenApiButtons,
+        buttons: wclixButtons,
       }),
     });
     if (res.ok) return res.json();
@@ -356,36 +362,46 @@ async function sendButtonsMessage(
     .map((b, i) => `${i + 1}. ${b.label}`)
     .join("\n");
   const fullMessage = `${message}\n\n${buttonText}`;
-  return sendTextMessage(instanceId, token, phone, fullMessage);
+  return sendTextMessage(customerId, to, fullMessage);
 }
 
 async function sendImageMessage(
-  instanceId: string,
-  token: string,
-  phone: string,
+  customerId: string,
+  to: string,
   imageUrl: string,
   caption: string
 ) {
-  const chatId = phone.includes("@") ? phone : `${phone}@c.us`;
-  const url = `https://api.greenapi.com/waInstance${instanceId}/sendFileByUrl/${token}`;
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      chatId,
-      urlFile: imageUrl,
-      fileName: "image.jpg",
-      caption,
-    }),
-  });
-  return res.json();
+  // WClixAPI expects file upload via multipart/form-data
+  // Fetch the image first, then upload
+  try {
+    const imgRes = await fetch(imageUrl);
+    if (!imgRes.ok) throw new Error(`Failed to fetch image: ${imgRes.status}`);
+    const imgBlob = await imgRes.blob();
+
+    const formData = new FormData();
+    formData.append("chatId", to);
+    formData.append("file", imgBlob, "image.jpg");
+    if (caption) formData.append("caption", caption);
+
+    const url = `${WA_GATEWAY_BASE}/api/session/send-file/${customerId}`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "x-api-key": WA_GATEWAY_API_KEY },
+      body: formData,
+    });
+    return res.json();
+  } catch (err) {
+    console.error("[flow] Image send failed, falling back to text:", err);
+    // Fallback: send caption as text with image URL
+    const fallbackMsg = caption ? `${caption}\n${imageUrl}` : imageUrl;
+    return sendTextMessage(customerId, to, fallbackMsg);
+  }
 }
 
 // ── Execute a single node ───────────────────────────────────
 async function executeNode(
   node: FlowNode,
-  instanceId: string,
-  token: string,
+  customerId: string,
   phone: string,
   variables: Record<string, string>,
   flow: FlowJSON,
@@ -416,7 +432,7 @@ async function executeNode(
 
   if (node.type === "text") {
     const msg = resolveVariables(node.data.message || "", variables);
-    await sendTextMessage(instanceId, token, phone, msg);
+    await sendTextMessage(customerId, phone, msg);
     await logMessage(msg, "text");
     // continueAuto ON = wait for any response then continue
     // expectedReply set = wait for specific response
@@ -432,9 +448,9 @@ async function executeNode(
     const msg = resolveVariables(node.data.message || "", variables);
     const imageUrl = node.data.imageUrl || "";
     if (imageUrl) {
-      await sendImageMessage(instanceId, token, phone, imageUrl, msg);
+      await sendImageMessage(customerId, phone, imageUrl, msg);
     } else {
-      await sendTextMessage(instanceId, token, phone, msg);
+      await sendTextMessage(customerId, phone, msg);
     }
     await logMessage(msg, "image");
     if (node.data.continueAuto || node.data.expectedReply) {
@@ -447,7 +463,7 @@ async function executeNode(
   if (node.type === "buttons") {
     const msg = resolveVariables(node.data.message || "", variables);
     const buttons = node.data.buttons || [];
-    await sendButtonsMessage(instanceId, token, phone, msg, buttons);
+    await sendButtonsMessage(customerId, phone, msg, buttons);
     await logMessage(msg, "buttons");
     // Wait for user to click a button
     return { nextNodeId: node.id, waitForInput: true };
@@ -455,7 +471,7 @@ async function executeNode(
 
   if (node.type === "collect_input") {
     const msg = resolveVariables(node.data.message || "", variables);
-    await sendTextMessage(instanceId, token, phone, msg);
+    await sendTextMessage(customerId, phone, msg);
     await logMessage(msg, "collect_input");
     // Wait for user reply
     return { nextNodeId: node.id, waitForInput: true };
@@ -515,17 +531,16 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json();
 
-    // Only process incoming messages — strictly allow ONLY incomingMessageReceived
-    const typeWebhook = body.typeWebhook || "";
-    if (typeWebhook !== "incomingMessageReceived") {
-      return new Response(JSON.stringify({ ok: true, skipped: typeWebhook || "unknown" }), {
+    // Only process incoming messages from WClixAPI
+    if (body.type !== "incoming") {
+      return new Response(JSON.stringify({ ok: true, skipped: body.type || "unknown" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Deduplicate: skip if we already processed this exact message (persistent DB check)
-    const idMessage = body.idMessage || body.messageData?.idMessage || "";
-    if (idMessage && await isDuplicateDb(idMessage)) {
+    // Deduplicate using customerId + from + timestamp combo
+    const dedupKey = `${body.customerId}:${body.from}:${body.timestamp}`;
+    if (dedupKey && await isDuplicateDb(dedupKey)) {
       return new Response(JSON.stringify({ ok: true, skipped: "duplicate" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -534,82 +549,34 @@ Deno.serve(async (req) => {
     // Occasionally clean up old dedup entries
     if (Math.random() < 0.1) cleanupOldDedup();
 
-    // GreenAPI webhook format
-    const messageData = body.messageData;
-    const senderData = body.senderData;
-    const instanceData = body.instanceData;
+    // WClixAPI webhook format — flat payload
+    const customerId = body.customerId || "";
+    const phone = body.from || "";
+    const userMessage = (body.message || "").trim();
+    const buttonClickId = ""; // WClixAPI sends button clicks as plain text — matched by label/number
 
-    if (!messageData || !senderData) {
+    if (!customerId || !phone || !userMessage) {
       return new Response(JSON.stringify({ ok: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const phone = senderData.chatId?.replace("@c.us", "") || senderData.sender?.replace("@c.us", "");
-    const instanceId = String(instanceData?.idInstance || body.instanceId || "");
+    // Find the user (bot owner) by customerId (= Supabase user UUID)
+    let profile: { id: string; active_flow_id: string | null } | null = null;
 
-    // Extract message text
-    let userMessage = "";
-    let buttonClickId = ""; // Set when user clicks an interactive button
-    if (messageData.typeMessage === "textMessage") {
-      userMessage = messageData.textMessageData?.textMessage || "";
-    } else if (messageData.typeMessage === "extendedTextMessage") {
-      userMessage = messageData.extendedTextMessageData?.text || "";
-    } else if (messageData.typeMessage === "buttonsResponseMessage") {
-      // User clicked an interactive reply button
-      userMessage = messageData.buttonsResponseMessage?.selectedButtonText || "";
-      buttonClickId = messageData.buttonsResponseMessage?.selectedButtonId || "";
-    } else if (messageData.typeMessage === "interactiveResponseMessage") {
-      // Alternative format for interactive button responses
-      userMessage = messageData.interactiveResponseMessage?.selectedButtonText
-        || messageData.interactiveResponseMessage?.title || "";
-      buttonClickId = messageData.interactiveResponseMessage?.selectedButtonId
-        || messageData.interactiveResponseMessage?.id || "";
-    } else {
-      // Ignore non-text messages for now
-      return new Response(JSON.stringify({ ok: true }), {
+    const { data } = await supabase
+      .from("profiles")
+      .select("id, active_flow_id")
+      .eq("id", customerId)
+      .single();
+    profile = data;
+
+    if (!profile) {
+      return new Response(JSON.stringify({ ok: true, reason: "no_profile" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    if (!phone || !instanceId || !userMessage) {
-      return new Response(JSON.stringify({ ok: true }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // Find the user (bot owner) — prefer user_id from query param, fallback to instanceId lookup
-    const url = new URL(req.url);
-    const queryUserId = url.searchParams.get("user_id");
-
-    let profile: { id: string; active_flow_id: string | null; greenapi_instance_id: string; greenapi_token: string } | null = null;
-
-    if (queryUserId) {
-      // Direct lookup by user_id from the unique webhook URL
-      const { data } = await supabase
-        .from("profiles")
-        .select("id, active_flow_id, greenapi_instance_id, greenapi_token")
-        .eq("id", queryUserId)
-        .single();
-      profile = data;
-    } else {
-      // Fallback: lookup by GreenAPI instance (legacy URLs without user_id)
-      const { data: profiles } = await supabase
-        .from("profiles")
-        .select("id, active_flow_id, greenapi_instance_id, greenapi_token")
-        .eq("greenapi_instance_id", instanceId)
-        .order("updated_at", { ascending: false })
-        .limit(1);
-      profile = profiles?.[0] || null;
-    }
-
-    if (!profile?.greenapi_token) {
-      return new Response(JSON.stringify({ ok: true, reason: "no_credentials" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const token = profile.greenapi_token;
     let activeFlowId = profile.active_flow_id;
 
     // Auto-detect or create workflow if active_flow_id is not set
@@ -735,7 +702,7 @@ Deno.serve(async (req) => {
               message_type: "text",
               content: userMessage,
             });
-            await callOpenLLM(profile.id, userMessage, existingSession.id, workflow.id, instanceId, token, phone);
+            await callOpenLLM(profile.id, userMessage, existingSession.id, workflow.id, customerId, phone);
           }
           return new Response(JSON.stringify({ ok: true, action: "llm_response" }), {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -751,7 +718,7 @@ Deno.serve(async (req) => {
             message_type: "text",
             content: userMessage,
           });
-          await callOpenLLM(profile.id, userMessage, newSession.id, workflow.id, instanceId, token, phone);
+          await callOpenLLM(profile.id, userMessage, newSession.id, workflow.id, customerId, phone);
         }
         return new Response(JSON.stringify({ ok: true, action: "llm_response" }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -870,7 +837,7 @@ Deno.serve(async (req) => {
         variables = { phone };
       } else {
         // No trigger match on completed session — use open LLM conversation
-        await callOpenLLM(profile.id, userMessage, session.id, workflow.id, instanceId, token, phone);
+        await callOpenLLM(profile.id, userMessage, session.id, workflow.id, customerId, phone);
         return new Response(JSON.stringify({ ok: true, action: "llm_response" }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -884,7 +851,7 @@ Deno.serve(async (req) => {
         currentNodeId = startNode.id;
       } else {
         // No trigger match and no active flow — use LLM
-        await callOpenLLM(profile.id, userMessage, session.id, workflow.id, instanceId, token, phone);
+        await callOpenLLM(profile.id, userMessage, session.id, workflow.id, customerId, phone);
         return new Response(JSON.stringify({ ok: true, action: "llm_response" }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -948,7 +915,7 @@ Deno.serve(async (req) => {
           maxSteps--;
           const node = findNodeById(flow, nextNodeId);
           if (!node) break;
-          const result = await executeNode(node, instanceId, token, phone, updatedVariables, flow, session.id, workflow.id);
+          const result = await executeNode(node, customerId, phone, updatedVariables, flow, session.id, workflow.id);
           if (result.waitForInput) {
             nextNodeId = result.nextNodeId;
             break;
@@ -986,7 +953,7 @@ Deno.serve(async (req) => {
         nextNodeId = nextNode?.id || null;
       } else {
         // Re-send buttons
-        await sendButtonsMessage(instanceId, token, phone, "לא הבנתי, בחר אפשרות:", buttons);
+        await sendButtonsMessage(customerId, phone, "לא הבנתי, בחר אפשרות:", buttons);
         // Stay on same node
         await supabase
           .from("subscriber_sessions")
@@ -1009,7 +976,7 @@ Deno.serve(async (req) => {
           nextNodeId = nextNode?.id || null;
         } else {
           // No match — open LLM conversation (stay on same node for flow)
-          await callOpenLLM(profile.id, userMessage, session.id, workflow.id, instanceId, token, phone);
+          await callOpenLLM(profile.id, userMessage, session.id, workflow.id, customerId, phone);
           await supabase
             .from("subscriber_sessions")
             .update({ last_message_at: new Date().toISOString() })
@@ -1050,7 +1017,7 @@ Deno.serve(async (req) => {
           trigger: currentNode.data.triggerText,
           message: userMessage,
         });
-        await callOpenLLM(profile.id, userMessage, session.id, workflow.id, instanceId, token, phone);
+        await callOpenLLM(profile.id, userMessage, session.id, workflow.id, customerId, phone);
         await supabase
           .from("subscriber_sessions")
           .update({ last_message_at: new Date().toISOString() })
@@ -1076,8 +1043,7 @@ Deno.serve(async (req) => {
 
       const result = await executeNode(
         node,
-        instanceId,
-        token,
+        customerId,
         phone,
         updatedVariables,
         flow,
