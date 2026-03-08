@@ -1,7 +1,7 @@
 # CLIX Migration Status
 
 > Tracks what's built vs missing compared to the [original project](https://github.com/Shaharelhad/CLIX-BOT-project).
-> **Last updated:** 2026-03-06
+> **Last updated:** 2026-03-08
 >
 > **RULE:** When implementing any feature, update this file to mark it complete and update any other affected `.claude/` files.
 
@@ -17,13 +17,11 @@
 | Auth (/auth) | `Auth.tsx` | [x] `AuthPage.tsx` | [x] signUp, signIn, resetPassword | 3 modes (login, signup, forgot). Original has 4 modes (+ new-password for reset link) |
 | Pending (/pending) | `Pending.tsx` | [x] `PendingPage.tsx` | [x] get_my_profile RPC | Auto-polls every 30s |
 | Profile (/profile) | — | [x] Redirects to `/dashboard` | N/A | Redirects to Dashboard |
-| Dashboard (/dashboard) | — | [x] `DashboardPage/` | [x] `profiles.bot_status`, `subscriber_sessions`, `flow_message_log`, `callBotDemo()` | Welcome + bot status pill, Active Conversations (master-detail: phone list + message history), Demo Chat (wired to `callBotDemo()`) |
-| CreateBot (/create-bot) | `CreateBot.tsx` | [x] `CreateBotPage/` | [x] FormSection + ConnectSection | Dynamic form fields from `admin_list_form_fields` RPC, form settings from `admin_get_form_settings` RPC. Submits via `callFormSubmission()`, polls `callScrapeStatus()`. ConnectSection wired to `callWClixAPIConnect()`. PreviewSection still UI-only. |
-| Preview (/preview) | `Preview.tsx` | [ ] | — | Dual-panel chat: demo mode (`sendFlowDemoMessage`) + edit mode (`requestBotEdit`). Session persistence. Image/video/button rendering |
-| Connect (/connect) | `Connect.tsx` | [ ] | — | 4-step WhatsApp connection. Calls `callWClixAPIConnect()`. Floating support chat calls `sendSupportMessage()` |
-| FlowBuilder (/flow-builder) | `FlowBuilder.tsx` | [ ] | — | @xyflow/react visual editor. 11 flow components. `useFlowBuilder` hook. Auto-save. Keyboard shortcuts |
-| BusinessContent (/business-content) | `BusinessContent.tsx` | [ ] | — | Dynamic form + file uploads + URL scraping. Calls `submitBotForm()`, `triggerScrape()` |
-| FaqManager (/faq) | `FaqManager.tsx` | [ ] | — | CRUD table for `faq_entries`. 800ms debounce auto-save |
+| Dashboard (/dashboard) | — | [x] `DashboardPage/` | [x] `profiles.bot_status`, `subscriber_sessions`, `flow_message_log`, `callBotDemo()` | Welcome + bot status pill, Active Conversations (master-detail: phone list + message history), Demo Chat (wired to `callBotDemo()`), EditBot (wired to `callBotEditRequest()`) |
+| Dashboard: BusinessContent (/dashboard/business-content) | `BusinessContent.tsx` | [x] `BusinessContentSection.tsx` | [x] `callFormUpdate()`, `callScrapeStatus()` | Built as DashboardPage section/sub-route. Dynamic form + scraping |
+| Dashboard: FAQ (/dashboard/faq) | `FaqManager.tsx` | [x] `FaqSection.tsx` | [x] Supabase CRUD on `faq_entries` | Built as DashboardPage section/sub-route. Add/edit/delete FAQ entries |
+| CreateBot (/create-bot) | `CreateBot.tsx` | [x] `CreateBotPage/` | [x] All 3 sections wired | 3-step wizard: FormSection (`callFormSubmission()` + `callScrapeStatus()`), PreviewSection (`callBotDemo()` + `callBotEditRequest()`), ConnectSection (`callWClixAPIConnect()`) |
+| FlowBuilder (/dashboard/flow-builder) | `FlowBuilder.tsx` | [x] `FlowBuilderPage/` | [x] `callFlowDemo()`, Supabase CRUD on `workflows` | @xyflow/react visual editor. 8 node types. `useFlowBuilder` hook. Auto-save. Preview simulator wired to `callFlowDemo()` |
 | Settings (/settings) | `Settings.tsx` | [ ] | — | Edit name, phone, language. Calls `auth.updateUser()` + `profiles` table |
 | NotFound (*) | `NotFound.tsx` | [ ] | — | 404 page |
 
@@ -41,24 +39,19 @@
 
 ---
 
-## Webhook Functions (services/webhooks.ts)
+## Edge Functions (services/edge-functions.ts)
 
-**STATUS: 6 of 12 functions are now wired. 2 are N/A (legacy). 4 remain unwired.**
+**STATUS: All 7 functions are wired.**
 
 | Function | Env Key | Backend | Called From | Status |
 |----------|---------|---------|-------------|--------|
-| `callFormSubmission()` | `VITE_N8N_WEBHOOK_FORM_SUBMISSION` | Edge Function (working) | `FormSection.tsx` | [x] Wired |
-| `callBotDemo()` | `VITE_N8N_WEBHOOK_BOT_DEMO` | Edge Function (working) | `DemoChatSection.tsx` | [x] Wired |
-| `callBotEditRequest()` | `VITE_N8N_WEBHOOK_BOT_EDIT_REQUEST` | Edge Function (working) | `EditBotSection.tsx` | [x] Wired |
-| `callBotEditApply()` | `VITE_N8N_WEBHOOK_BOT_EDIT_APPLY` | n8n (404 — legacy) | — | N/A — not needed |
-| `callWClixAPIConnect()` | `VITE_N8N_WEBHOOK_WCLIXAPI_CONNECT` | Edge Function (working) | `ConnectSection.tsx` | [x] Wired |
-| `callSupportAI()` | `VITE_N8N_WEBHOOK_SUPPORT_AI` | n8n (404 — needs backend) | — | [ ] Not wired + no backend |
-| `callScrapeStatus()` | `VITE_N8N_WEBHOOK_SCRAPE_STATUS` | Edge Function (working) | `FormSection.tsx` | [x] Wired |
-| `callScrapeTrigger()` | `VITE_N8N_WEBHOOK_SCRAPE_TRIGGER` | Edge Function (working) | `EditBotSection.tsx` | [x] Wired |
-| `callFlowDemo()` | `VITE_N8N_WEBHOOK_FLOW_DEMO` | Edge Function (working) | `EditBotSection.tsx` | [x] Wired |
-| `callIntegrationAdd()` | `VITE_N8N_WEBHOOK_INTEGRATION_ADD` | n8n (404 — legacy) | — | N/A — not needed |
-| `callFormUpdate()` | `VITE_N8N_WEBHOOK_FORM_UPDATE` | Edge Function (working) | `BusinessContentSection.tsx` | [x] Wired |
-| `callDeepScrape()` | `VITE_N8N_WEBHOOK_DEEP_SCRAPE` | n8n (working) | — | [ ] Not wired |
+| `callFormSubmission()` | `VITE_EDGE_FN_FORM_SUBMISSION` | Edge Function (working) | `FormSection.tsx` | [x] Wired |
+| `callBotDemo()` | `VITE_EDGE_FN_BOT_DEMO` | Edge Function (working) | `DemoChatSection.tsx`, `PreviewSection.tsx` | [x] Wired |
+| `callBotEditRequest()` | `VITE_EDGE_FN_BOT_EDIT_REQUEST` | Edge Function (working) | `EditBotSection.tsx`, `PreviewSection.tsx` | [x] Wired |
+| `callWClixAPIConnect()` | `VITE_EDGE_FN_WCLIXAPI_CONNECT` | Edge Function (working) | `ConnectSection.tsx` | [x] Wired |
+| `callScrapeStatus()` | `VITE_EDGE_FN_SCRAPE_STATUS` | Edge Function (working) | `FormSection.tsx`, `BusinessContentSection.tsx` | [x] Wired |
+| `callFlowDemo()` | `VITE_EDGE_FN_FLOW_DEMO` | Edge Function (working) | `FlowPreviewSimulator.tsx` | [x] Wired |
+| `callFormUpdate()` | `VITE_EDGE_FN_FORM_UPDATE` | Edge Function (working) | `BusinessContentSection.tsx` | [x] Wired |
 
 ---
 
@@ -68,24 +61,26 @@
 |----------|-------|------------|
 | `get_my_profile()` | [x] | useAuth.ts |
 | `is_admin()` | [ ] | — (AdminGuard checks role from profile instead) |
-| `admin_list_profiles(p_status?)` | [x] | AdminApprovalsSection, AdminUsersSection |
+| `admin_list_profiles(p_status?)` | [x] | AdminApprovalsSection, AdminUsersSection, DashboardSection |
 | `admin_get_profile(p_id)` | [ ] | — (needs UserDetails page) |
-| `admin_update_profile_status(p_id, p_status)` | [x] | AdminApprovalsSection |
-| `admin_get_counts()` | [ ] | — (needs admin dashboard badges) |
+| `admin_update_profile_status(p_id, p_status)` | [x] | AdminApprovalsSection, DashboardSection |
+| `admin_get_counts()` | [x] | DashboardSection |
 | `admin_list_tickets()` | [ ] | — (needs Tickets page) |
 | `admin_list_user_integrations(p_user_id)` | [ ] | — (needs UserDetails page) |
-| `admin_list_form_fields()` | [x] | FormBuilderSection |
+| `admin_list_form_fields()` | [x] | FormBuilderSection, FormSection, BusinessContentSection |
 | `admin_add_form_field(...)` | [x] | FormBuilderSection |
 | `admin_update_form_field(...)` | [x] | FormBuilderSection |
 | `admin_delete_form_field(p_id)` | [x] | FormBuilderSection |
 | `admin_update_field_order(p_id, p_sort_order)` | [x] | FormBuilderSection |
-| `admin_get_form_settings()` | [x] | FormBuilderSection |
+| `admin_get_form_settings()` | [x] | FormBuilderSection, FormSection, BusinessContentSection |
 | `admin_update_form_settings(...)` | [x] | FormBuilderSection |
 | `search_products(p_user_id, p_query, p_limit?)` | [ ] | — (used server-side by bot-demo edge function) |
 | `get_max_revisions(tier)` | [ ] | — (needs Preview/Settings page) |
 | `get_monthly_credits(tier)` | [ ] | — (needs Settings page) |
+| `publish_bot_changes(p_user_id)` | [x] | EditBotSection (publish button), wclixapi-connect (auto-publish on connect) |
+| `discard_bot_draft(p_user_id)` | [x] | EditBotSection (discard button) |
 
-**Summary: 10/17 used, 7 unused**
+**Summary: 13/19 used, 6 unused**
 
 ---
 
@@ -104,21 +99,24 @@
 | Logo | [x] | [ ] | Reusable logo component |
 | NavLink | [x] | [ ] | Active link styling |
 
-### Flow Builder (11 components — all missing)
+### Flow Builder (14 components — all built)
 
 | Component | Purpose |
 |-----------|---------|
-| [ ] FlowCanvas | @xyflow/react canvas |
-| [ ] FlowToolbar | Top bar (name, save, status) |
-| [ ] NodePalette | Draggable node types |
-| [ ] NodeEditorSidebar | Selected node property editor |
-| [ ] FlowNodeWrapper | Generic node wrapper |
-| [ ] FlowPreviewSimulator | In-browser flow testing |
-| [ ] StartNode | Entry point node |
-| [ ] WhatsAppNode | Text/image/buttons node |
-| [ ] CollectInputNode | User input collection |
-| [ ] DelayNode | Timed delay |
-| [ ] FollowUpNode | Scheduled follow-up |
+| [x] FlowCanvas | @xyflow/react canvas with drag-drop, connections |
+| [x] FlowToolbar | Top bar (name, save, status, pause/play) |
+| [x] NodePalette | 8 draggable node types with icons |
+| [x] NodeEditorSidebar | Dynamic property editor per node type |
+| [x] FlowNodeWrapper | Generic node wrapper with colored headers |
+| [x] FlowPreviewSimulator | In-browser flow testing via `callFlowDemo()` |
+| [x] StartNode | Entry point node with trigger text |
+| [x] TextNode | Text message node |
+| [x] ImageNode | Image + caption node |
+| [x] ButtonsNode | Interactive buttons with per-button handles |
+| [x] CollectInputNode | User input collection |
+| [x] DelayNode | Timed delay |
+| [x] FollowUpNode | Scheduled follow-up |
+| [x] ConditionNode | Visual-only branching (no backend execution) |
 
 ### UI Library
 
@@ -139,7 +137,7 @@
 |------|----------|---------|-------|
 | useAuth | [x] `use-auth.ts` | [x] `useAuth.ts` | Current version is more complete (signUp, signIn, signOut, resetPassword) |
 | useDirection | [x] `use-direction.ts` | [ ] | Sets document.dir + lang based on i18n. Currently handled inline per page |
-| useFlowBuilder | [x] `use-flow-builder.ts` | [ ] | Full flow state: nodes, edges, load, save, auto-save, toggle active |
+| useFlowBuilder | [x] `use-flow-builder.ts` | [x] `useFlowBuilder.ts` | React Query based: nodes, edges, load, save, auto-save (3s debounce), toggle active, CRUD workflows |
 | useMobile | [x] `use-mobile.tsx` | [ ] | Responsive breakpoint detection |
 | useToast | [x] `use-toast.ts` | [ ] | Toast notification system (sonner in original) |
 
@@ -149,7 +147,7 @@
 
 | Package | Purpose | Original Has | Current Has |
 |---------|---------|:---:|:---:|
-| @xyflow/react | Flow builder canvas | [x] | [ ] |
+| @xyflow/react | Flow builder canvas | [x] | [x] |
 | shadcn/ui (components.json) | UI component library | [x] | [ ] |
 | zod | Schema validation | [x] | [ ] |
 | react-hook-form | Form management | [x] | [ ] |
@@ -166,29 +164,19 @@
 
 ---
 
-## n8n Webhooks
-
-| Webhook | Status | Action Needed |
-|---------|--------|--------------|
-| `clix-deep-scrape` | Working (200) | Wire to BusinessContent page |
-| `clix-support-ai` | 404 — no backend | Deploy n8n workflow OR create Supabase edge function |
-| `clix-bot-edit-apply` | 404 — legacy | Not needed (bot-edit edge function handles it) |
-| `clix-integration-add` | 404 — legacy | Not needed (old architecture) |
-
 ---
 
 ## Build Priority (suggested order)
 
 1. ~~**AuthGuard + UserLayout + AppSidebar**~~ — DONE
-2. **Wire CreateBotPage to webhooks** — form already exists, just needs `callFormSubmission()` + `callScrapeStatus()` polling
-3. **Preview page** — core feature, uses `callBotDemo()` + `callBotEditRequest()`
-4. **Connect page** — uses `callWClixAPIConnect()`
-5. **FaqManager page** — simple CRUD, direct Supabase queries
-6. **Settings page** — simple form, direct Supabase queries
-7. **BusinessContent page** — similar to CreateBot, uses webhooks
+2. ~~**Wire CreateBotPage to webhooks**~~ — DONE (FormSection, PreviewSection, ConnectSection all wired)
+3. ~~**Preview**~~ — DONE (built as PreviewSection in CreateBotPage, wired to `callBotDemo()` + `callBotEditRequest()`)
+4. ~~**Connect**~~ — DONE (built as ConnectSection in CreateBotPage, wired to `callWClixAPIConnect()`)
+5. ~~**FaqManager**~~ — DONE (built as FaqSection in DashboardPage, sub-route `/dashboard/faq`)
+6. ~~**BusinessContent**~~ — DONE (built as BusinessContentSection in DashboardPage, sub-route `/dashboard/business-content`)
+7. **Settings page** — simple form, direct Supabase queries
 8. **Admin: UserDetails** — uses 2 unused RPCs
 9. **Admin: Tickets** — uses `admin_list_tickets` RPC
-10. **FlowBuilder** — most complex, needs @xyflow/react + 11 components + useFlowBuilder hook
+10. ~~**FlowBuilder**~~ — DONE (FlowBuilderPage with 14 components + useFlowBuilder hook + callFlowDemo() wired)
 11. **Admin: FlowManager** — depends on FlowBuilder
-12. **Support chat backend** — deploy n8n workflow or create edge function
-13. **NotFound page** — low priority
+12. **NotFound page** — low priority

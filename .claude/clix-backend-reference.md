@@ -431,28 +431,23 @@ if (error) {
 // data = { response: "We sell...", conversation_id: "..." }
 ```
 
-### Webhook Mapping (Env Vars)
+### Edge Function Mapping (Env Vars)
 
 | Env Variable | Endpoint | Status |
 |---|---|---|
-| `VITE_N8N_WEBHOOK_FORM_SUBMISSION` | supabase.co/functions/v1/form-submission | **WORKING** |
-| `VITE_N8N_WEBHOOK_FORM_UPDATE` | supabase.co/functions/v1/form-update | **WORKING** |
-| `VITE_N8N_WEBHOOK_BOT_DEMO` | supabase.co/functions/v1/bot-demo | **WORKING** |
-| `VITE_N8N_WEBHOOK_BOT_EDIT_REQUEST` | supabase.co/functions/v1/bot-edit | **WORKING** |
-| `VITE_N8N_WEBHOOK_BOT_EDIT_APPLY` | seai.shop/webhook/clix-bot-edit-apply | **404 — LEGACY** |
-| `VITE_N8N_WEBHOOK_WCLIXAPI_CONNECT` | supabase.co/functions/v1/wclixapi-connect | **WORKING** |
-| `VITE_N8N_WEBHOOK_SUPPORT_AI` | seai.shop/webhook/clix-support-ai | **404 — NEEDS BACKEND** |
-| `VITE_N8N_WEBHOOK_INTEGRATION_ADD` | seai.shop/webhook/clix-integration-add | **404 — LEGACY** |
-| `VITE_N8N_WEBHOOK_SCRAPE_STATUS` | supabase.co/functions/v1/scrape-status | **WORKING** |
-| `VITE_N8N_WEBHOOK_DEEP_SCRAPE` | seai.shop/webhook/clix-deep-scrape | **WORKING** |
-| `VITE_N8N_WEBHOOK_FLOW_DEMO` | supabase.co/functions/v1/flow-demo | **WORKING** |
-| `VITE_N8N_WEBHOOK_SCRAPE_TRIGGER` | supabase.co/functions/v1/scrape-trigger | **WORKING** |
+| `VITE_EDGE_FN_FORM_SUBMISSION` | supabase.co/functions/v1/form-submission | **WORKING** |
+| `VITE_EDGE_FN_FORM_UPDATE` | supabase.co/functions/v1/form-update | **WORKING** |
+| `VITE_EDGE_FN_BOT_DEMO` | supabase.co/functions/v1/bot-demo | **WORKING** |
+| `VITE_EDGE_FN_BOT_EDIT_REQUEST` | supabase.co/functions/v1/bot-edit | **WORKING** |
+| `VITE_EDGE_FN_WCLIXAPI_CONNECT` | supabase.co/functions/v1/wclixapi-connect | **WORKING** |
+| `VITE_EDGE_FN_SCRAPE_STATUS` | supabase.co/functions/v1/scrape-status | **WORKING** |
+| `VITE_EDGE_FN_FLOW_DEMO` | supabase.co/functions/v1/flow-demo | **WORKING** |
 
-### Adding a New n8n Webhook
+### Adding a New Edge Function
 
-1. Create the workflow in n8n with a **Webhook** trigger node
-2. Deploy/activate to get the webhook URL
-3. Add URL to `Client/.env` as `VITE_N8N_WEBHOOK_YOUR_NAME=https://...`
+1. Create the edge function in `supabase/functions/`
+2. Deploy via `supabase functions deploy <name>`
+3. Add URL to `Client/.env` as `VITE_EDGE_FN_YOUR_NAME=https://...supabase.co/functions/v1/<name>`
 4. Add the env key to `Client/.env.sample`
 5. Add wrapper function in `Client/src/services/webhooks.ts`
 
@@ -700,5 +695,4 @@ Variables prefixed with `VITE_` are exposed to the browser. Non-prefixed variabl
 | Anthropic Claude | Prompt generation, bot editing, fallback AI | api.anthropic.com |
 | Google Gemini | Primary AI for bot responses | generativelanguage.googleapis.com |
 | Firecrawl | Website scraping | api.firecrawl.dev |
-| n8n | Legacy workflow automation | seai.shop |
 | Supabase Storage | Bot media (bucket: `bot-media`) | supabase.co/storage/v1 |
