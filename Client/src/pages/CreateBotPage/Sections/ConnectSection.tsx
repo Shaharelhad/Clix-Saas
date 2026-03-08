@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { callWClixAPIConnect } from "@/services/webhooks";
+import { callWClixAPIConnect } from "@/services/edge-functions";
 import { supabase } from "@/services/supabase";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -169,6 +169,47 @@ const ConnectSection = () => {
     },
     enabled: !!user?.id,
   });
+
+  // Verify gateway connection matches DB status — auto-correct stale "connected"
+  // Require 3 consecutive failures to avoid transient gateway blips
+  const connectFailCountRef = useRef(0);
+  const CONNECT_FAIL_THRESHOLD = 3;
+
+  useEffect(() => {
+    if (botStatus !== "connected" || !user?.id) return;
+
+    let cancelled = false;
+    connectFailCountRef.current = 0;
+
+    const check = async () => {
+      const result = await callWClixAPIConnect({ user_id: user.id, action: "status" });
+      const gatewayStatus = (result.data as { status?: string })?.status;
+
+      if (!cancelled) {
+        if (gatewayStatus === "connected" || gatewayStatus === "connecting") {
+          connectFailCountRef.current = 0;
+        } else {
+          connectFailCountRef.current += 1;
+          if (connectFailCountRef.current >= CONNECT_FAIL_THRESHOLD) {
+            await supabase
+              .from("profiles")
+              .update({ bot_status: "created" })
+              .eq("id", user.id);
+            refetchBotStatus();
+            connectFailCountRef.current = 0;
+          }
+        }
+      }
+    };
+
+    const interval = setInterval(check, 30000);
+    check();
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [botStatus, user?.id, refetchBotStatus]);
 
   const isAlreadyConnected = botStatus === "connected";
   const [showReconnect, setShowReconnect] = useState(false);
