@@ -562,17 +562,24 @@ Deno.serve(async (req) => {
     }
 
     // Find the user (bot owner) by customerId (= Supabase user UUID)
-    let profile: { id: string; active_flow_id: string | null } | null = null;
+    let profile: { id: string; active_flow_id: string | null; bot_status: string } | null = null;
 
     const { data } = await supabase
       .from("profiles")
-      .select("id, active_flow_id")
+      .select("id, active_flow_id, bot_status")
       .eq("id", customerId)
       .single();
     profile = data;
 
     if (!profile) {
       return new Response(JSON.stringify({ ok: true, reason: "no_profile" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Skip processing if bot is paused or not connected
+    if (profile.bot_status !== "connected") {
+      return new Response(JSON.stringify({ ok: true, skipped: "bot_not_active" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
