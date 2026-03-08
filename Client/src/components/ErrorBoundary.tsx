@@ -20,7 +20,7 @@ class ErrorBoundary extends Component<Props, State> {
     // React's removeChild/insertBefore fails when the DOM is out of sync.
     if (
       error.name === "NotFoundError" &&
-      error.message.includes("removeChild")
+      (error.message.includes("removeChild") || error.message.includes("insertBefore"))
     ) {
       return { hasError: false };
     }
@@ -31,7 +31,7 @@ class ErrorBoundary extends Component<Props, State> {
     // Silently ignore DOM manipulation errors from browser extensions
     if (
       error.name === "NotFoundError" &&
-      error.message.includes("removeChild")
+      (error.message.includes("removeChild") || error.message.includes("insertBefore"))
     ) {
       return;
     }
