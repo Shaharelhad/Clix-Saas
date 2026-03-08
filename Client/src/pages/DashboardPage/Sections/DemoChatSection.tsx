@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { motion } from "framer-motion";
 import { Bot, RotateCcw } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { callBotDemo } from "@/services/webhooks";
+import { callBotDemo } from "@/services/edge-functions";
 import ChatPanel, {
   type ChatMessage,
 } from "@/pages/CreateBotPage/Sections/ChatPanel";

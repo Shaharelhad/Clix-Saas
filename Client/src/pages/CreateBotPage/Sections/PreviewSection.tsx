@@ -1,5 +1,5 @@
 import { useAuth } from "@/hooks/useAuth";
-import { callBotDemo, callBotEditRequest } from "@/services/webhooks";
+import { callBotDemo, callBotEditRequest } from "@/services/edge-functions";
 import { motion } from "framer-motion";
 import { ArrowLeft, Bot, RotateCcw, Sparkles } from "lucide-react";
 import { useCallback, useState } from "react";

@@ -13,7 +13,7 @@ import {
 import DOMPurify from "dompurify";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/services/supabase";
-import { callFormSubmission, callScrapeStatus } from "@/services/webhooks";
+import { callFormSubmission, callScrapeStatus } from "@/services/edge-functions";
 import { useAuth } from "@/hooks/useAuth";
 import { useFormFields } from "@/hooks/useFormFields";
 import { useFileUpload } from "@/hooks/useFileUpload";
