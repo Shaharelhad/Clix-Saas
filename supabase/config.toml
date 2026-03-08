@@ -354,6 +354,34 @@ authorization_url_path = "/oauth/consent"
 # Allow dynamic client registration
 allow_dynamic_registration = false
 
+# Disable JWT verification for edge functions that handle their own auth
+[functions.flow-demo]
+verify_jwt = false
+
+[functions.bot-demo]
+verify_jwt = false
+
+[functions.form-submission]
+verify_jwt = false
+
+[functions.form-update]
+verify_jwt = false
+
+[functions.bot-edit]
+verify_jwt = false
+
+[functions.wclixapi-connect]
+verify_jwt = false
+
+[functions.flow-webhook]
+verify_jwt = false
+
+[functions.scrape-trigger]
+verify_jwt = false
+
+[functions.scrape-status]
+verify_jwt = false
+
 [edge_runtime]
 enabled = true
 # Supported request policies: `oneshot`, `per_worker`.
