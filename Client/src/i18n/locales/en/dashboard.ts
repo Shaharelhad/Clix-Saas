@@ -2,11 +2,29 @@ const dashboard = {
   welcome: "Welcome back, {{name}}!",
   subtitle: "Here's an overview of your bot",
 
+  // Edit Bot Page
+  editBotPageTitle: "Edit Your Bot",
+  editBotPageSubtitle: "Customize your bot's behavior, content, and FAQ all in one place.",
+
   botStatus: "Bot Status",
   botConnected: "Connected",
   botDisconnected: "Disconnected",
   botStatusDesc: "Your WhatsApp bot is active and responding to customers",
   botDisconnectedDesc: "Connect your bot to start serving customers",
+  botPaused: "Paused",
+  botPausedDesc: "Your bot is paused and not responding to messages",
+  pauseBot: "Pause Bot",
+  resumeBot: "Resume Bot",
+  disconnectBot: "Disconnect",
+  reconnectBot: "Reconnect",
+  pauseSuccess: "Bot paused successfully",
+  resumeSuccess: "Bot resumed successfully",
+  disconnectSuccess: "Bot disconnected successfully",
+  disconnectConfirm: "Are you sure? You'll need to scan a QR code to reconnect.",
+  scanToReconnect: "Scan the QR code to reconnect your bot",
+  waitingForScan: "Waiting for scan...",
+  refreshQr: "Refresh QR Code",
+  connecting: "Connecting...",
 
   // Conversations Section
   conversationsTitle: "Active Chats",
@@ -34,6 +52,17 @@ const dashboard = {
     "Tell me what you'd like to change about your bot's behavior. I'll apply the changes for you.",
   editBotSuccess: "Changes applied successfully!",
   editBotError: "Something went wrong. Please try again.",
+
+  // Draft / Publish
+  publishChanges: "Publish Changes",
+  discardDraft: "Discard Draft",
+  unpublishedChanges: "You have unpublished changes",
+  publishSuccess: "Changes published successfully!",
+  publishError: "Publish failed. Please try again.",
+  discardSuccess: "Draft discarded.",
+  discardError: "Discard failed. Please try again.",
+  draftIndicator: "Draft",
+  draftSaved: "Draft saved",
 
   // Business Content Section
   businessContentTitle: "Business Content",

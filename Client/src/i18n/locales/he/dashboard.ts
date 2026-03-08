@@ -2,11 +2,29 @@ const dashboard = {
   welcome: "ברוך שובך, {{name}}!",
   subtitle: "הנה סקירה של הבוט שלך",
 
+  // Edit Bot Page
+  editBotPageTitle: "עריכת הבוט שלך",
+  editBotPageSubtitle: "התאם את התנהגות הבוט, התוכן והשאלות הנפוצות במקום אחד.",
+
   botStatus: "סטטוס בוט",
   botConnected: "מחובר",
   botDisconnected: "מנותק",
   botStatusDesc: "הבוט שלך בוואטסאפ פעיל ומגיב ללקוחות",
   botDisconnectedDesc: "חבר את הבוט כדי להתחיל לשרת לקוחות",
+  botPaused: "מושהה",
+  botPausedDesc: "הבוט שלך מושהה ולא מגיב להודעות",
+  pauseBot: "השהה בוט",
+  resumeBot: "חדש בוט",
+  disconnectBot: "נתק",
+  reconnectBot: "חבר מחדש",
+  pauseSuccess: "הבוט הושהה בהצלחה",
+  resumeSuccess: "הבוט חודש בהצלחה",
+  disconnectSuccess: "הבוט נותק בהצלחה",
+  disconnectConfirm: "האם אתה בטוח? תצטרך לסרוק קוד QR כדי להתחבר מחדש.",
+  scanToReconnect: "סרוק את קוד ה-QR כדי לחבר מחדש את הבוט",
+  waitingForScan: "ממתין לסריקה...",
+  refreshQr: "רענן קוד QR",
+  connecting: "מתחבר...",
 
   // Conversations Section
   conversationsTitle: "צ'אטים פעילים",
@@ -33,6 +51,17 @@ const dashboard = {
     "ספר לי מה תרצה לשנות בהתנהגות הבוט שלך. אני אבצע את השינויים עבורך.",
   editBotSuccess: "השינויים הוחלו בהצלחה!",
   editBotError: "משהו השתבש. נסה שוב.",
+
+  // Draft / Publish
+  publishChanges: "פרסם שינויים",
+  discardDraft: "בטל טיוטה",
+  unpublishedChanges: "יש שינויים שלא פורסמו",
+  publishSuccess: "השינויים פורסמו בהצלחה!",
+  publishError: "פרסום נכשל. נסה שוב.",
+  discardSuccess: "הטיוטה בוטלה.",
+  discardError: "ביטול נכשל. נסה שוב.",
+  draftIndicator: "טיוטה",
+  draftSaved: "טיוטה נשמרה",
 
   // Business Content Section
   businessContentTitle: "תוכן עסקי",
