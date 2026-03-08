@@ -7,5 +7,6 @@ import admin from "./admin";
 import sidebar from "./sidebar";
 import dashboard from "./dashboard";
 import faq from "./faq";
+import flow from "./flow";
 
-export default { landing, common, createBot, auth, pending, admin, sidebar, dashboard, faq };
+export default { landing, common, createBot, auth, pending, admin, sidebar, dashboard, faq, flow };

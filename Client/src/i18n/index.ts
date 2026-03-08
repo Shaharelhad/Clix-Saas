@@ -10,16 +10,12 @@ const ns = [
   "landing",
   "auth",
   "createBot",
-  "businessContent",
-  "settings",
-  "connect",
-  "preview",
   "faq",
   "sidebar",
   "admin",
   "pending",
+  "dashboard",
   "flow",
-  "notFound",
 ] as const;
 
 i18n
