@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import {
   FileText,
@@ -18,7 +18,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useFormFields } from "@/hooks/useFormFields";
 import { useFileUpload } from "@/hooks/useFileUpload";
 import { FormFieldRenderer } from "@/components/form/FormFieldRenderer";
-import { callFormUpdate, callScrapeStatus } from "@/services/webhooks";
+import { callFormUpdate, callScrapeStatus } from "@/services/edge-functions";
 import type { FormField, FormSettings } from "@/types/form";
 
 /* ── Animation helpers ── */
@@ -182,6 +182,7 @@ export default function BusinessContentSection() {
   const { t: tCreateBot } = useTranslation("createBot");
   const { user } = useAuth();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const initialized = useRef(false);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -387,6 +388,7 @@ export default function BusinessContentSection() {
       await new Promise((r) => setTimeout(r, 800));
       setIsSubmitting(false);
       setSaved(true);
+      queryClient.invalidateQueries({ queryKey: ["draft-status"] });
       setTimeout(() => setSaved(false), 3000);
     } catch (err) {
       setIsSubmitting(false);
@@ -534,7 +536,7 @@ export default function BusinessContentSection() {
             className="flex items-center gap-3 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl px-5 py-3.5 text-sm"
           >
             <Check className="w-4.5 h-4.5 flex-shrink-0" />
-            {t("savedSuccessfully")}
+            {t("draftSaved")}
           </motion.div>
         )}
 

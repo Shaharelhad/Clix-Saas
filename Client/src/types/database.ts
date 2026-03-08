@@ -272,6 +272,8 @@ export type Database = {
           business_description: string
           business_name: string
           created_at: string
+          draft_bot_prompt: string | null
+          draft_faq_entries: Json | null
           has_products: boolean | null
           id: string
           scraped_content: string | null
@@ -288,6 +290,8 @@ export type Database = {
           business_description: string
           business_name: string
           created_at?: string
+          draft_bot_prompt?: string | null
+          draft_faq_entries?: Json | null
           has_products?: boolean | null
           id?: string
           scraped_content?: string | null
@@ -304,6 +308,8 @@ export type Database = {
           business_description?: string
           business_name?: string
           created_at?: string
+          draft_bot_prompt?: string | null
+          draft_faq_entries?: Json | null
           has_products?: boolean | null
           id?: string
           scraped_content?: string | null
@@ -1000,6 +1006,10 @@ export type Database = {
         Args: { p_id: string; p_status: string }
         Returns: undefined
       }
+      discard_bot_draft: {
+        Args: { p_user_id: string }
+        Returns: Json
+      }
       get_max_revisions: {
         Args: { tier: Database["public"]["Enums"]["subscription_tier"] }
         Returns: number
@@ -1022,6 +1032,10 @@ export type Database = {
         }[]
       }
       is_admin: { Args: never; Returns: boolean }
+      publish_bot_changes: {
+        Args: { p_user_id: string }
+        Returns: Json
+      }
       search_products: {
         Args: { p_limit?: number; p_query: string; p_user_id: string }
         Returns: {

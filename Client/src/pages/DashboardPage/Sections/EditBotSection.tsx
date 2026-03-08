@@ -2,8 +2,10 @@ import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { motion } from "framer-motion";
 import { Sparkles } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
-import { callBotEditRequest } from "@/services/webhooks";
+import { useDraftStatus } from "@/hooks/useDraftStatus";
+import { callBotEditRequest } from "@/services/edge-functions";
 import ChatPanel, {
   type ChatMessage,
 } from "@/pages/CreateBotPage/Sections/ChatPanel";
@@ -36,6 +38,8 @@ interface EditBotSectionProps {
 export default function EditBotSection({ onEditApplied }: EditBotSectionProps) {
   const { t } = useTranslation("dashboard");
   const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const { hasDraft } = useDraftStatus();
 
   const [messages, setMessages] = useState<ChatMessage[]>(() => [
     {
@@ -91,6 +95,7 @@ export default function EditBotSection({ onEditApplied }: EditBotSectionProps) {
       };
 
       setMessages((prev) => [...prev, botMsg]);
+      queryClient.invalidateQueries({ queryKey: ["draft-status"] });
       onEditApplied?.();
     } catch (err) {
       const botMsg: ChatMessage = {
@@ -103,15 +108,16 @@ export default function EditBotSection({ onEditApplied }: EditBotSectionProps) {
     } finally {
       setIsSending(false);
     }
-  }, [input, isSending, user?.id, t, onEditApplied]);
+  }, [input, isSending, user?.id, t, onEditApplied, queryClient]);
 
   return (
-    <motion.div variants={fadeUp} className="flex flex-col h-full">
+    <motion.div variants={fadeUp} className="flex flex-col h-full gap-3">
+      {/* ── Chat Panel ── */}
       <ChatPanel
         title={t("editBotTitle")}
         icon={<Sparkles className="w-4 h-4 text-[#FF7E47]" />}
-        statusText={t("editBotStatus")}
-        statusColor="orange"
+        statusText={hasDraft ? t("draftIndicator") : t("editBotStatus")}
+        statusColor={hasDraft ? "amber" : "orange"}
         messages={messages}
         input={input}
         onInputChange={setInput}

@@ -26,13 +26,14 @@ Deno.serve(async (req) => {
     // 1. Fetch bot_prompt and scraped content from the latest form_responses
     const { data: formRow } = await supabase
       .from("form_responses")
-      .select("bot_prompt, business_name, scraped_content")
+      .select("bot_prompt, draft_bot_prompt, business_name, scraped_content")
       .eq("user_id", user_id)
       .order("created_at", { ascending: false })
       .limit(1)
       .single();
 
     const basePrompt =
+      formRow?.draft_bot_prompt ||
       formRow?.bot_prompt ||
       `אתה בעל עסק בשם ${formRow?.business_name || "העסק"}. דבר בגוף ראשון, בצורה טבעית ואנושית כמו בוואטסאפ.`;
 

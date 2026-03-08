@@ -231,7 +231,7 @@ Deno.serve(async (req) => {
         business_description: full_name || "User submission",
         website_url: newUrls[0] || oldWebsiteUrl,
         additional_info: JSON.stringify(fields),
-        bot_prompt: botPrompt,
+        draft_bot_prompt: botPrompt,
         scraped_content: scrapedContent.substring(0, 50000),
         updated_at: new Date().toISOString(),
       })

@@ -40,6 +40,8 @@ Deno.serve(async (req) => {
           .from("profiles")
           .update({ bot_status: "connected" })
           .eq("id", user_id);
+        // Publish draft bot prompt → live on successful connection
+        await supabase.rpc("publish_bot_changes", { p_user_id: user_id });
       }
 
       return new Response(JSON.stringify(statusData), {
@@ -84,6 +86,8 @@ Deno.serve(async (req) => {
         .from("profiles")
         .update({ bot_status: "connected" })
         .eq("id", user_id);
+      // Publish draft bot prompt → live on successful connection
+      await supabase.rpc("publish_bot_changes", { p_user_id: user_id });
     }
 
     return new Response(JSON.stringify(startData), {

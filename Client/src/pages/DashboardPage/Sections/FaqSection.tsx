@@ -1,12 +1,18 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
+import { useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { Plus, Trash2, Loader2, HelpCircle, Check, AlertCircle, Sparkles } from "lucide-react";
 import { supabase } from "@/services/supabase";
 import { useAuth } from "@/hooks/useAuth";
-import type { Tables } from "@/types/database";
 
-type FaqEntry = Tables<"faq_entries">;
+interface FaqDraftEntry {
+  id: string;
+  question: string;
+  answer: string;
+  is_active: boolean;
+  sort_order: number;
+}
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 
@@ -23,87 +29,108 @@ const fadeUp = {
 export default function FaqSection() {
   const { t } = useTranslation("faq");
   const { user } = useAuth();
+  const queryClient = useQueryClient();
 
-  const [entries, setEntries] = useState<FaqEntry[]>([]);
+  const [entries, setEntries] = useState<FaqDraftEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
 
-  // Fetch entries
+  // Load entries: prefer draft_faq_entries from form_responses, fallback to faq_entries
   useEffect(() => {
     if (!user?.id) return;
     (async () => {
+      // Check for draft first
+      const { data: formRow } = await supabase
+        .from("form_responses")
+        .select("draft_faq_entries")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single();
+
+      if (formRow?.draft_faq_entries) {
+        const draft = formRow.draft_faq_entries as unknown as FaqDraftEntry[];
+        setEntries(draft);
+        setLoading(false);
+        return;
+      }
+
+      // No draft — load from live faq_entries
       const { data } = await supabase
         .from("faq_entries")
         .select("*")
         .eq("user_id", user.id)
         .order("sort_order", { ascending: true });
-      setEntries(data ?? []);
+
+      setEntries(
+        (data ?? []).map((e) => ({
+          id: e.id,
+          question: e.question ?? "",
+          answer: e.answer ?? "",
+          is_active: e.is_active ?? true,
+          sort_order: e.sort_order ?? 0,
+        })),
+      );
       setLoading(false);
     })();
   }, [user?.id]);
 
   const updateField = (id: string, field: "question" | "answer", value: string) => {
-    setEntries((prev) =>
-      prev.map((e) => (e.id !== id ? e : { ...e, [field]: value }))
-    );
+    setEntries((prev) => prev.map((e) => (e.id !== id ? e : { ...e, [field]: value })));
     setDirty(true);
   };
 
   const toggleActive = (id: string) => {
-    setEntries((prev) =>
-      prev.map((e) => (e.id !== id ? e : { ...e, is_active: !e.is_active }))
-    );
+    setEntries((prev) => prev.map((e) => (e.id !== id ? e : { ...e, is_active: !e.is_active })));
     setDirty(true);
   };
 
-  const addEntry = async () => {
-    if (!user?.id) return;
-    const nextOrder = entries.length > 0 ? Math.max(...entries.map((e) => e.sort_order ?? 0)) + 1 : 0;
-    const { data, error: insertErr } = await supabase
-      .from("faq_entries")
-      .insert({ user_id: user.id, question: "", answer: "", sort_order: nextOrder, is_active: true })
-      .select()
-      .single();
-
-    if (insertErr || !data) {
-      setError(t("saveError"));
-      return;
-    }
-    setEntries((prev) => [...prev, data]);
+  const addEntry = () => {
+    const nextOrder = entries.length > 0 ? Math.max(...entries.map((e) => e.sort_order)) + 1 : 0;
+    setEntries((prev) => [
+      ...prev,
+      {
+        id: crypto.randomUUID(),
+        question: "",
+        answer: "",
+        is_active: true,
+        sort_order: nextOrder,
+      },
+    ]);
+    setDirty(true);
   };
 
-  const deleteEntry = async (id: string) => {
-    const { error: delErr } = await supabase.from("faq_entries").delete().eq("id", id);
-    if (delErr) {
-      setError(t("deleteError"));
-      return;
-    }
+  const deleteEntry = (id: string) => {
     setEntries((prev) => prev.filter((e) => e.id !== id));
+    setDirty(true);
   };
 
   const handleSave = async () => {
+    if (!user?.id) return;
     setSaving(true);
     setError(null);
 
     try {
-      for (const entry of entries) {
-        const { error: updateErr } = await supabase
-          .from("faq_entries")
-          .update({
-            question: entry.question,
-            answer: entry.answer,
-            is_active: entry.is_active,
-          })
-          .eq("id", entry.id);
+      const draftData = entries.map((e, idx) => ({
+        question: e.question,
+        answer: e.answer,
+        is_active: e.is_active,
+        sort_order: idx,
+      }));
 
-        if (updateErr) throw updateErr;
-      }
+      const { error: updateErr } = await supabase
+        .from("form_responses")
+        .update({ draft_faq_entries: JSON.stringify(draftData) })
+        .eq("user_id", user.id);
+
+      if (updateErr) throw updateErr;
 
       setDirty(false);
       setSaved(true);
+      queryClient.invalidateQueries({ queryKey: ["draft-status"] });
       setTimeout(() => setSaved(false), 3000);
     } catch {
       setError(t("saveError"));
@@ -161,14 +188,12 @@ export default function FaqSection() {
               className="grid grid-cols-[40px_1fr_1fr_64px_48px] gap-3 px-5 py-3 border-b border-[#EDE6DD]/30 items-center group"
             >
               {/* Row number */}
-              <span className="text-xs text-[#A39B90] font-mono">
-                {idx + 1}
-              </span>
+              <span className="text-xs text-[#A39B90] font-mono">{idx + 1}</span>
 
               {/* Question */}
               <input
                 type="text"
-                value={entry.question ?? ""}
+                value={entry.question}
                 onChange={(e) => updateField(entry.id, "question", e.target.value)}
                 placeholder={t("questionPlaceholder")}
                 className="w-full px-3 py-2 rounded-lg border border-transparent hover:border-[#EDE6DD] focus:border-[#FF7E47]/40 focus:ring-2 focus:ring-[#FF7E47]/20 bg-transparent text-sm text-[#2D2A26] placeholder-[#C5BDB4] transition-all outline-none"
@@ -177,7 +202,7 @@ export default function FaqSection() {
               {/* Answer */}
               <input
                 type="text"
-                value={entry.answer ?? ""}
+                value={entry.answer}
                 onChange={(e) => updateField(entry.id, "answer", e.target.value)}
                 placeholder={t("answerPlaceholder")}
                 className="w-full px-3 py-2 rounded-lg border border-transparent hover:border-[#EDE6DD] focus:border-[#FF7E47]/40 focus:ring-2 focus:ring-[#FF7E47]/20 bg-transparent text-sm text-[#2D2A26] placeholder-[#C5BDB4] transition-all outline-none"
@@ -251,11 +276,11 @@ export default function FaqSection() {
           className="flex items-center gap-3 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl px-5 py-3.5 text-sm mt-6"
         >
           <Check className="w-4.5 h-4.5 flex-shrink-0" />
-          {t("savedSuccessfully")}
+          {t("draftSaved")}
         </motion.div>
       )}
 
-      {/* Save Button */}
+      {/* Save Draft Button */}
       {entries.length > 0 && (
         <motion.div variants={fadeUp} className="flex justify-center pt-6 pb-4">
           <motion.button
@@ -276,7 +301,7 @@ export default function FaqSection() {
               </>
             ) : (
               <>
-                {t("saveChanges")}
+                {t("saveDraft")}
                 <Sparkles className="w-4.5 h-4.5 transition-transform group-hover:rotate-12" />
               </>
             )}
