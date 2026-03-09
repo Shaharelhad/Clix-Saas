@@ -17,11 +17,11 @@
 | Auth (/auth) | `Auth.tsx` | [x] `AuthPage.tsx` | [x] signUp, signIn, resetPassword | 3 modes (login, signup, forgot). Original has 4 modes (+ new-password for reset link) |
 | Pending (/pending) | `Pending.tsx` | [x] `PendingPage.tsx` | [x] get_my_profile RPC | Auto-polls every 30s |
 | Profile (/profile) | — | [x] Redirects to `/dashboard` | N/A | Redirects to Dashboard |
-| Dashboard (/dashboard) | — | [x] `DashboardPage/` | [x] `profiles.bot_status`, `subscriber_sessions`, `flow_message_log`, `callBotDemo()` | Welcome + bot status pill, Active Conversations (master-detail: phone list + message history), Demo Chat (wired to `callBotDemo()`), EditBot (wired to `callBotEditRequest()`) |
+| Dashboard (/dashboard) | — | [x] `DashboardPage/` | [x] `profiles.bot_status`, `subscriber_sessions`, `flow_message_log`, `callFlowDemo()` | Welcome + bot status pill, Active Conversations, Demo Chat (unified — wired to `callFlowDemo()`), EditBot (wired to `callBotEditRequest()`) |
 | Dashboard: BusinessContent (/dashboard/business-content) | `BusinessContent.tsx` | [x] `BusinessContentSection.tsx` | [x] `callFormUpdate()`, `callScrapeStatus()` | Built as DashboardPage section/sub-route. Dynamic form + scraping |
 | Dashboard: FAQ (/dashboard/faq) | `FaqManager.tsx` | [x] `FaqSection.tsx` | [x] Supabase CRUD on `faq_entries` | Built as DashboardPage section/sub-route. Add/edit/delete FAQ entries |
 | CreateBot (/create-bot) | `CreateBot.tsx` | [x] `CreateBotPage/` | [x] All 3 sections wired | 3-step wizard: FormSection (`callFormSubmission()` + `callScrapeStatus()`), PreviewSection (`callBotDemo()` + `callBotEditRequest()`), ConnectSection (`callWClixAPIConnect()`) |
-| FlowBuilder (/dashboard/flow-builder) | `FlowBuilder.tsx` | [x] `FlowBuilderPage/` | [x] `callFlowDemo()`, Supabase CRUD on `workflows` | @xyflow/react visual editor. 8 node types. `useFlowBuilder` hook. Auto-save. Preview simulator wired to `callFlowDemo()` |
+| FlowBuilder (/dashboard/flow-builder) | `FlowBuilder.tsx` | [x] `FlowBuilderPage/` | [x] `callFlowDemo()`, Supabase CRUD on `workflows` | @xyflow/react visual editor. 9 node types (incl. AI Agent). 1 workflow per account (auto-created). "Get Message" node (was "Start"). Preview simulator wired to `callFlowDemo()`. Default template: Get Message → AI Agent |
 | Settings (/settings) | `Settings.tsx` | [ ] | — | Edit name, phone, language. Calls `auth.updateUser()` + `profiles` table |
 | NotFound (*) | `NotFound.tsx` | [ ] | — | 404 page |
 
@@ -41,17 +41,18 @@
 
 ## Edge Functions (services/edge-functions.ts)
 
-**STATUS: All 7 functions are wired.**
+**STATUS: All 7 frontend-facing functions are wired. 1 backend-only function (inngest) added.**
 
 | Function | Env Key | Backend | Called From | Status |
 |----------|---------|---------|-------------|--------|
 | `callFormSubmission()` | `VITE_EDGE_FN_FORM_SUBMISSION` | Edge Function (working) | `FormSection.tsx` | [x] Wired |
-| `callBotDemo()` | `VITE_EDGE_FN_BOT_DEMO` | Edge Function (working) | `DemoChatSection.tsx`, `PreviewSection.tsx` | [x] Wired |
+| `callBotDemo()` | `VITE_EDGE_FN_BOT_DEMO` | Edge Function (working) | `PreviewSection.tsx` (CreateBot only) | [x] Wired |
 | `callBotEditRequest()` | `VITE_EDGE_FN_BOT_EDIT_REQUEST` | Edge Function (working) | `EditBotSection.tsx`, `PreviewSection.tsx` | [x] Wired |
 | `callWClixAPIConnect()` | `VITE_EDGE_FN_WCLIXAPI_CONNECT` | Edge Function (working) | `ConnectSection.tsx` | [x] Wired |
 | `callScrapeStatus()` | `VITE_EDGE_FN_SCRAPE_STATUS` | Edge Function (working) | `FormSection.tsx`, `BusinessContentSection.tsx` | [x] Wired |
-| `callFlowDemo()` | `VITE_EDGE_FN_FLOW_DEMO` | Edge Function (working) | `FlowPreviewSimulator.tsx` | [x] Wired |
+| `callFlowDemo()` | `VITE_EDGE_FN_FLOW_DEMO` | Edge Function (working) | `FlowPreviewSimulator.tsx`, `DemoChatSection.tsx` | [x] Wired |
 | `callFormUpdate()` | `VITE_EDGE_FN_FORM_UPDATE` | Edge Function (working) | `BusinessContentSection.tsx` | [x] Wired |
+| (inngest serve) | — | Edge Function (new) | Called by Inngest cloud | [x] Created (needs deploy + Inngest account) |
 
 ---
 
@@ -99,14 +100,14 @@
 | Logo | [x] | [ ] | Reusable logo component |
 | NavLink | [x] | [ ] | Active link styling |
 
-### Flow Builder (14 components — all built)
+### Flow Builder (15 components — all built)
 
 | Component | Purpose |
 |-----------|---------|
 | [x] FlowCanvas | @xyflow/react canvas with drag-drop, connections |
 | [x] FlowToolbar | Top bar (name, save, status, pause/play) |
-| [x] NodePalette | 8 draggable node types with icons |
-| [x] NodeEditorSidebar | Dynamic property editor per node type |
+| [x] NodePalette | 9 draggable node types with icons |
+| [x] NodeEditorSidebar | Dynamic property editor per node type (incl. AI Agent) |
 | [x] FlowNodeWrapper | Generic node wrapper with colored headers |
 | [x] FlowPreviewSimulator | In-browser flow testing via `callFlowDemo()` |
 | [x] StartNode | Entry point node with trigger text |
@@ -117,6 +118,7 @@
 | [x] DelayNode | Timed delay |
 | [x] FollowUpNode | Scheduled follow-up |
 | [x] ConditionNode | Visual-only branching (no backend execution) |
+| [x] AiAgentNode | AI Agent with configurable LLM, knowledge sources, temperature |
 
 ### UI Library
 
