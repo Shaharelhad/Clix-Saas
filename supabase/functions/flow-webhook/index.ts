@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { callLLMEngine, type LLMConfig } from "../_shared/llm-engine.ts";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -7,6 +8,7 @@ const corsHeaders = {
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const supabase = createClient(supabaseUrl, supabaseKey);
+const USE_INNGEST = Deno.env.get("USE_INNGEST") === "true";
 
 // Reliable session update using direct REST API (bypasses supabase-js client issues)
 async function updateSessionDirect(
@@ -55,6 +57,15 @@ interface FlowNode {
     expectedReply?: string;
     continueAuto?: boolean;
     followUpMessage?: string;
+    // ai_agent fields
+    systemPromptOverride?: string;
+    temperature?: number;
+    maxTokens?: number;
+    model?: string;
+    includeProducts?: boolean;
+    includeFaqs?: boolean;
+    includeScrapedContent?: boolean;
+    maxHistoryMessages?: number;
   };
 }
 
@@ -64,9 +75,26 @@ interface FlowEdge {
   sourceHandle?: string | null;
 }
 
+interface FlowSettings {
+  ignoreGroupChats?: boolean;
+  cooldownEnabled?: boolean;
+  cooldownMinutes?: number;
+  deduplicateMessages?: boolean;
+}
+
 interface FlowJSON {
   nodes: FlowNode[];
   edges: FlowEdge[];
+  settings?: FlowSettings;
+}
+
+function getFlowSettings(flow: FlowJSON) {
+  return {
+    ignoreGroupChats: flow.settings?.ignoreGroupChats ?? true,
+    cooldownEnabled: flow.settings?.cooldownEnabled ?? true,
+    cooldownMinutes: flow.settings?.cooldownMinutes ?? 60,
+    deduplicateMessages: flow.settings?.deduplicateMessages ?? true,
+  };
 }
 
 // ── Flow Navigation Engine ──────────────────────────────────
@@ -137,6 +165,30 @@ function resolveVariables(
   return text.replace(/\{\{(\w+)\}\}/g, (_, key) => variables[key] || "");
 }
 
+function findCatchAllAgentNode(flow: FlowJSON): FlowNode | undefined {
+  const catchAllStart = flow.nodes.find(
+    (n) => n.type === "start" && (!n.data.triggerText || !n.data.triggerText.trim())
+  );
+  if (!catchAllStart) return undefined;
+  const nextNode = findNextNode(flow, catchAllStart.id);
+  if (nextNode?.type === "ai_agent") return nextNode;
+  return undefined;
+}
+
+// Send event to Inngest for durable processing
+async function sendInngestEvent(data: Record<string, unknown>): Promise<void> {
+  const eventKey = Deno.env.get("INNGEST_EVENT_KEY");
+  if (!eventKey) throw new Error("INNGEST_EVENT_KEY not set");
+  const res = await fetch(`https://inn.gs/e/${eventKey}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name: "whatsapp/message.received", data }),
+  });
+  if (!res.ok) {
+    console.error("[flow] Inngest event send failed:", res.status, await res.text());
+  }
+}
+
 // ── Build trigger context for LLM awareness ─────────────────
 function buildTriggerContext(flow: FlowJSON): string {
   const triggers = flow.nodes
@@ -179,164 +231,98 @@ async function callOpenLLM(
   workflowId: string,
   customerId: string,
   phone: string,
-  flow: FlowJSON
+  flow: FlowJSON,
+  agentNodeConfig?: { node: FlowNode }
 ): Promise<void> {
-  // Fetch bot prompt and scraped content
-  const { data: formRow } = await supabase
-    .from("form_responses")
-    .select("bot_prompt, business_name, scraped_content")
-    .eq("user_id", userId)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .single();
-
-  const basePrompt =
-    formRow?.bot_prompt ||
-    `אתה בעל עסק בשם ${formRow?.business_name || "העסק"}. דבר בגוף ראשון, בצורה טבעית ואנושית כמו בוואטסאפ.`;
-
-  const scrapedContext = formRow?.scraped_content
-    ? `\n\nמידע מהאתר שלך (השתמש במידע הזה כשרלוונטי לשאלה):\n${(formRow.scraped_content as string).substring(0, 8000)}`
-    : "";
-
-  // Search for relevant products
-  let productContext = "";
-  try {
-    const { data: products } = await supabase.rpc("search_products", {
-      p_user_id: userId,
-      p_query: userMessage,
-      p_limit: 5,
+  // When Inngest is enabled, dispatch to Inngest instead of processing inline
+  if (USE_INNGEST) {
+    await sendInngestEvent({
+      userId,
+      phone,
+      message: userMessage,
+      customerId,
+      workflowId,
+      sessionId,
+      flowJson: flow,
     });
-    if (products && products.length > 0) {
-      const productLines = products.map(
-        (p: { name: string; description: string; price: string; product_url: string; image_urls: string[] }, i: number) => {
-          const parts = [`${i + 1}. ${p.name}`];
-          if (p.description) parts.push(p.description);
-          if (p.price) parts.push(`מחיר: ${p.price}`);
-          if (p.product_url) parts.push(`קישור: ${p.product_url}`);
-          if (p.image_urls && p.image_urls.length > 0) parts.push(`תמונה: ${p.image_urls[0]}`);
-          return parts.join(" - ");
-        }
-      );
-      productContext = `\n\nמוצרים/שירותים רלוונטיים:\n${productLines.join("\n")}`;
-    }
-  } catch { /* Products not available */ }
+    return;
+  }
 
-  // Fetch FAQ entries
-  let faqContext = "";
-  try {
-    const { data: faqs } = await supabase
-      .from("faq_entries")
-      .select("question, answer")
-      .eq("user_id", userId)
-      .eq("is_active", true)
-      .order("sort_order", { ascending: true });
-    if (faqs && faqs.length > 0) {
-      const faqLines = faqs.map(
-        (f: { question: string; answer: string }) => `שאלה: ${f.question}\nתשובה: ${f.answer}`
-      );
-      faqContext = `\n\nשאלות ותשובות נפוצות (עדיפות גבוהה — אם הלקוח שואל שאלה דומה, ענה בדיוק לפי התשובה כאן):\n${faqLines.join("\n\n")}`;
-    }
-  } catch { /* FAQ not available */ }
+  // Build LLM config from explicit agent node or catch-all agent
+  let config: LLMConfig | undefined;
+  let maxHistory = 20;
+  let nodeId: string | null = null;
 
-  // Fetch recent conversation history from message log
+  if (agentNodeConfig) {
+    const nd = agentNodeConfig.node.data;
+    config = {
+      systemPromptOverride: nd.systemPromptOverride,
+      temperature: nd.temperature,
+      maxTokens: nd.maxTokens,
+      model: nd.model,
+      includeProducts: nd.includeProducts,
+      includeFaqs: nd.includeFaqs,
+      includeScrapedContent: nd.includeScrapedContent,
+    };
+    maxHistory = nd.maxHistoryMessages ?? 20;
+    nodeId = agentNodeConfig.node.id;
+  } else {
+    const agentNode = findCatchAllAgentNode(flow);
+    if (agentNode) {
+      config = {
+        systemPromptOverride: agentNode.data.systemPromptOverride,
+        temperature: agentNode.data.temperature,
+        maxTokens: agentNode.data.maxTokens,
+        model: agentNode.data.model,
+        includeProducts: agentNode.data.includeProducts,
+        includeFaqs: agentNode.data.includeFaqs,
+        includeScrapedContent: agentNode.data.includeScrapedContent,
+      };
+      maxHistory = agentNode.data.maxHistoryMessages ?? 20;
+      nodeId = agentNode.id;
+    }
+  }
+
+  // Fetch conversation history
   const { data: history } = await supabase
     .from("flow_message_log")
     .select("direction, content")
     .eq("session_id", sessionId)
     .order("created_at", { ascending: true })
-    .limit(20);
+    .limit(maxHistory);
 
-  const triggerContext = buildTriggerContext(flow);
-
-  const systemPrompt = basePrompt + scrapedContext + productContext + faqContext + triggerContext + `\n\nהנחיות קריטיות לסגנון התשובה:
-- אתה בעל העסק, לא בוט. דבר בגוף ראשון: "אצלי", "אני", "שלי"
-- כתוב בצורה טבעית, קצרה וחמה
-- תשובות קצרות וממוקדות! מקסימום 3-4 שורות לכל הודעה
-- אל תכתוב פסקאות ארוכות, אל תעשה רשימות מפורטות
-- אל תשתמש במילים: "בוט", "מערכת", "שירות לקוחות", "אוטומטי"
-- תגיב כמו בשיחת וואטסאפ אמיתית בין שני אנשים
-- אל תשתמש באימוג'ים בשום מקרה, אלא אם הפרומפט למעלה מציין במפורש להשתמש באימוג'ים. ברירת המחדל היא ללא אימוג'ים`;
-
-  const messages: { role: string; content: string }[] = [
-    { role: "system", content: systemPrompt },
-  ];
+  const conversationHistory: { role: string; content: string }[] = [];
   if (history) {
     for (const row of history) {
-      messages.push({
+      conversationHistory.push({
         role: row.direction === "inbound" ? "user" : "assistant",
         content: row.content,
       });
     }
   }
-  messages.push({ role: "user", content: userMessage });
 
-  let botResponse = "";
-  const openrouterKey = Deno.env.get("OPENROUTER_API_KEY");
-
-  // Try Grok 4 Fast via OpenRouter
-  let primaryOk = false;
-  if (openrouterKey) {
-    try {
-      const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${openrouterKey}`,
-        },
-        body: JSON.stringify({
-          model: "x-ai/grok-4-fast",
-          messages,
-          max_tokens: 2048,
-          temperature: 1.0,
-        }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        const text = data.choices?.[0]?.message?.content;
-        if (text) { botResponse = text; primaryOk = true; }
-      }
-    } catch { /* Grok 4 Fast failed */ }
-  }
-
-  // Fallback to Grok 4.1 Fast via OpenRouter
-  if (!primaryOk && openrouterKey) {
-    try {
-      const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${openrouterKey}`,
-        },
-        body: JSON.stringify({
-          model: "x-ai/grok-4.1-fast",
-          messages,
-          max_tokens: 2048,
-          temperature: 1.0,
-        }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        const text = data.choices?.[0]?.message?.content;
-        if (text) { botResponse = text; }
-      }
-    } catch { /* Grok 4.1 Fast also failed */ }
-  }
-
-  if (!botResponse) {
-    botResponse = "איך אפשר לעזור?";
-  }
+  const triggerContext = buildTriggerContext(flow);
+  const result = await callLLMEngine(
+    supabase,
+    userId,
+    userMessage,
+    conversationHistory,
+    config,
+    triggerContext,
+    false, // production = not draft
+  );
 
   // Send response via WClixAPI
-  await sendTextMessage(customerId, phone, botResponse);
+  await sendTextMessage(customerId, phone, result.response);
 
   // Log outbound message
   await supabase.from("flow_message_log").insert({
     workflow_id: workflowId,
     session_id: sessionId,
-    node_id: null,
+    node_id: nodeId,
     direction: "outbound",
     message_type: "llm_response",
-    content: botResponse,
+    content: result.response,
   });
 }
 
@@ -564,7 +550,49 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json();
 
-    // Only process incoming messages from WClixAPI
+    // Handle outgoing messages — set cooldown when owner replies manually
+    if (body.type === "outgoing") {
+      const outCustomerId = body.customerId || "";
+      const outPhone = body.from || "";
+      if (outCustomerId && outPhone) {
+        const { data: outProfile } = await supabase
+          .from("profiles")
+          .select("id, active_flow_id")
+          .eq("id", outCustomerId)
+          .single();
+
+        if (outProfile?.active_flow_id) {
+          const { data: wf } = await supabase
+            .from("workflows")
+            .select("flow_json")
+            .eq("id", outProfile.active_flow_id)
+            .single();
+
+          if (wf) {
+            const flowSettings = getFlowSettings(wf.flow_json as FlowJSON);
+            if (flowSettings.cooldownEnabled) {
+              const cooldownUntil = new Date(
+                Date.now() + flowSettings.cooldownMinutes * 60 * 1000
+              ).toISOString();
+
+              // Set cooldown on the session for this phone
+              await supabase
+                .from("subscriber_sessions")
+                .update({ cooldown_until: cooldownUntil })
+                .eq("workflow_id", outProfile.active_flow_id)
+                .eq("phone", outPhone);
+
+              console.log("[flow] Cooldown set for", outPhone, "until", cooldownUntil);
+            }
+          }
+        }
+      }
+      return new Response(JSON.stringify({ ok: true, action: "outgoing_processed" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Skip non-incoming, non-outgoing event types
     if (body.type !== "incoming") {
       return new Response(JSON.stringify({ ok: true, skipped: body.type || "unknown" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -634,13 +662,45 @@ Deno.serve(async (req) => {
       if (autoFlow) {
         activeFlowId = autoFlow.id;
       } else {
-        // Auto-create a default workflow for open LLM conversation
+        // Auto-create a default workflow with Start → AI Agent template
         const { data: newFlow } = await supabase
           .from("workflows")
           .insert({
             user_id: profile.id,
             name: "שיחה חופשית",
-            flow_json: { nodes: [], edges: [] },
+            flow_json: {
+              nodes: [
+                {
+                  id: "start-default",
+                  type: "start",
+                  position: { x: 400, y: 50 },
+                  data: { type: "start", triggerText: "" },
+                },
+                {
+                  id: "ai-agent-default",
+                  type: "ai_agent",
+                  position: { x: 400, y: 200 },
+                  data: {
+                    type: "ai_agent",
+                    temperature: 1.0,
+                    maxTokens: 2048,
+                    includeProducts: true,
+                    includeFaqs: true,
+                    includeScrapedContent: true,
+                    maxHistoryMessages: 20,
+                  },
+                },
+              ],
+              edges: [
+                {
+                  id: "edge-start-to-agent",
+                  source: "start-default",
+                  target: "ai-agent-default",
+                  type: "smoothstep",
+                  animated: true,
+                },
+              ],
+            },
             status: "active",
           })
           .select("id")
@@ -676,6 +736,41 @@ Deno.serve(async (req) => {
     }
 
     const flow = workflow.flow_json as FlowJSON;
+    const settings = getFlowSettings(flow);
+
+    // ── Guard 1: Ignore group chats ──────────────────────────
+    if (settings.ignoreGroupChats && body.chatType === "group") {
+      return new Response(JSON.stringify({ ok: true, skipped: "group_chat" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ── Guard 2: Cooldown check ──────────────────────────────
+    if (settings.cooldownEnabled) {
+      const { data: cooldownSession } = await supabase
+        .from("subscriber_sessions")
+        .select("cooldown_until")
+        .eq("workflow_id", workflow.id)
+        .eq("phone", phone)
+        .limit(1)
+        .maybeSingle();
+
+      if (cooldownSession?.cooldown_until) {
+        const cooldownEnd = new Date(cooldownSession.cooldown_until);
+        if (cooldownEnd > new Date()) {
+          console.log("[flow] Cooldown active for", phone, "until", cooldownSession.cooldown_until);
+          return new Response(JSON.stringify({ ok: true, skipped: "cooldown_active" }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        // Cooldown expired — clear it
+        await supabase
+          .from("subscriber_sessions")
+          .update({ cooldown_until: null })
+          .eq("workflow_id", workflow.id)
+          .eq("phone", phone);
+      }
+    }
 
     // Find or create subscriber session
     const { data: sessions } = await supabase
@@ -773,43 +868,45 @@ Deno.serve(async (req) => {
       });
     }
 
-    // ── Database-based dedup (in-memory map doesn't persist in serverless) ──
-    // Check 1: Same inbound message recently processed for this session
-    {
-      const dedupWindow = new Date(Date.now() - 30_000).toISOString();
-      const { data: recentInbound } = await supabase
-        .from("flow_message_log")
-        .select("id")
-        .eq("session_id", session.id)
-        .eq("direction", "inbound")
-        .eq("content", userMessage)
-        .gte("created_at", dedupWindow)
-        .limit(1);
+    // ── Guard 3: Session-level dedup (toggleable) ──────────────
+    if (settings.deduplicateMessages) {
+      // Check 1: Same inbound message recently processed for this session
+      {
+        const dedupWindow = new Date(Date.now() - 30_000).toISOString();
+        const { data: recentInbound } = await supabase
+          .from("flow_message_log")
+          .select("id")
+          .eq("session_id", session.id)
+          .eq("direction", "inbound")
+          .eq("content", userMessage)
+          .gte("created_at", dedupWindow)
+          .limit(1);
 
-      if (recentInbound && recentInbound.length > 0) {
-        return new Response(JSON.stringify({ ok: true, skipped: "db_dedup" }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        if (recentInbound && recentInbound.length > 0) {
+          return new Response(JSON.stringify({ ok: true, skipped: "db_dedup" }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
       }
-    }
 
-    // Check 2: Echo prevention — skip if the bot just sent this exact text
-    // (prevents feedback loops where outgoing messages echo back as incoming)
-    {
-      const echoWindow = new Date(Date.now() - 15_000).toISOString();
-      const { data: recentOutbound } = await supabase
-        .from("flow_message_log")
-        .select("id")
-        .eq("session_id", session.id)
-        .eq("direction", "outbound")
-        .eq("content", userMessage)
-        .gte("created_at", echoWindow)
-        .limit(1);
+      // Check 2: Echo prevention — skip if the bot just sent this exact text
+      // (prevents feedback loops where outgoing messages echo back as incoming)
+      {
+        const echoWindow = new Date(Date.now() - 15_000).toISOString();
+        const { data: recentOutbound } = await supabase
+          .from("flow_message_log")
+          .select("id")
+          .eq("session_id", session.id)
+          .eq("direction", "outbound")
+          .eq("content", userMessage)
+          .gte("created_at", echoWindow)
+          .limit(1);
 
-      if (recentOutbound && recentOutbound.length > 0) {
-        return new Response(JSON.stringify({ ok: true, skipped: "echo_prevention" }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        if (recentOutbound && recentOutbound.length > 0) {
+          return new Response(JSON.stringify({ ok: true, skipped: "echo_prevention" }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
       }
     }
 
@@ -822,6 +919,22 @@ Deno.serve(async (req) => {
       message_type: "text",
       content: userMessage,
     });
+
+    // ── Inngest dispatch (all flow execution handled by Inngest) ──
+    if (USE_INNGEST) {
+      await sendInngestEvent({
+        userId: profile.id,
+        phone,
+        message: userMessage,
+        customerId,
+        workflowId: workflow.id,
+        sessionId: session.id,
+        flowJson: flow,
+      });
+      return new Response(JSON.stringify({ ok: true, action: "inngest_queued" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     // Cancel any pending follow-ups — user responded
     await supabase
@@ -955,6 +1068,12 @@ Deno.serve(async (req) => {
           maxSteps--;
           const node = findNodeById(flow, nextNodeId);
           if (!node) break;
+          // AI agent in chain — call LLM and stay
+          if (node.type === "ai_agent") {
+            await callOpenLLM(profile.id, userMessage, session.id, workflow.id, customerId, phone, flow, { node });
+            nextNodeId = node.id;
+            break;
+          }
           const result = await executeNode(node, customerId, phone, updatedVariables, flow, session.id, workflow.id);
           if (result.waitForInput) {
             nextNodeId = result.nextNodeId;
@@ -978,6 +1097,20 @@ Deno.serve(async (req) => {
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
+    }
+
+    // Handle ai_agent — call LLM and stay on node
+    if (currentNode.type === "ai_agent") {
+      await callOpenLLM(profile.id, userMessage, session.id, workflow.id, customerId, phone, flow, { node: currentNode });
+      await updateSessionDirect(session.id, {
+        current_node_id: currentNode.id,
+        status: "active",
+        last_message_at: new Date().toISOString(),
+      });
+      return new Response(
+        JSON.stringify({ ok: true, action: "ai_agent_response", current_node: currentNode.id }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     // Handle user input for waiting nodes
@@ -1080,6 +1213,13 @@ Deno.serve(async (req) => {
       const node = findNodeById(flow, nextNodeId);
       if (!node) { console.log("[flow] Chain: node not found:", nextNodeId); break; }
       console.log("[flow] Chain: executing node:", node.id, node.type);
+
+      // AI agent in chain — call LLM and stay on node
+      if (node.type === "ai_agent") {
+        await callOpenLLM(profile.id, userMessage, session.id, workflow.id, customerId, phone, flow, { node });
+        nextNodeId = node.id;
+        break;
+      }
 
       const result = await executeNode(
         node,
