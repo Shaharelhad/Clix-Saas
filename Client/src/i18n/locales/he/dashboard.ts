@@ -43,7 +43,7 @@ const dashboard = {
   demoChatTitle: "בדוק את הבוט שלך",
   demoChatStatus: "מקוון",
   demoChatPlaceholder: "הקלד הודעה לבדיקה...",
-  demoChatGreeting: "היי! אני הבוט שלך. שלח לי הודעה כדי לבדוק איך אני מגיב.",
+  demoChatGreeting: "היי! שלח לי הודעה כדי לבדוק את הבוט שלך.",
   newConversation: "שיחה חדשה",
 
   // Edit Bot Section
