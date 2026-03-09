@@ -20,7 +20,6 @@ import CollectInputNode from "./nodes/CollectInputNode";
 import DelayNode from "./nodes/DelayNode";
 import FollowUpNode from "./nodes/FollowUpNode";
 import ConditionNode from "./nodes/ConditionNode";
-import AiAgentNode from "./nodes/AiAgentNode";
 
 const nodeTypes: NodeTypes = {
   start: StartNode,
@@ -31,7 +30,6 @@ const nodeTypes: NodeTypes = {
   delay: DelayNode,
   follow_up: FollowUpNode,
   condition: ConditionNode,
-  ai_agent: AiAgentNode,
 };
 
 interface FlowCanvasProps {

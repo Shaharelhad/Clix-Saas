@@ -20,6 +20,76 @@ export interface LLMResult {
   model: string;
 }
 
+// ── Trigger classifier ──────────────────────────────────────
+
+export interface TriggerInfo {
+  id: string;
+  trigger: string;
+}
+
+/**
+ * Use LLM to semantically match a user message against available triggers.
+ * Returns the matched start-node ID, or null if nothing matches.
+ */
+export async function classifyTrigger(
+  triggers: TriggerInfo[],
+  message: string,
+): Promise<string | null> {
+  if (triggers.length === 0) return null;
+
+  const openrouterKey = Deno.env.get("OPENROUTER_API_KEY");
+  if (!openrouterKey) return null;
+
+  const triggersJson = JSON.stringify(
+    triggers.map((t) => ({ id: t.id, phrase: t.trigger })),
+  );
+
+  const systemPrompt = `You are a message classifier for a WhatsApp chatbot. Given a list of trigger phrases and a user message, determine if the user's intent semantically matches any trigger.
+Consider: synonyms, related phrases, different languages expressing the same intent, casual variations, typos, and slang. A greeting like "hi" matches a trigger phrase "hello". A question about "how much" matches "pricing".
+ONLY match when the intent is clearly related. Do not force a match.
+
+Triggers: ${triggersJson}
+
+Respond with ONLY valid JSON, nothing else.
+If the message matches a trigger: {"match":"<id>"}
+If no trigger matches: {"match":null}`;
+
+  try {
+    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${openrouterKey}`,
+      },
+      body: JSON.stringify({
+        model: "x-ai/grok-4-fast",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: message },
+        ],
+        max_tokens: 50,
+        temperature: 0,
+      }),
+    });
+
+    if (!res.ok) return null;
+
+    const data = await res.json();
+    const text = data.choices?.[0]?.message?.content?.trim();
+    if (!text) return null;
+
+    const parsed = JSON.parse(text);
+    const matchedId = parsed?.match;
+    if (!matchedId || typeof matchedId !== "string") return null;
+
+    // Verify the ID actually exists in our triggers
+    if (triggers.some((t) => t.id === matchedId)) return matchedId;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Call the LLM with full knowledge context.
  *
@@ -27,9 +97,10 @@ export interface LLMResult {
  * @param userId - The business owner's user ID
  * @param userMessage - The end user's message
  * @param conversationHistory - Prior messages in {role, content} format
- * @param config - Optional AI Agent node configuration overrides
- * @param triggerContext - Optional trigger context string (from buildTriggerContext)
+ * @param config - Optional LLM configuration overrides
+ * @param triggerContext - Optional trigger context string (legacy, prefer workflowRecord)
  * @param useDraft - If true, prefer draft_bot_prompt over bot_prompt (for previews)
+ * @param workflowRecord - Optional pre-generated workflow summary (replaces triggerContext)
  */
 export async function callLLMEngine(
   supabase: any,
@@ -39,6 +110,7 @@ export async function callLLMEngine(
   config?: LLMConfig,
   triggerContext?: string,
   useDraft?: boolean,
+  workflowRecord?: string,
 ): Promise<LLMResult> {
   // 1. Fetch bot prompt and scraped content
   const selectFields = useDraft
@@ -123,11 +195,14 @@ export async function callLLMEngine(
   }
 
   // 5. Build system prompt
+  const flowContext = workflowRecord
+    ? `\n\n${workflowRecord}`
+    : (triggerContext || "");
   const systemPrompt = basePrompt +
     scrapedContext +
     productContext +
     faqContext +
-    (triggerContext || "") +
+    flowContext +
     `\n\nהנחיות קריטיות לסגנון התשובה:
 - אתה בעל העסק, לא בוט. דבר בגוף ראשון: "אצלי", "אני", "שלי"
 - כתוב בצורה טבעית, קצרה וחמה

@@ -820,6 +820,7 @@ export type Database = {
           status: string
           updated_at: string
           user_id: string
+          workflow_record: string | null
         }
         Insert: {
           created_at?: string
@@ -829,6 +830,7 @@ export type Database = {
           status?: string
           updated_at?: string
           user_id: string
+          workflow_record?: string | null
         }
         Update: {
           created_at?: string
@@ -838,6 +840,7 @@ export type Database = {
           status?: string
           updated_at?: string
           user_id?: string
+          workflow_record?: string | null
         }
         Relationships: [
           {
