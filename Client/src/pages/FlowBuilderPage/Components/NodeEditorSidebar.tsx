@@ -145,6 +145,94 @@ export default function NodeEditorSidebar({ node, onUpdate, onClose }: NodeEdito
           </Field>
         )}
 
+        {/* AI Agent */}
+        {data.type === "ai_agent" && (
+          <>
+            <Field label={t("aiSystemPrompt")} hint={t("aiSystemPromptHint")}>
+              <textarea
+                value={data.systemPromptOverride ?? ""}
+                onChange={(e) => update({ systemPromptOverride: e.target.value })}
+                className="field-input min-h-[80px] resize-y"
+                dir="rtl"
+              />
+            </Field>
+            <Field label={t("aiTemperature")} hint={t("aiTemperatureHint")}>
+              <input
+                type="number"
+                min={0}
+                max={2}
+                step={0.1}
+                value={data.temperature ?? 1.0}
+                onChange={(e) => update({ temperature: Number(e.target.value) })}
+                className="field-input"
+              />
+            </Field>
+            <Field label={t("aiModel")}>
+              <select
+                value={data.model ?? "x-ai/grok-4-fast"}
+                onChange={(e) => update({ model: e.target.value })}
+                className="field-input"
+              >
+                <option value="x-ai/grok-4-fast">Grok 4 Fast</option>
+                <option value="x-ai/grok-4.1-fast">Grok 4.1 Fast</option>
+              </select>
+            </Field>
+            <Field label={t("aiMaxTokens")} hint={t("aiMaxTokensHint")}>
+              <input
+                type="number"
+                min={128}
+                max={4096}
+                step={128}
+                value={data.maxTokens ?? 2048}
+                onChange={(e) => update({ maxTokens: Number(e.target.value) })}
+                className="field-input"
+              />
+            </Field>
+            <div>
+              <label className="text-xs font-semibold text-[#2D2A26] block mb-2">{t("aiKnowledgeSources")}</label>
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 text-xs text-[#7A7267] cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={data.includeProducts !== false}
+                    onChange={(e) => update({ includeProducts: e.target.checked })}
+                    className="accent-[#FF7E47]"
+                  />
+                  {t("aiIncludeProducts")}
+                </label>
+                <label className="flex items-center gap-2 text-xs text-[#7A7267] cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={data.includeFaqs !== false}
+                    onChange={(e) => update({ includeFaqs: e.target.checked })}
+                    className="accent-[#FF7E47]"
+                  />
+                  {t("aiIncludeFaqs")}
+                </label>
+                <label className="flex items-center gap-2 text-xs text-[#7A7267] cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={data.includeScrapedContent !== false}
+                    onChange={(e) => update({ includeScrapedContent: e.target.checked })}
+                    className="accent-[#FF7E47]"
+                  />
+                  {t("aiIncludeScraped")}
+                </label>
+              </div>
+            </div>
+            <Field label={t("aiMaxHistory")} hint={t("aiMaxHistoryHint")}>
+              <input
+                type="number"
+                min={1}
+                max={50}
+                value={data.maxHistoryMessages ?? 20}
+                onChange={(e) => update({ maxHistoryMessages: Number(e.target.value) })}
+                className="field-input"
+              />
+            </Field>
+          </>
+        )}
+
         {/* Condition */}
         {data.type === "condition" && (
           <>
