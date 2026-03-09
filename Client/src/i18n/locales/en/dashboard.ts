@@ -44,7 +44,7 @@ const dashboard = {
   demoChatStatus: "Online",
   demoChatPlaceholder: "Type a message to test...",
   demoChatGreeting:
-    "Hi! I'm your bot. Send me a message to test how I respond.",
+    "Hi! Send me a message to test your bot.",
   newConversation: "New conversation",
 
   // Edit Bot Section
