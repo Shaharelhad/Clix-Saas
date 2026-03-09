@@ -24,7 +24,7 @@ const flow = {
   deleteConfirm: "האם אתה בטוח שברצונך למחוק את התהליך?",
 
   // Node types
-  nodeStart: "התחלה",
+  nodeStart: "קבלת הודעה",
   nodeText: "הודעת טקסט",
   nodeImage: "תמונה",
   nodeButtons: "כפתורים",
@@ -32,9 +32,10 @@ const flow = {
   nodeDelay: "השהייה",
   nodeFollowUp: "מעקב",
   nodeCondition: "תנאי",
+  nodeAiAgent: "סוכן AI",
 
   // Node descriptions (palette)
-  nodeStartDesc: "מילת טריגר להפעלת התהליך",
+  nodeStartDesc: "מקבל הודעות נכנסות",
   nodeTextDesc: "שלח הודעת טקסט",
   nodeImageDesc: "שלח תמונה עם כיתוב",
   nodeButtonsDesc: "הצג כפתורים אינטראקטיביים",
@@ -42,10 +43,11 @@ const flow = {
   nodeDelayDesc: "המתן לפני המשך",
   nodeFollowUpDesc: "שלח הודעת מעקב מתוזמנת",
   nodeConditionDesc: "הסתעף על בסיס תנאי",
+  nodeAiAgentDesc: "המוח של הבוט — מעבד הודעות ועונה",
 
   // Editor fields
-  triggerText: "טקסט טריגר",
-  triggerTextHint: "המילה/ביטוי שמפעילים את התהליך",
+  triggerText: "מסנן מילים",
+  triggerTextHint: "מילת מפתח אופציונלית לסינון (השאר ריק לכולן)",
   message: "הודעה",
   messageHint: "השתמש ב-{{שםמשתנה}} לערכים דינמיים",
   imageUrl: "כתובת תמונה",
@@ -71,17 +73,49 @@ const flow = {
   operatorContains: "מכיל",
   operatorNotEmpty: "לא ריק",
 
+  // AI Agent fields
+  aiSystemPrompt: "דריסת פרומפט מערכת",
+  aiSystemPromptHint: "השאר ריק לשימוש באישיות הבוט שלך",
+  aiTemperature: "טמפרטורה",
+  aiTemperatureHint: "רמת יצירתיות (0 = מדויק, 2 = יצירתי)",
+  aiModel: "מודל",
+  aiMaxTokens: "מקסימום טוקנים",
+  aiMaxTokensHint: "אורך מקסימלי לתשובה (128-4096)",
+  aiKnowledgeSources: "מקורות ידע",
+  aiProducts: "מוצרים",
+  aiFaqs: "שאלות נפוצות",
+  aiWebsite: "אתר",
+  aiIncludeProducts: "כלול מאגר מוצרים",
+  aiIncludeFaqs: "כלול שאלות נפוצות",
+  aiIncludeScraped: "כלול תוכן מהאתר",
+  aiMaxHistory: "מקסימום הודעות היסטוריה",
+  aiMaxHistoryHint: "כמה הודעות קודמות לכלול (1-50)",
+
   // Preview simulator
   previewTitle: "תצוגת תהליך",
   previewStatus: "סימולציה",
   previewPlaceholder: "הקלד הודעה...",
-  previewGreeting: "שלח מילת טריגר להפעלת התהליך.",
+  previewGreeting: "שלח הודעה כדי לבדוק את הבוט שלך.",
   previewReset: "אפס",
   previewOpen: "בדוק תהליך",
   previewClose: "סגור תצוגה",
 
   // Canvas
   canvasEmpty: "גרור צמתים מהפאנל כדי להתחיל לבנות את התהליך",
+
+  // Workflow Settings
+  settingsTitle: "הגדרות תהליך",
+  settingsIgnoreGroups: "התעלם משיחות קבוצתיות",
+  settingsIgnoreGroupsHint: "דלג על הודעות מקבוצות וואטסאפ — הגב רק לשיחות פרטיות",
+  settingsCooldown: "השתקה בעת מענה אנושי",
+  settingsCooldownHint: "כשאתה משיב ידנית, השבת את הבוט באופן זמני לשיחה הזו",
+  settingsCooldownMinutes: "משך ההשתקה (דקות)",
+  settingsCooldownPreset30: "30 דק׳",
+  settingsCooldownPreset60: "שעה",
+  settingsCooldownPreset120: "שעתיים",
+  settingsDedup: "סינון הודעות כפולות",
+  settingsDedupHint: "מנע עיבוד כפול מהודעות webhook שחוזרות על עצמן",
+  settingsDone: "סגור",
 
   // Misc
   deleteNode: "מחק צומת",
