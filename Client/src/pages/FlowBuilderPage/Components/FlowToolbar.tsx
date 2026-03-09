@@ -1,6 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { Save, Loader2, Check, Trash2, Plus, Upload, CircleStop } from "lucide-react";
-import type { Workflow } from "@/types/flow";
+import { Save, Loader2, Check, Upload, CircleStop, Settings } from "lucide-react";
 
 interface FlowToolbarProps {
   workflowName: string;
@@ -8,13 +7,8 @@ interface FlowToolbarProps {
   onNameChange: (name: string) => void;
   onSave: () => void;
   onToggleStatus: () => void;
-  onDelete: () => void;
-  onCreate: () => void;
+  onOpenSettings: () => void;
   saveStatus: "idle" | "saving" | "saved" | "error";
-  workflows: Workflow[];
-  activeWorkflowId: string | null;
-  onSelectWorkflow: (id: string) => void;
-  isCreating: boolean;
 }
 
 export default function FlowToolbar({
@@ -23,33 +17,15 @@ export default function FlowToolbar({
   onNameChange,
   onSave,
   onToggleStatus,
-  onDelete,
-  onCreate,
+  onOpenSettings,
   saveStatus,
-  workflows,
-  activeWorkflowId,
-  onSelectWorkflow,
-  isCreating,
 }: FlowToolbarProps) {
   const { t } = useTranslation("flow");
 
   return (
     <div className="flex items-center justify-between px-4 py-2 bg-white border-b border-[#EDE6DD]/60 shrink-0">
-      {/* Left: workflow selector + name */}
+      {/* Left: name + status */}
       <div className="flex items-center gap-3">
-        {/* Workflow dropdown */}
-        {workflows.length > 1 && (
-          <select
-            value={activeWorkflowId ?? ""}
-            onChange={(e) => onSelectWorkflow(e.target.value)}
-            className="text-xs border border-[#EDE6DD] rounded-lg px-2 py-1.5 bg-[#FAF7F3] text-[#2D2A26] outline-none focus:border-[#FF7E47]"
-          >
-            {workflows.map((w) => (
-              <option key={w.id} value={w.id}>{w.name}</option>
-            ))}
-          </select>
-        )}
-
         {/* Editable name */}
         <input
           type="text"
@@ -71,20 +47,19 @@ export default function FlowToolbar({
         >
           {workflowStatus === "active" ? t("live") : t(workflowStatus)}
         </span>
+
+        {/* Settings */}
+        <button
+          onClick={onOpenSettings}
+          className="p-1.5 rounded hover:bg-[#EDE6DD]/40 cursor-pointer"
+          title={t("settingsTitle")}
+        >
+          <Settings className="w-4 h-4 text-[#7A7267]" />
+        </button>
       </div>
 
       {/* Right: actions */}
       <div className="flex items-center gap-2">
-        {/* New flow */}
-        <button
-          onClick={onCreate}
-          disabled={isCreating}
-          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs text-[#7A7267] hover:bg-[#EDE6DD]/40 transition-colors cursor-pointer disabled:opacity-50"
-        >
-          {isCreating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
-          {t("newFlow")}
-        </button>
-
         {/* Publish / Unpublish */}
         {workflowStatus === "active" ? (
           <button
@@ -118,16 +93,6 @@ export default function FlowToolbar({
             <Save className="w-3.5 h-3.5" />
           )}
           {saveStatus === "saving" ? t("saving") : saveStatus === "saved" ? t("saved") : t("save")}
-        </button>
-
-        {/* Delete */}
-        <button
-          onClick={() => {
-            if (confirm(t("deleteConfirm"))) onDelete();
-          }}
-          className="p-1.5 rounded-lg text-[#A39B90] hover:text-red-500 hover:bg-red-50 transition-colors cursor-pointer"
-        >
-          <Trash2 className="w-4 h-4" />
         </button>
       </div>
     </div>
