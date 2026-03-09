@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Built from a React/Vite boilerplate. Backend is fully serverless via **Supabase** (auth, DB, edge functions, storage). No Express server — the `Server/` directory is unused (only `Server/info.txt` remains as a placeholder).
 
-For the full original project architecture, database schema, edge functions, and webhook mapping, see [`.claude/clix-bot-reference.md`](.claude/clix-bot-reference.md).
+For the full architecture, database schema, edge functions, webhook mapping, and code patterns, see [`.claude/clix-backend-reference.md`](.claude/clix-backend-reference.md).
 
 ## Commands
 
@@ -25,11 +25,11 @@ Only `Client/` has a package.json. Run `npm install` from there.
 ### Client (`Client/`)
 - **Entry:** `src/main.tsx` → mounts `<App>` inside `<QueryClientProvider>`, `<ErrorBoundary>`, `<BrowserRouter>`, `<StrictMode>`
 - **Routing:** React Router v7 in `src/App.tsx` — add new routes here
-- **Pages:** `src/pages/` — page-level components (currently empty — to be built)
+- **Pages:** `src/pages/` — page-level components (see Page Structure convention below)
 - **Components:** `src/components/` — reusable UI (includes `ErrorBoundary`)
 - **Services:**
   - `src/services/supabase.ts` — typed Supabase client (`createClient<Database>`)
-  - `src/services/webhooks.ts` — 11 webhook functions for Supabase edge functions + n8n
+  - `src/services/edge-functions.ts` — 7 typed wrappers for Supabase edge functions (auto-adds auth headers)
 - **Hooks:** `src/hooks/useAuth.ts` — auth hook (signUp, signIn, signOut, resetPassword, profile)
 - **Store:** `src/store/auth.store.ts` — Zustand auth state (user, session, loading)
 - **Types:** `src/types/database.ts` — auto-generated Supabase types (20 tables, RPCs, enums)
@@ -38,16 +38,15 @@ Only `Client/` has a package.json. Run `npm install` from there.
 
 ### Backend (Supabase — no local server)
 - **Auth:** Supabase Auth with `handle_new_user()` trigger → auto-creates `profiles` row
-- **Database:** 20 tables in Supabase PostgreSQL (see `clix-bot-reference.md` for schema)
-- **Edge Functions:** 8 deployed at `https://gctijcljpjtmpyuzaohm.supabase.co/functions/v1/`
-  - form-submission, bot-demo, bot-edit, greenapi-connect, flow-webhook, flow-demo, scrape-trigger, scrape-status
-- **RPC Functions:** 17 PostgreSQL functions (admin operations, profile, product search, etc.)
-- **n8n Webhooks:** 4 endpoints on seai.shop (1 working: deep-scrape; 2 legacy/unused: bot-edit-apply, integration-add; 1 needs deployment or replacement: support-ai)
+- **Database:** 20 tables in Supabase PostgreSQL (see `clix-backend-reference.md` for schema)
+- **Edge Functions:** 9 deployed at `https://gctijcljpjtmpyuzaohm.supabase.co/functions/v1/`
+  - form-submission, form-update, bot-demo, bot-edit, wclixapi-connect, flow-webhook, flow-demo, scrape-trigger, scrape-status
+- **RPC Functions:** 19 PostgreSQL functions (admin operations, profile, product search, draft/publish bot, etc.)
 
 ### Environment Variables
-- **Client/.env:** Supabase credentials, API keys (Anthropic, Gemini, OpenRouter, Firecrawl), n8n config, 11 webhook URLs
+- **Client/.env:** Supabase credentials, API keys (Anthropic, Gemini, OpenRouter, Firecrawl), 7 edge function URLs
 - **Client/.env.sample:** Template with all keys (no values)
-- See `clix-bot-reference.md` → "Webhook Mapping" for which env var maps to which endpoint
+- See `clix-backend-reference.md` → "Edge Function Mapping" for which env var maps to which endpoint
 
 ## Key Conventions
 - ES modules (`"type": "module"` in package.json)
@@ -56,24 +55,79 @@ Only `Client/` has a package.json. Run `npm install` from there.
 - Prettier config at project root (`.prettierrc`)
 - Path aliases: use `@/` for all imports (e.g., `import { supabase } from "@/services/supabase"`)
 - Supabase client: always import from `@/services/supabase`, never create new clients
-- Webhooks: use functions from `@/services/webhooks.ts`, never call endpoints directly
+- Edge functions: use wrappers from `@/services/edge-functions.ts`, never call endpoints directly
 - Auth: use `useAuth()` hook from `@/hooks/useAuth.ts` for all auth operations
 - State: Zustand for client state (`src/store/`), React Query for server state
 - Database types: import from `@/types/database` (e.g., `Tables<"profiles">`, `TablesInsert<"form_responses">`)
+- External operations (Supabase, APIs, third-party services): always read `Client/.env` first to get credentials/URLs before asking the user for access details
 
-## What's Ready (Backend Connections)
+### Page Structure (`src/pages/`)
+- **Naming:** pages are `{Name}Page.tsx`, sections are `{Name}Section.tsx`
+- **Single-file page:** if a page has no sections, place it directly in `pages/` — e.g., `pages/ProfilePage.tsx`
+- **Multi-section page:** if a page has distinct sections, create a folder for it:
+  ```
+  pages/{Name}Page/
+  ├── {Name}Page.tsx          # main page component
+  └── Sections/
+      ├── HeroSection.tsx     # individual section components
+      └── PricingSection.tsx
+  ```
+  - The folder and main file share the same name (e.g., `HomePage/HomePage.tsx`)
+  - All section components go inside a `Sections/` subfolder
+  - The main page imports and composes its sections
+
+## What's Ready
+
+### Backend Connections
 - Supabase client with typed Database generics
 - Auth flow (signUp → pending → admin approval → approved)
-- 11 webhook functions with auto-auth for Supabase edge functions
+- 7 edge function wrappers in `edge-functions.ts` with auto-auth
+  - `callWClixAPIConnect()` is wired to ConnectSection (QR code flow)
 - All 20 DB tables exist and are queryable
 - All 8 edge functions deployed and responding
-- All RPC functions working
+- 13/19 RPC functions used from frontend (6 unused — see `migration-status.md`)
+- **Draft/Publish system:** `form_responses.draft_bot_prompt` column separates preview from live bot. Edits go to draft, published on WhatsApp connect or via "Publish Changes" button in dashboard
 
-## What Needs Building (Frontend)
-- All page components (Auth, CreateBot, Preview, Connect, FlowBuilder, FAQ, Settings, Admin pages)
-- Route guards (AuthGuard, AdminGuard)
-- UI component library (shadcn/ui in original — user decides)
-- i18n (Hebrew/English with RTL support)
-- Sidebar/navigation
-- Flow builder UI (@xyflow/react in original)
-- Support chat (needs backend — either deploy n8n workflow or create edge function)
+### Frontend Pages Built
+- **HomePage** — full landing page with 7 sections (Hero, ProductPreview, Features, Pricing, FAQ, CTA, Footer)
+- **AuthPage** — login, signup, forgot-password modes (wired to Supabase Auth)
+- **PendingPage** — approval waiting screen with 30s auto-refresh (wired to `get_my_profile` RPC)
+- **CreateBotPage** — multi-step 3-section wizard: FormSection (`callFormSubmission()` + `callScrapeStatus()`), PreviewSection (`callBotDemo()` + `callBotEditRequest()`), ConnectSection (`callWClixAPIConnect()`). All wired to backend.
+- **AdminPage** — 3 working sections:
+  - Approvals — approve/reject users (wired to RPCs)
+  - Users — list + search + filter (wired to RPCs)
+  - FormBuilder — drag-drop field editor (wired to 7 RPCs)
+- **FlowBuilderPage** — visual @xyflow/react flow editor at `/dashboard/flow-builder`. 3-panel layout (editor sidebar, canvas, node palette) + toolbar + preview simulator. 8 node types (start, text, image, buttons, collect_input, delay, follow_up, condition). `useFlowBuilder` hook with React Query, auto-save (3s debounce), workflow CRUD. Preview wired to `callFlowDemo()`. All 7 edge functions now wired.
+- **AdminGuard** — route protection for admin pages
+- **i18n** — 15 namespaces (including `flow`), Hebrew + English, RTL support via i18next
+
+### Frontend Not Yet Built
+See [`.claude/migration-status.md`](.claude/migration-status.md) for the full gap analysis with checklists.
+
+**Key missing items:**
+- 2 user pages (Settings, NotFound)
+- 3 admin pages (UserDetails, Tickets, FlowManager)
+
+## Implementation Workflow
+
+**When implementing features (especially multiple in one prompt), follow this strict loop:**
+
+1. Implement feature 1
+2. Test feature 1 (`npm run build` from `Client/`, or `npm run dev` and verify behavior)
+   - If broken → fix and re-test until working
+   - If good → proceed
+3. Implement feature 2
+4. Test feature 2 (same verification)
+   - If broken → fix and re-test until working
+   - If good → proceed
+5. Continue for all features, then done
+
+**Never batch-implement multiple features without testing each one individually first.**
+
+## Maintenance Rule
+
+**After each feature is confirmed working, check if docs need updating:**
+1. Update `.claude/migration-status.md` to mark the feature as complete (change `[ ]` to `[x]`)
+2. Update webhook/RPC usage tables if you wire new backend calls
+3. Update this file's "What's Ready" section if a major feature is added
+4. Update `.claude/clix-backend-reference.md` if new backend patterns, services, or integrations are added
