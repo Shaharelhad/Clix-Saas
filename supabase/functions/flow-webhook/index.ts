@@ -70,10 +70,6 @@ interface FlowJSON {
 }
 
 // ── Flow Navigation Engine ──────────────────────────────────
-function findStartNode(flow: FlowJSON): FlowNode | undefined {
-  return flow.nodes.find((n) => n.type === "start");
-}
-
 function triggerMatches(trigger: string, message: string): boolean {
   const t = trigger.trim().toLowerCase();
   const m = message.trim().toLowerCase();
@@ -141,6 +137,40 @@ function resolveVariables(
   return text.replace(/\{\{(\w+)\}\}/g, (_, key) => variables[key] || "");
 }
 
+// ── Build trigger context for LLM awareness ─────────────────
+function buildTriggerContext(flow: FlowJSON): string {
+  const triggers = flow.nodes
+    .filter((n) => n.type === "start" && n.data.triggerText?.trim())
+    .map((startNode) => {
+      const trigger = startNode.data.triggerText!.trim();
+      const nextNode = findNextNode(flow, startNode.id);
+      let description = "";
+      if (nextNode) {
+        if (nextNode.type === "text" && nextNode.data.message) {
+          description = nextNode.data.message.substring(0, 50);
+        } else if (nextNode.type === "buttons") {
+          description = nextNode.data.message || "תפריט אפשרויות";
+        } else if (nextNode.type === "collect_input" && nextNode.data.message) {
+          description = nextNode.data.message.substring(0, 50);
+        } else if (nextNode.type === "image" && nextNode.data.message) {
+          description = nextNode.data.message.substring(0, 50);
+        }
+      }
+      return { trigger, description };
+    });
+
+  if (triggers.length === 0) return "";
+
+  const lines = triggers.map((t) => {
+    const desc = t.description ? ` — ${t.description}` : "";
+    return `- "${t.trigger}"${desc}`;
+  });
+
+  return `\n\nתהליכים אוטומטיים שזמינים ללקוחות (הזכר ללקוח כשרלוונטי לשיחה, אל תזכיר את כולם בבת אחת):
+${lines.join("\n")}
+אם הלקוח שואל על נושא שקשור לאחד מהתהליכים, הצע לו לכתוב את מילת המפתח. לדוגמה: "כתוב לי 'מחירון' ואשלח לך את כל המחירים"`;
+}
+
 // ── Open LLM Chat (used when no trigger matches) ────────────
 async function callOpenLLM(
   userId: string,
@@ -148,7 +178,8 @@ async function callOpenLLM(
   sessionId: string,
   workflowId: string,
   customerId: string,
-  phone: string
+  phone: string,
+  flow: FlowJSON
 ): Promise<void> {
   // Fetch bot prompt and scraped content
   const { data: formRow } = await supabase
@@ -215,7 +246,9 @@ async function callOpenLLM(
     .order("created_at", { ascending: true })
     .limit(20);
 
-  const systemPrompt = basePrompt + scrapedContext + productContext + faqContext + `\n\nהנחיות קריטיות לסגנון התשובה:
+  const triggerContext = buildTriggerContext(flow);
+
+  const systemPrompt = basePrompt + scrapedContext + productContext + faqContext + triggerContext + `\n\nהנחיות קריטיות לסגנון התשובה:
 - אתה בעל העסק, לא בוט. דבר בגוף ראשון: "אצלי", "אני", "שלי"
 - כתוב בצורה טבעית, קצרה וחמה
 - תשובות קצרות וממוקדות! מקסימום 3-4 שורות לכל הודעה
@@ -709,7 +742,7 @@ Deno.serve(async (req) => {
               message_type: "text",
               content: userMessage,
             });
-            await callOpenLLM(profile.id, userMessage, existingSession.id, workflow.id, customerId, phone);
+            await callOpenLLM(profile.id, userMessage, existingSession.id, workflow.id, customerId, phone, flow);
           }
           return new Response(JSON.stringify({ ok: true, action: "llm_response" }), {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -725,7 +758,7 @@ Deno.serve(async (req) => {
             message_type: "text",
             content: userMessage,
           });
-          await callOpenLLM(profile.id, userMessage, newSession.id, workflow.id, customerId, phone);
+          await callOpenLLM(profile.id, userMessage, newSession.id, workflow.id, customerId, phone, flow);
         }
         return new Response(JSON.stringify({ ok: true, action: "llm_response" }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -844,7 +877,7 @@ Deno.serve(async (req) => {
         variables = { phone };
       } else {
         // No trigger match on completed session — use open LLM conversation
-        await callOpenLLM(profile.id, userMessage, session.id, workflow.id, customerId, phone);
+        await callOpenLLM(profile.id, userMessage, session.id, workflow.id, customerId, phone, flow);
         return new Response(JSON.stringify({ ok: true, action: "llm_response" }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -858,7 +891,7 @@ Deno.serve(async (req) => {
         currentNodeId = startNode.id;
       } else {
         // No trigger match and no active flow — use LLM
-        await callOpenLLM(profile.id, userMessage, session.id, workflow.id, customerId, phone);
+        await callOpenLLM(profile.id, userMessage, session.id, workflow.id, customerId, phone, flow);
         return new Response(JSON.stringify({ ok: true, action: "llm_response" }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -983,7 +1016,7 @@ Deno.serve(async (req) => {
           nextNodeId = nextNode?.id || null;
         } else {
           // No match — open LLM conversation (stay on same node for flow)
-          await callOpenLLM(profile.id, userMessage, session.id, workflow.id, customerId, phone);
+          await callOpenLLM(profile.id, userMessage, session.id, workflow.id, customerId, phone, flow);
           await supabase
             .from("subscriber_sessions")
             .update({ last_message_at: new Date().toISOString() })
@@ -1024,7 +1057,7 @@ Deno.serve(async (req) => {
           trigger: currentNode.data.triggerText,
           message: userMessage,
         });
-        await callOpenLLM(profile.id, userMessage, session.id, workflow.id, customerId, phone);
+        await callOpenLLM(profile.id, userMessage, session.id, workflow.id, customerId, phone, flow);
         await supabase
           .from("subscriber_sessions")
           .update({ last_message_at: new Date().toISOString() })
@@ -1060,20 +1093,9 @@ Deno.serve(async (req) => {
 
       if (result.waitForInput) {
         nextNodeId = result.nextNodeId;
-        // IMMEDIATELY update session when a node waits for input
-        console.log("[flow] waitForInput: saving session to node:", nextNodeId, "sessionId:", session.id);
 
-        // Debug: log before update
-        await supabase.from("flow_message_log").insert({
-          workflow_id: workflow.id,
-          session_id: session.id,
-          direction: "outbound",
-          message_type: "debug",
-          content: `DEBUG_BEFORE_UPDATE: nextNode=${nextNodeId} sessionId=${session.id}`,
-        });
-
-        // Try BOTH supabase client AND direct fetch
-        const { error: clientErr } = await supabase
+        // Update session via both client and direct REST for reliability
+        await supabase
           .from("subscriber_sessions")
           .update({
             current_node_id: nextNodeId,
@@ -1083,32 +1105,11 @@ Deno.serve(async (req) => {
           })
           .eq("id", session.id);
 
-        if (clientErr) {
-          console.error("[flow] Client update failed:", clientErr);
-        }
-
-        // Also try direct fetch as backup
         await updateSessionDirect(session.id, {
           current_node_id: nextNodeId,
           variables: updatedVariables,
           status: "active",
           last_message_at: new Date().toISOString(),
-        });
-
-        // Verify: read back
-        const { data: verifySession } = await supabase
-          .from("subscriber_sessions")
-          .select("current_node_id")
-          .eq("id", session.id)
-          .single();
-
-        // Debug: log after update with verification
-        await supabase.from("flow_message_log").insert({
-          workflow_id: workflow.id,
-          session_id: session.id,
-          direction: "outbound",
-          message_type: "debug",
-          content: `DEBUG_AFTER_UPDATE: wanted=${nextNodeId} got=${verifySession?.current_node_id} clientErr=${clientErr?.message || "none"}`,
         });
 
         break;

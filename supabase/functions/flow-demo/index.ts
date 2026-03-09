@@ -170,11 +170,46 @@ function executeNodeDemo(
   return { nextNodeId: null, waitForInput: false };
 }
 
+// ── Build trigger context for LLM awareness ─────────────────
+function buildTriggerContext(flow: FlowJSON): string {
+  const triggers = flow.nodes
+    .filter((n) => n.type === "start" && n.data.triggerText?.trim())
+    .map((startNode) => {
+      const trigger = startNode.data.triggerText!.trim();
+      const nextNode = findNextNode(flow, startNode.id);
+      let description = "";
+      if (nextNode) {
+        if (nextNode.type === "text" && nextNode.data.message) {
+          description = nextNode.data.message.substring(0, 50);
+        } else if (nextNode.type === "buttons") {
+          description = nextNode.data.message || "תפריט אפשרויות";
+        } else if (nextNode.type === "collect_input" && nextNode.data.message) {
+          description = nextNode.data.message.substring(0, 50);
+        } else if (nextNode.type === "image" && nextNode.data.message) {
+          description = nextNode.data.message.substring(0, 50);
+        }
+      }
+      return { trigger, description };
+    });
+
+  if (triggers.length === 0) return "";
+
+  const lines = triggers.map((t) => {
+    const desc = t.description ? ` — ${t.description}` : "";
+    return `- "${t.trigger}"${desc}`;
+  });
+
+  return `\n\nתהליכים אוטומטיים שזמינים ללקוחות (הזכר ללקוח כשרלוונטי לשיחה, אל תזכיר את כולם בבת אחת):
+${lines.join("\n")}
+אם הלקוח שואל על נושא שקשור לאחד מהתהליכים, הצע לו לכתוב את מילת המפתח. לדוגמה: "כתוב לי 'מחירון' ואשלח לך את כל המחירים"`;
+}
+
 // ── LLM Fallback (same as bot-demo) ────────────────────────
 async function callLLMFallback(
   userId: string,
   userMessage: string,
-  conversationId: string
+  conversationId: string,
+  flow?: FlowJSON
 ): Promise<string> {
   // Fetch bot prompt and scraped content
   const { data: formRow } = await supabase
@@ -234,7 +269,9 @@ async function callLLMFallback(
     }
   } catch { /* FAQ not available */ }
 
-  const systemPrompt = basePrompt + scrapedContext + productContext + faqContext + `\n\nהנחיות קריטיות לסגנון התשובה:
+  const triggerContext = flow ? buildTriggerContext(flow) : "";
+
+  const systemPrompt = basePrompt + scrapedContext + productContext + faqContext + triggerContext + `\n\nהנחיות קריטיות לסגנון התשובה:
 - אתה בעל העסק, לא בוט. דבר בגוף ראשון: "אצלי", "אני", "שלי"
 - כתוב בצורה טבעית, קצרה וחמה
 - תשובות קצרות וממוקדות! מקסימום 3-4 שורות לכל הודעה
@@ -406,7 +443,7 @@ Deno.serve(async (req) => {
         sessionStatus = "active";
       } else {
         // No trigger match — LLM fallback
-        const botResponse = await callLLMFallback(user_id, message, convId);
+        const botResponse = await callLLMFallback(user_id, message, convId, flow);
         await supabase.from("demo_conversations").insert({
           user_id,
           conversation_id: convId,
@@ -435,7 +472,7 @@ Deno.serve(async (req) => {
 
     const currentNode = currentNodeId ? findNodeById(flow, currentNodeId) : null;
     if (!currentNode) {
-      const botResponse = await callLLMFallback(user_id, message, convId);
+      const botResponse = await callLLMFallback(user_id, message, convId, flow);
       await supabase.from("demo_conversations").insert({
         user_id,
         conversation_id: convId,
@@ -482,7 +519,7 @@ Deno.serve(async (req) => {
           nextNodeId = nextNode?.id || null;
         } else {
           // No match — LLM fallback, stay on same node
-          const botResponse = await callLLMFallback(user_id, message, convId);
+          const botResponse = await callLLMFallback(user_id, message, convId, flow);
           await supabase.from("demo_conversations").insert({
             user_id,
             conversation_id: convId,
@@ -514,7 +551,7 @@ Deno.serve(async (req) => {
         nextNodeId = nextNode?.id || null;
       } else {
         // No trigger match — LLM fallback
-        const botResponse = await callLLMFallback(user_id, message, convId);
+        const botResponse = await callLLMFallback(user_id, message, convId, flow);
         await supabase.from("demo_conversations").insert({
           user_id,
           conversation_id: convId,
@@ -553,7 +590,7 @@ Deno.serve(async (req) => {
 
     // If flow executed but produced no responses (e.g., disconnected nodes), fallback to LLM
     if (responses.length === 0) {
-      const botResponse = await callLLMFallback(user_id, message, convId);
+      const botResponse = await callLLMFallback(user_id, message, convId, flow);
       await supabase.from("demo_conversations").insert({
         user_id,
         conversation_id: convId,

@@ -182,18 +182,42 @@ function BotStatusPill({ userId }: { userId: string }) {
   const handlePause = async () => {
     setLoading(true);
     setMenuOpen(false);
-    await supabase.from("profiles").update({ bot_status: "paused" }).eq("id", userId);
-    await refetchStatus();
-    showFeedback("success", t("pauseSuccess"));
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ bot_status: "paused" })
+        .eq("id", userId);
+      if (error) {
+        showFeedback("error", t("pauseError"));
+        setLoading(false);
+        return;
+      }
+      await refetchStatus();
+      showFeedback("success", t("pauseSuccess"));
+    } catch {
+      showFeedback("error", t("pauseError"));
+    }
     setLoading(false);
   };
 
   const handleResume = async () => {
     setLoading(true);
     setMenuOpen(false);
-    await supabase.from("profiles").update({ bot_status: "connected" }).eq("id", userId);
-    await refetchStatus();
-    showFeedback("success", t("resumeSuccess"));
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ bot_status: "connected" })
+        .eq("id", userId);
+      if (error) {
+        showFeedback("error", t("resumeError"));
+        setLoading(false);
+        return;
+      }
+      await refetchStatus();
+      showFeedback("success", t("resumeSuccess"));
+    } catch {
+      showFeedback("error", t("resumeError"));
+    }
     setLoading(false);
   };
 
@@ -201,9 +225,27 @@ function BotStatusPill({ userId }: { userId: string }) {
     setLoading(true);
     setMenuOpen(false);
     setShowConfirmDisconnect(false);
-    await callWClixAPIConnect({ user_id: userId, action: "disconnect" });
-    await refetchStatus();
-    showFeedback("success", t("disconnectSuccess"));
+    try {
+      const result = await callWClixAPIConnect({ user_id: userId, action: "disconnect" });
+      if (result.error) {
+        showFeedback("error", t("disconnectError"));
+        setLoading(false);
+        return;
+      }
+      const { error: dbError } = await supabase
+        .from("profiles")
+        .update({ bot_status: "created" })
+        .eq("id", userId);
+      if (dbError) {
+        showFeedback("error", t("disconnectError"));
+        setLoading(false);
+        return;
+      }
+      await refetchStatus();
+      showFeedback("success", t("disconnectSuccess"));
+    } catch {
+      showFeedback("error", t("disconnectError"));
+    }
     setLoading(false);
   };
 
@@ -282,13 +324,22 @@ function BotStatusPill({ userId }: { userId: string }) {
             className="absolute end-0 top-full mt-2 z-50 bg-white rounded-xl shadow-[0_8px_32px_rgba(45,42,38,0.12)] border border-[#EDE6DD]/50 overflow-hidden min-w-[180px]"
           >
             {status === "connected" && (
-              <button
-                onClick={(e) => { e.stopPropagation(); handlePause(); }}
-                className="w-full flex items-center gap-3 px-4 py-3 text-sm text-[#4A4640] hover:bg-amber-50 transition-colors cursor-pointer"
-              >
-                <Pause className="w-4 h-4 text-amber-500" />
-                {t("pauseBot")}
-              </button>
+              <>
+                <button
+                  onClick={(e) => { e.stopPropagation(); handlePause(); }}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-sm text-[#4A4640] hover:bg-amber-50 transition-colors cursor-pointer"
+                >
+                  <Pause className="w-4 h-4 text-amber-500" />
+                  {t("pauseBot")}
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); setShowConfirmDisconnect(true); setMenuOpen(false); }}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                >
+                  <Power className="w-4 h-4" />
+                  {t("disconnectBot")}
+                </button>
+              </>
             )}
 
             {status === "paused" && (
