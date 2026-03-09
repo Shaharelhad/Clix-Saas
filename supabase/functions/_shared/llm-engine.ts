@@ -1,0 +1,222 @@
+/**
+ * Shared LLM Engine — single source of truth for all LLM calls.
+ * Used by: flow-webhook, flow-demo, bot-demo, inngest
+ */
+
+// deno-lint-ignore-file no-explicit-any
+
+export interface LLMConfig {
+  systemPromptOverride?: string;
+  temperature?: number;
+  maxTokens?: number;
+  model?: string;
+  includeProducts?: boolean;
+  includeFaqs?: boolean;
+  includeScrapedContent?: boolean;
+}
+
+export interface LLMResult {
+  response: string;
+  model: string;
+}
+
+/**
+ * Call the LLM with full knowledge context.
+ *
+ * @param supabase - Supabase client instance
+ * @param userId - The business owner's user ID
+ * @param userMessage - The end user's message
+ * @param conversationHistory - Prior messages in {role, content} format
+ * @param config - Optional AI Agent node configuration overrides
+ * @param triggerContext - Optional trigger context string (from buildTriggerContext)
+ * @param useDraft - If true, prefer draft_bot_prompt over bot_prompt (for previews)
+ */
+export async function callLLMEngine(
+  supabase: any,
+  userId: string,
+  userMessage: string,
+  conversationHistory: { role: string; content: string }[],
+  config?: LLMConfig,
+  triggerContext?: string,
+  useDraft?: boolean,
+): Promise<LLMResult> {
+  // 1. Fetch bot prompt and scraped content
+  const selectFields = useDraft
+    ? "bot_prompt, draft_bot_prompt, business_name, scraped_content"
+    : "bot_prompt, business_name, scraped_content";
+
+  const { data: formRow } = await supabase
+    .from("form_responses")
+    .select(selectFields)
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .single();
+
+  // Determine base prompt
+  let basePrompt: string;
+  if (config?.systemPromptOverride) {
+    basePrompt = config.systemPromptOverride;
+  } else if (useDraft) {
+    basePrompt =
+      formRow?.draft_bot_prompt ||
+      formRow?.bot_prompt ||
+      `אתה בעל עסק בשם ${formRow?.business_name || "העסק"}. דבר בגוף ראשון, בצורה טבעית ואנושית כמו בוואטסאפ.`;
+  } else {
+    basePrompt =
+      formRow?.bot_prompt ||
+      `אתה בעל עסק בשם ${formRow?.business_name || "העסק"}. דבר בגוף ראשון, בצורה טבעית ואנושית כמו בוואטסאפ.`;
+  }
+
+  // 2. Scraped content (conditional)
+  let scrapedContext = "";
+  if (config?.includeScrapedContent !== false && formRow?.scraped_content) {
+    scrapedContext = `\n\nמידע מהאתר שלך (השתמש במידע הזה כשרלוונטי לשאלה):\n${(formRow.scraped_content as string).substring(0, 8000)}`;
+  }
+
+  // 3. Products (conditional)
+  let productContext = "";
+  if (config?.includeProducts !== false) {
+    try {
+      const { data: products } = await supabase.rpc("search_products", {
+        p_user_id: userId,
+        p_query: userMessage,
+        p_limit: 5,
+      });
+      if (products && products.length > 0) {
+        const productLines = products.map(
+          (p: any, i: number) => {
+            const parts = [`${i + 1}. ${p.name}`];
+            if (p.description) parts.push(p.description);
+            if (p.price) parts.push(`מחיר: ${p.price}`);
+            if (p.product_url) parts.push(`קישור: ${p.product_url}`);
+            if (p.image_urls && p.image_urls.length > 0)
+              parts.push(`תמונה: ${p.image_urls[0]}`);
+            return parts.join(" - ");
+          },
+        );
+        productContext =
+          `\n\nמוצרים/שירותים רלוונטיים:\n${productLines.join("\n")}`;
+      }
+    } catch { /* Products not available */ }
+  }
+
+  // 4. FAQs (conditional)
+  let faqContext = "";
+  if (config?.includeFaqs !== false) {
+    try {
+      const { data: faqs } = await supabase
+        .from("faq_entries")
+        .select("question, answer")
+        .eq("user_id", userId)
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true });
+      if (faqs && faqs.length > 0) {
+        const faqLines = faqs.map(
+          (f: { question: string; answer: string }) =>
+            `שאלה: ${f.question}\nתשובה: ${f.answer}`,
+        );
+        faqContext =
+          `\n\nשאלות ותשובות נפוצות (עדיפות גבוהה — אם הלקוח שואל שאלה דומה, ענה בדיוק לפי התשובה כאן):\n${faqLines.join("\n\n")}`;
+      }
+    } catch { /* FAQ not available */ }
+  }
+
+  // 5. Build system prompt
+  const systemPrompt = basePrompt +
+    scrapedContext +
+    productContext +
+    faqContext +
+    (triggerContext || "") +
+    `\n\nהנחיות קריטיות לסגנון התשובה:
+- אתה בעל העסק, לא בוט. דבר בגוף ראשון: "אצלי", "אני", "שלי"
+- כתוב בצורה טבעית, קצרה וחמה
+- תשובות קצרות וממוקדות! מקסימום 3-4 שורות לכל הודעה
+- אל תכתוב פסקאות ארוכות, אל תעשה רשימות מפורטות
+- אל תשתמש במילים: "בוט", "מערכת", "שירות לקוחות", "אוטומטי"
+- תגיב כמו בשיחת וואטסאפ אמיתית בין שני אנשים
+- אל תשתמש באימוג'ים בשום מקרה, אלא אם הפרומפט למעלה מציין במפורש להשתמש באימוג'ים. ברירת המחדל היא ללא אימוג'ים`;
+
+  // 6. Build messages array
+  const messages: { role: string; content: string }[] = [
+    { role: "system", content: systemPrompt },
+    ...conversationHistory,
+    { role: "user", content: userMessage },
+  ];
+
+  // 7. Call OpenRouter
+  const openrouterKey = Deno.env.get("OPENROUTER_API_KEY");
+  if (!openrouterKey) {
+    return { response: "איך אפשר לעזור?", model: "none" };
+  }
+
+  const primaryModel = config?.model || "x-ai/grok-4-fast";
+  const fallbackModel = primaryModel === "x-ai/grok-4-fast"
+    ? "x-ai/grok-4.1-fast"
+    : "x-ai/grok-4-fast";
+  const temperature = config?.temperature ?? 1.0;
+  const maxTokens = config?.maxTokens ?? 2048;
+
+  // Try primary model
+  let botResponse = "";
+  let usedModel = primaryModel;
+  let primaryOk = false;
+
+  try {
+    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${openrouterKey}`,
+      },
+      body: JSON.stringify({
+        model: primaryModel,
+        messages,
+        max_tokens: maxTokens,
+        temperature,
+      }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const text = data.choices?.[0]?.message?.content;
+      if (text) {
+        botResponse = text;
+        primaryOk = true;
+      }
+    }
+  } catch { /* primary model failed */ }
+
+  // Fallback model
+  if (!primaryOk) {
+    usedModel = fallbackModel;
+    try {
+      const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${openrouterKey}`,
+        },
+        body: JSON.stringify({
+          model: fallbackModel,
+          messages,
+          max_tokens: maxTokens,
+          temperature,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const text = data.choices?.[0]?.message?.content;
+        if (text) {
+          botResponse = text;
+        }
+      }
+    } catch { /* fallback also failed */ }
+  }
+
+  if (!botResponse) {
+    botResponse = "איך אפשר לעזור?";
+    usedModel = "none";
+  }
+
+  return { response: botResponse, model: usedModel };
+}
