@@ -13,7 +13,15 @@ export function useAuth() {
       return;
     }
     const profile = data[0];
-    setUser(profile);
+
+    // Fetch bot_status from profiles table (not included in get_my_profile RPC)
+    const { data: profileRow } = await supabase
+      .from("profiles")
+      .select("bot_status")
+      .eq("id", profile.id)
+      .single();
+
+    setUser({ ...profile, bot_status: profileRow?.bot_status });
 
     // Sync profile language to i18next
     if (profile.language && profile.language !== i18n.language) {
@@ -83,6 +91,7 @@ export function useAuth() {
     isAdmin: user?.role === "admin",
     isPending: user?.status === "pending",
     isApproved: user?.status === "approved",
+    hasCompletedOnboarding: !!user?.bot_status && user.bot_status !== "not_created",
     signUp,
     signIn,
     signOut,

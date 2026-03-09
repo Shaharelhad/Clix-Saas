@@ -102,10 +102,10 @@ function BotStatusPill({ userId }: { userId: string }) {
   const status = resolveStatus(dbBotStatus ?? null);
   const config = STATUS_CONFIG[status];
 
-  // Gateway health-check: poll every 30s to detect if customer disconnected from phone
-  // Require 3 consecutive failures (~90s) before overwriting DB to avoid transient blips
+  // Gateway health-check: poll every 15s to detect if customer disconnected from phone
+  // Require 2 consecutive failures (~30s) before overwriting DB to avoid transient blips
   const failCountRef = useRef(0);
-  const FAIL_THRESHOLD = 3;
+  const FAIL_THRESHOLD = 2;
 
   useEffect(() => {
     if (status !== "connected") return;
@@ -130,7 +130,7 @@ function BotStatusPill({ userId }: { userId: string }) {
       }
     };
 
-    const interval = setInterval(check, 30000);
+    const interval = setInterval(check, 15000);
     check();
 
     return () => {

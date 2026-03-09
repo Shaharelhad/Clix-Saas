@@ -126,6 +126,7 @@ export default function AuthPage() {
     isAdmin,
     isApproved,
     isPending,
+    hasCompletedOnboarding,
     isLoading: authLoading,
   } = useAuth();
 
@@ -157,8 +158,11 @@ export default function AuthPage() {
     if (!isAuthenticated) return;
     if (isAdmin) navigate("/admin/approvals", { replace: true });
     else if (isPending) navigate("/pending", { replace: true });
-    else if (isApproved) navigate("/create-bot", { replace: true });
-  }, [isAuthenticated, isAdmin, isApproved, isPending, authLoading, navigate]);
+    else if (isApproved)
+      navigate(hasCompletedOnboarding ? "/dashboard" : "/create-bot", {
+        replace: true,
+      });
+  }, [isAuthenticated, isAdmin, isApproved, isPending, hasCompletedOnboarding, authLoading, navigate]);
 
   // Loading gate — prevent flash of auth form for already-logged-in users
   if (authLoading) {
