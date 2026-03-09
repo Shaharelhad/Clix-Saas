@@ -32,8 +32,6 @@ const flow = {
   nodeDelay: "Delay",
   nodeFollowUp: "Follow Up",
   nodeCondition: "Condition",
-  nodeAiAgent: "AI Agent",
-
   // Node descriptions (palette)
   nodeStartDesc: "Receives incoming messages",
   nodeTextDesc: "Send a text message",
@@ -43,8 +41,6 @@ const flow = {
   nodeDelayDesc: "Wait before continuing",
   nodeFollowUpDesc: "Send a scheduled follow-up",
   nodeConditionDesc: "Branch based on a condition",
-  nodeAiAgentDesc: "Your bot's brain — processes messages and replies",
-
   // Editor fields
   triggerText: "Keyword Filter",
   triggerTextHint: "Optional keyword to filter messages (leave empty for all)",
@@ -72,24 +68,6 @@ const flow = {
   operatorEquals: "Equals",
   operatorContains: "Contains",
   operatorNotEmpty: "Not Empty",
-
-  // AI Agent fields
-  aiSystemPrompt: "System Prompt Override",
-  aiSystemPromptHint: "Leave empty to use your bot's personality",
-  aiTemperature: "Temperature",
-  aiTemperatureHint: "Creativity level (0 = precise, 2 = creative)",
-  aiModel: "Model",
-  aiMaxTokens: "Max Tokens",
-  aiMaxTokensHint: "Maximum response length (128-4096)",
-  aiKnowledgeSources: "Knowledge Sources",
-  aiProducts: "Products",
-  aiFaqs: "FAQs",
-  aiWebsite: "Website",
-  aiIncludeProducts: "Include products database",
-  aiIncludeFaqs: "Include FAQ entries",
-  aiIncludeScraped: "Include website content",
-  aiMaxHistory: "Max History Messages",
-  aiMaxHistoryHint: "How many past messages to include (1-50)",
 
   // Preview simulator
   previewTitle: "Flow Preview",

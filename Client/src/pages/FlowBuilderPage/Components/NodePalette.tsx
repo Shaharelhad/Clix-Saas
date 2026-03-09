@@ -9,13 +9,11 @@ import {
   Clock,
   Bell,
   GitBranch,
-  Bot,
 } from "lucide-react";
 import { NODE_COLORS, type FlowNodeType } from "@/types/flow";
 
 const PALETTE_ITEMS: { type: FlowNodeType; icon: typeof MessageSquareText; labelKey: string; descKey: string }[] = [
   { type: "start", icon: MessageSquareText, labelKey: "nodeStart", descKey: "nodeStartDesc" },
-  { type: "ai_agent", icon: Bot, labelKey: "nodeAiAgent", descKey: "nodeAiAgentDesc" },
   { type: "text", icon: MessageSquare, labelKey: "nodeText", descKey: "nodeTextDesc" },
   { type: "image", icon: Image, labelKey: "nodeImage", descKey: "nodeImageDesc" },
   { type: "buttons", icon: SquareMousePointer, labelKey: "nodeButtons", descKey: "nodeButtonsDesc" },

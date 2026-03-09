@@ -32,8 +32,6 @@ const flow = {
   nodeDelay: "השהייה",
   nodeFollowUp: "מעקב",
   nodeCondition: "תנאי",
-  nodeAiAgent: "סוכן AI",
-
   // Node descriptions (palette)
   nodeStartDesc: "מקבל הודעות נכנסות",
   nodeTextDesc: "שלח הודעת טקסט",
@@ -43,8 +41,6 @@ const flow = {
   nodeDelayDesc: "המתן לפני המשך",
   nodeFollowUpDesc: "שלח הודעת מעקב מתוזמנת",
   nodeConditionDesc: "הסתעף על בסיס תנאי",
-  nodeAiAgentDesc: "המוח של הבוט — מעבד הודעות ועונה",
-
   // Editor fields
   triggerText: "מסנן מילים",
   triggerTextHint: "מילת מפתח אופציונלית לסינון (השאר ריק לכולן)",
@@ -72,24 +68,6 @@ const flow = {
   operatorEquals: "שווה",
   operatorContains: "מכיל",
   operatorNotEmpty: "לא ריק",
-
-  // AI Agent fields
-  aiSystemPrompt: "דריסת פרומפט מערכת",
-  aiSystemPromptHint: "השאר ריק לשימוש באישיות הבוט שלך",
-  aiTemperature: "טמפרטורה",
-  aiTemperatureHint: "רמת יצירתיות (0 = מדויק, 2 = יצירתי)",
-  aiModel: "מודל",
-  aiMaxTokens: "מקסימום טוקנים",
-  aiMaxTokensHint: "אורך מקסימלי לתשובה (128-4096)",
-  aiKnowledgeSources: "מקורות ידע",
-  aiProducts: "מוצרים",
-  aiFaqs: "שאלות נפוצות",
-  aiWebsite: "אתר",
-  aiIncludeProducts: "כלול מאגר מוצרים",
-  aiIncludeFaqs: "כלול שאלות נפוצות",
-  aiIncludeScraped: "כלול תוכן מהאתר",
-  aiMaxHistory: "מקסימום הודעות היסטוריה",
-  aiMaxHistoryHint: "כמה הודעות קודמות לכלול (1-50)",
 
   // Preview simulator
   previewTitle: "תצוגת תהליך",

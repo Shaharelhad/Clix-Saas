@@ -14,6 +14,78 @@ import { useAuth } from "@/hooks/useAuth";
 import type { FlowNode, FlowEdge, FlowJSON, FlowNodeData, FlowSettings, Workflow } from "@/types/flow";
 import { NODE_DEFAULTS, DEFAULT_FLOW_SETTINGS } from "@/types/flow";
 
+// ── Generate workflow_record on publish ───────────────────────
+function describeNodeType(type: string): string {
+  const map: Record<string, string> = {
+    text: "שולח הודעת טקסט",
+    image: "שולח תמונה",
+    buttons: "תפריט כפתורים",
+    collect_input: "אוסף קלט",
+    delay: "ממתין",
+    follow_up: "הודעת מעקב",
+    condition: "תנאי",
+  };
+  return map[type] || type;
+}
+
+function describeFlowChain(
+  startId: string,
+  nodes: FlowNode[],
+  edges: FlowEdge[],
+): string {
+  const parts: string[] = [];
+  let currentId: string | null = startId;
+  let steps = 0;
+
+  while (currentId && steps < 5) {
+    steps++;
+    const edge = edges.find((e) => e.source === currentId);
+    if (!edge) break;
+    const node = nodes.find((n) => n.id === edge.target);
+    if (!node) break;
+
+    const nd = node.data;
+    const typeDesc = describeNodeType(nd.type);
+
+    if (nd.type === "text" && nd.message) {
+      parts.push(`${typeDesc}: "${nd.message.substring(0, 40)}${nd.message.length > 40 ? "..." : ""}"`);
+    } else if (nd.type === "image") {
+      parts.push(nd.message ? `${typeDesc} עם כיתוב` : typeDesc);
+    } else if (nd.type === "buttons" && nd.buttons?.length) {
+      const labels = nd.buttons.map((b) => b.label).join(", ");
+      parts.push(`${typeDesc} (${labels})`);
+    } else if (nd.type === "collect_input" && nd.variableName) {
+      parts.push(`${typeDesc} (${nd.variableName})`);
+    } else if (nd.type === "delay" && nd.delayMinutes) {
+      parts.push(`${typeDesc} ${nd.delayMinutes} דקות`);
+    } else {
+      parts.push(typeDesc);
+    }
+
+    currentId = edge.target;
+  }
+
+  return parts.length > 0 ? parts.join(" → ") : "תהליך ריק";
+}
+
+function generateWorkflowRecord(nodes: FlowNode[], edges: FlowEdge[]): string {
+  const startNodes = nodes.filter(
+    (n) => n.data.type === "start" && n.data.triggerText?.trim(),
+  );
+
+  if (startNodes.length === 0) {
+    return "אין תהליכים מוגדרים. ענה באופן טבעי כבעל העסק.";
+  }
+
+  const lines = startNodes.map((startNode) => {
+    const trigger = startNode.data.triggerText!.trim();
+    const description = describeFlowChain(startNode.id, nodes, edges);
+    return `- "${trigger}" → ${description}`;
+  });
+
+  return `הבוט מטפל בתהליכים הבאים:\n${lines.join("\n")}\nכשאין התאמה לתהליך — ענה באופן טבעי כבעל העסק, והצע ללקוח תהליכים רלוונטיים כשמתאים.`;
+}
+
 // ── Types ──────────────────────────────────────────────────────
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 
@@ -94,14 +166,25 @@ export function useFlowBuilder(): UseFlowBuilderReturn {
     },
   });
 
-  // Sync loaded workflow to state
+  // Sync loaded workflow to state (auto-migrate legacy ai_agent nodes)
   useEffect(() => {
     if (!loadedWorkflow) return;
     setWorkflowName(loadedWorkflow.name);
     setWorkflowStatus(loadedWorkflow.status);
     const flowJson = loadedWorkflow.flow_json as unknown as FlowJSON | null;
-    setNodes(flowJson?.nodes ?? []);
-    setEdges(flowJson?.edges ?? []);
+
+    // Strip legacy ai_agent nodes and their edges
+    const rawNodes = flowJson?.nodes ?? [];
+    const aiIds = new Set(
+      rawNodes.filter((n) => (n.data.type as string) === "ai_agent").map((n) => n.id),
+    );
+    const cleanNodes = rawNodes.filter((n) => !aiIds.has(n.id));
+    const cleanEdges = (flowJson?.edges ?? []).filter(
+      (e) => !aiIds.has(e.source) && !aiIds.has(e.target),
+    );
+
+    setNodes(cleanNodes);
+    setEdges(cleanEdges);
     setFlowSettings({ ...DEFAULT_FLOW_SETTINGS, ...flowJson?.settings });
     setSelectedNodeId(null);
   }, [loadedWorkflow, setNodes, setEdges]);
@@ -158,30 +241,8 @@ export function useFlowBuilder(): UseFlowBuilderReturn {
                 position: { x: 400, y: 50 },
                 data: { type: "start", triggerText: "" },
               },
-              {
-                id: "ai-agent-default",
-                type: "ai_agent",
-                position: { x: 400, y: 200 },
-                data: {
-                  type: "ai_agent",
-                  temperature: 1.0,
-                  maxTokens: 2048,
-                  includeProducts: true,
-                  includeFaqs: true,
-                  includeScrapedContent: true,
-                  maxHistoryMessages: 20,
-                },
-              },
             ],
-            edges: [
-              {
-                id: "edge-start-to-agent",
-                source: "start-default",
-                target: "ai-agent-default",
-                type: "smoothstep",
-                animated: true,
-              },
-            ],
+            edges: [],
             settings: { ...DEFAULT_FLOW_SETTINGS },
           },
           status: "draft",
@@ -203,15 +264,17 @@ export function useFlowBuilder(): UseFlowBuilderReturn {
       if (!activeWorkflowId || !user?.id) return;
       const newStatus = workflowStatus === "active" ? "paused" : "active";
 
-      // If publishing, save flow_json first so the latest changes go live
+      // If publishing, save flow_json + workflow_record so the latest changes go live
       if (newStatus === "active") {
         const flowJson: FlowJSON = { nodes, edges, settings: flowSettings };
+        const workflowRecord = generateWorkflowRecord(nodes, edges);
         const { error: saveErr } = await supabase
           .from("workflows")
           .update({
             name: workflowName,
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             flow_json: flowJson as any,
+            workflow_record: workflowRecord,
             status: newStatus,
             updated_at: new Date().toISOString(),
           })
