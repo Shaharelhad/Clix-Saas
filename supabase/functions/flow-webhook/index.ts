@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { callLLMEngine, type LLMConfig } from "../_shared/llm-engine.ts";
+import { callLLMEngine, classifyTrigger, type TriggerInfo } from "../_shared/llm-engine.ts";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -57,15 +57,6 @@ interface FlowNode {
     expectedReply?: string;
     continueAuto?: boolean;
     followUpMessage?: string;
-    // ai_agent fields
-    systemPromptOverride?: string;
-    temperature?: number;
-    maxTokens?: number;
-    model?: string;
-    includeProducts?: boolean;
-    includeFaqs?: boolean;
-    includeScrapedContent?: boolean;
-    maxHistoryMessages?: number;
   };
 }
 
@@ -98,24 +89,17 @@ function getFlowSettings(flow: FlowJSON) {
 }
 
 // ── Flow Navigation Engine ──────────────────────────────────
-function triggerMatches(trigger: string, message: string): boolean {
-  const t = trigger.trim().toLowerCase();
-  const m = message.trim().toLowerCase();
-  return t === m || m.includes(t);
+
+// ── Extract triggers from flow for LLM classification ──────
+function extractTriggers(flow: FlowJSON): TriggerInfo[] {
+  return flow.nodes
+    .filter((n) => n.type === "start" && n.data.triggerText?.trim())
+    .map((n) => ({ id: n.id, trigger: n.data.triggerText!.trim() }));
 }
 
-function findStartNodeByTrigger(flow: FlowJSON, message: string): FlowNode | undefined {
-  return flow.nodes.find(
-    (n) => n.type === "start" && n.data.triggerText &&
-      triggerMatches(n.data.triggerText, message)
-  );
-}
-
-function messageMatchesAnyTrigger(flow: FlowJSON, message: string): boolean {
-  return flow.nodes.some(
-    (n) => n.type === "start" && n.data.triggerText &&
-      triggerMatches(n.data.triggerText, message)
-  );
+// ── Find start node by ID ──────────────────────────────────
+function findStartNodeById(flow: FlowJSON, nodeId: string): FlowNode | undefined {
+  return flow.nodes.find((n) => n.id === nodeId && n.type === "start");
 }
 
 function findNodeById(flow: FlowJSON, id: string): FlowNode | undefined {
@@ -165,16 +149,6 @@ function resolveVariables(
   return text.replace(/\{\{(\w+)\}\}/g, (_, key) => variables[key] || "");
 }
 
-function findCatchAllAgentNode(flow: FlowJSON): FlowNode | undefined {
-  const catchAllStart = flow.nodes.find(
-    (n) => n.type === "start" && (!n.data.triggerText || !n.data.triggerText.trim())
-  );
-  if (!catchAllStart) return undefined;
-  const nextNode = findNextNode(flow, catchAllStart.id);
-  if (nextNode?.type === "ai_agent") return nextNode;
-  return undefined;
-}
-
 // Send event to Inngest for durable processing
 async function sendInngestEvent(data: Record<string, unknown>): Promise<void> {
   const eventKey = Deno.env.get("INNGEST_EVENT_KEY");
@@ -189,40 +163,6 @@ async function sendInngestEvent(data: Record<string, unknown>): Promise<void> {
   }
 }
 
-// ── Build trigger context for LLM awareness ─────────────────
-function buildTriggerContext(flow: FlowJSON): string {
-  const triggers = flow.nodes
-    .filter((n) => n.type === "start" && n.data.triggerText?.trim())
-    .map((startNode) => {
-      const trigger = startNode.data.triggerText!.trim();
-      const nextNode = findNextNode(flow, startNode.id);
-      let description = "";
-      if (nextNode) {
-        if (nextNode.type === "text" && nextNode.data.message) {
-          description = nextNode.data.message.substring(0, 50);
-        } else if (nextNode.type === "buttons") {
-          description = nextNode.data.message || "תפריט אפשרויות";
-        } else if (nextNode.type === "collect_input" && nextNode.data.message) {
-          description = nextNode.data.message.substring(0, 50);
-        } else if (nextNode.type === "image" && nextNode.data.message) {
-          description = nextNode.data.message.substring(0, 50);
-        }
-      }
-      return { trigger, description };
-    });
-
-  if (triggers.length === 0) return "";
-
-  const lines = triggers.map((t) => {
-    const desc = t.description ? ` — ${t.description}` : "";
-    return `- "${t.trigger}"${desc}`;
-  });
-
-  return `\n\nתהליכים אוטומטיים שזמינים ללקוחות (הזכר ללקוח כשרלוונטי לשיחה, אל תזכיר את כולם בבת אחת):
-${lines.join("\n")}
-אם הלקוח שואל על נושא שקשור לאחד מהתהליכים, הצע לו לכתוב את מילת המפתח. לדוגמה: "כתוב לי 'מחירון' ואשלח לך את כל המחירים"`;
-}
-
 // ── Open LLM Chat (used when no trigger matches) ────────────
 async function callOpenLLM(
   userId: string,
@@ -231,8 +171,7 @@ async function callOpenLLM(
   workflowId: string,
   customerId: string,
   phone: string,
-  flow: FlowJSON,
-  agentNodeConfig?: { node: FlowNode }
+  workflowRecord?: string
 ): Promise<void> {
   // When Inngest is enabled, dispatch to Inngest instead of processing inline
   if (USE_INNGEST) {
@@ -243,44 +182,8 @@ async function callOpenLLM(
       customerId,
       workflowId,
       sessionId,
-      flowJson: flow,
     });
     return;
-  }
-
-  // Build LLM config from explicit agent node or catch-all agent
-  let config: LLMConfig | undefined;
-  let maxHistory = 20;
-  let nodeId: string | null = null;
-
-  if (agentNodeConfig) {
-    const nd = agentNodeConfig.node.data;
-    config = {
-      systemPromptOverride: nd.systemPromptOverride,
-      temperature: nd.temperature,
-      maxTokens: nd.maxTokens,
-      model: nd.model,
-      includeProducts: nd.includeProducts,
-      includeFaqs: nd.includeFaqs,
-      includeScrapedContent: nd.includeScrapedContent,
-    };
-    maxHistory = nd.maxHistoryMessages ?? 20;
-    nodeId = agentNodeConfig.node.id;
-  } else {
-    const agentNode = findCatchAllAgentNode(flow);
-    if (agentNode) {
-      config = {
-        systemPromptOverride: agentNode.data.systemPromptOverride,
-        temperature: agentNode.data.temperature,
-        maxTokens: agentNode.data.maxTokens,
-        model: agentNode.data.model,
-        includeProducts: agentNode.data.includeProducts,
-        includeFaqs: agentNode.data.includeFaqs,
-        includeScrapedContent: agentNode.data.includeScrapedContent,
-      };
-      maxHistory = agentNode.data.maxHistoryMessages ?? 20;
-      nodeId = agentNode.id;
-    }
   }
 
   // Fetch conversation history
@@ -289,7 +192,7 @@ async function callOpenLLM(
     .select("direction, content")
     .eq("session_id", sessionId)
     .order("created_at", { ascending: true })
-    .limit(maxHistory);
+    .limit(20);
 
   const conversationHistory: { role: string; content: string }[] = [];
   if (history) {
@@ -301,15 +204,15 @@ async function callOpenLLM(
     }
   }
 
-  const triggerContext = buildTriggerContext(flow);
   const result = await callLLMEngine(
     supabase,
     userId,
     userMessage,
     conversationHistory,
-    config,
-    triggerContext,
-    false, // production = not draft
+    undefined, // no config overrides
+    undefined, // no legacy triggerContext
+    false,     // production = not draft
+    workflowRecord,
   );
 
   // Send response via WClixAPI
@@ -319,7 +222,7 @@ async function callOpenLLM(
   await supabase.from("flow_message_log").insert({
     workflow_id: workflowId,
     session_id: sessionId,
-    node_id: nodeId,
+    node_id: null,
     direction: "outbound",
     message_type: "llm_response",
     content: result.response,
@@ -662,7 +565,6 @@ Deno.serve(async (req) => {
       if (autoFlow) {
         activeFlowId = autoFlow.id;
       } else {
-        // Auto-create a default workflow with Start → AI Agent template
         const { data: newFlow } = await supabase
           .from("workflows")
           .insert({
@@ -676,30 +578,8 @@ Deno.serve(async (req) => {
                   position: { x: 400, y: 50 },
                   data: { type: "start", triggerText: "" },
                 },
-                {
-                  id: "ai-agent-default",
-                  type: "ai_agent",
-                  position: { x: 400, y: 200 },
-                  data: {
-                    type: "ai_agent",
-                    temperature: 1.0,
-                    maxTokens: 2048,
-                    includeProducts: true,
-                    includeFaqs: true,
-                    includeScrapedContent: true,
-                    maxHistoryMessages: 20,
-                  },
-                },
               ],
-              edges: [
-                {
-                  id: "edge-start-to-agent",
-                  source: "start-default",
-                  target: "ai-agent-default",
-                  type: "smoothstep",
-                  animated: true,
-                },
-              ],
+              edges: [],
             },
             status: "active",
           })
@@ -725,7 +605,7 @@ Deno.serve(async (req) => {
     // Get the workflow
     const { data: workflow } = await supabase
       .from("workflows")
-      .select("id, flow_json, status")
+      .select("id, flow_json, status, workflow_record")
       .eq("id", activeFlowId)
       .single();
 
@@ -736,6 +616,8 @@ Deno.serve(async (req) => {
     }
 
     const flow = workflow.flow_json as FlowJSON;
+    const workflowRecord = (workflow.workflow_record as string) || undefined;
+    const triggers = extractTriggers(flow);
     const settings = getFlowSettings(flow);
 
     // ── Guard 1: Ignore group chats ──────────────────────────
@@ -784,7 +666,8 @@ Deno.serve(async (req) => {
     let session = sessions?.[0] || null;
 
     if (!session) {
-      const triggerStart = findStartNodeByTrigger(flow, userMessage);
+      const matchedNodeId0 = await classifyTrigger(triggers, userMessage);
+      const triggerStart = matchedNodeId0 ? findStartNodeById(flow, matchedNodeId0) : undefined;
       if (triggerStart) {
         // Trigger matched — start the flow
         const { data: newSession, error: insertErr } = await supabase
@@ -837,7 +720,7 @@ Deno.serve(async (req) => {
               message_type: "text",
               content: userMessage,
             });
-            await callOpenLLM(profile.id, userMessage, existingSession.id, workflow.id, customerId, phone, flow);
+            await callOpenLLM(profile.id, userMessage, existingSession.id, workflow.id, customerId, phone, workflowRecord);
           }
           return new Response(JSON.stringify({ ok: true, action: "llm_response" }), {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -853,7 +736,7 @@ Deno.serve(async (req) => {
             message_type: "text",
             content: userMessage,
           });
-          await callOpenLLM(profile.id, userMessage, newSession.id, workflow.id, customerId, phone, flow);
+          await callOpenLLM(profile.id, userMessage, newSession.id, workflow.id, customerId, phone, workflowRecord);
         }
         return new Response(JSON.stringify({ ok: true, action: "llm_response" }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -963,7 +846,8 @@ Deno.serve(async (req) => {
 
     // If session completed and message matches a trigger, restart the flow
     if (session.status === "completed") {
-      const triggerStartNode = findStartNodeByTrigger(flow, userMessage);
+      const matchedNodeId1 = await classifyTrigger(triggers, userMessage);
+      const triggerStartNode = matchedNodeId1 ? findStartNodeById(flow, matchedNodeId1) : undefined;
       if (triggerStartNode) {
         // Atomic lock: only one concurrent request can restart the session.
         // The WHERE status='completed' ensures only the first request wins.
@@ -990,7 +874,7 @@ Deno.serve(async (req) => {
         variables = { phone };
       } else {
         // No trigger match on completed session — use open LLM conversation
-        await callOpenLLM(profile.id, userMessage, session.id, workflow.id, customerId, phone, flow);
+        await callOpenLLM(profile.id, userMessage, session.id, workflow.id, customerId, phone, workflowRecord);
         return new Response(JSON.stringify({ ok: true, action: "llm_response" }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -999,12 +883,13 @@ Deno.serve(async (req) => {
 
     // If no current node, try trigger match or fall back to LLM
     if (!currentNodeId) {
-      const startNode = findStartNodeByTrigger(flow, userMessage);
+      const matchedNodeId2 = await classifyTrigger(triggers, userMessage);
+      const startNode = matchedNodeId2 ? findStartNodeById(flow, matchedNodeId2) : undefined;
       if (startNode) {
         currentNodeId = startNode.id;
       } else {
         // No trigger match and no active flow — use LLM
-        await callOpenLLM(profile.id, userMessage, session.id, workflow.id, customerId, phone, flow);
+        await callOpenLLM(profile.id, userMessage, session.id, workflow.id, customerId, phone, workflowRecord);
         return new Response(JSON.stringify({ ok: true, action: "llm_response" }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -1034,9 +919,9 @@ Deno.serve(async (req) => {
 
     // Check if message matches a trigger — restart flow even if session is active
     // Allow trigger restart from ANY state so the user can always restart the flow
-    if (messageMatchesAnyTrigger(flow, userMessage)) {
-      const triggerNode = findStartNodeByTrigger(flow, userMessage);
-      if (triggerNode && currentNode.type !== "start") {
+    const matchedNodeId3 = await classifyTrigger(triggers, userMessage);
+    const triggerNode = matchedNodeId3 ? findStartNodeById(flow, matchedNodeId3) : undefined;
+    if (triggerNode && currentNode.type !== "start") {
         // Atomic lock: claim the session by changing current_node_id.
         // Only the first request to update from the current node wins.
         const { data: claimed } = await supabase
@@ -1068,11 +953,12 @@ Deno.serve(async (req) => {
           maxSteps--;
           const node = findNodeById(flow, nextNodeId);
           if (!node) break;
-          // AI agent in chain — call LLM and stay
+          // Legacy ai_agent nodes — skip through to next
           if (node.type === "ai_agent") {
-            await callOpenLLM(profile.id, userMessage, session.id, workflow.id, customerId, phone, flow, { node });
-            nextNodeId = node.id;
-            break;
+            const next = findNextNode(flow, node.id);
+            nextNodeId = next?.id || null;
+            if (!nextNodeId) break;
+            continue;
           }
           const result = await executeNode(node, customerId, phone, updatedVariables, flow, session.id, workflow.id);
           if (result.waitForInput) {
@@ -1096,19 +982,18 @@ Deno.serve(async (req) => {
           JSON.stringify({ ok: true, current_node: nextNodeId, status: restartStatus }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
-      }
     }
 
-    // Handle ai_agent — call LLM and stay on node
+    // Legacy ai_agent node — use LLM fallback
     if (currentNode.type === "ai_agent") {
-      await callOpenLLM(profile.id, userMessage, session.id, workflow.id, customerId, phone, flow, { node: currentNode });
+      await callOpenLLM(profile.id, userMessage, session.id, workflow.id, customerId, phone, workflowRecord);
       await updateSessionDirect(session.id, {
         current_node_id: currentNode.id,
         status: "active",
         last_message_at: new Date().toISOString(),
       });
       return new Response(
-        JSON.stringify({ ok: true, action: "ai_agent_response", current_node: currentNode.id }),
+        JSON.stringify({ ok: true, action: "llm_response", current_node: currentNode.id }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -1149,7 +1034,7 @@ Deno.serve(async (req) => {
           nextNodeId = nextNode?.id || null;
         } else {
           // No match — open LLM conversation (stay on same node for flow)
-          await callOpenLLM(profile.id, userMessage, session.id, workflow.id, customerId, phone, flow);
+          await callOpenLLM(profile.id, userMessage, session.id, workflow.id, customerId, phone, workflowRecord);
           await supabase
             .from("subscriber_sessions")
             .update({ last_message_at: new Date().toISOString() })
@@ -1179,25 +1064,23 @@ Deno.serve(async (req) => {
       const nextNode = findNextNode(flow, currentNode.id);
       nextNodeId = nextNode?.id || null;
     } else if (currentNode.type === "start") {
-      // Start node: only advance if message matches this start node's trigger
       const hasTrigger = currentNode.data.triggerText?.trim();
-      if (hasTrigger && triggerMatches(currentNode.data.triggerText!, userMessage)) {
-        const nextNode = findNextNode(flow, currentNode.id);
-        nextNodeId = nextNode?.id || null;
-      } else {
-        // Message does NOT match the trigger — fall back to LLM
-        console.log("[flow] Start node trigger mismatch:", {
-          trigger: currentNode.data.triggerText,
-          message: userMessage,
-        });
-        await callOpenLLM(profile.id, userMessage, session.id, workflow.id, customerId, phone, flow);
-        await supabase
-          .from("subscriber_sessions")
-          .update({ last_message_at: new Date().toISOString() })
-          .eq("id", session.id);
-        return new Response(JSON.stringify({ ok: true, action: "llm_response" }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+      if (hasTrigger) {
+        const startMatchId = await classifyTrigger(triggers, userMessage);
+        if (startMatchId === currentNode.id) {
+          const nextNode = findNextNode(flow, currentNode.id);
+          nextNodeId = nextNode?.id || null;
+        } else {
+          // Message does NOT match the trigger — fall back to LLM
+          await callOpenLLM(profile.id, userMessage, session.id, workflow.id, customerId, phone, workflowRecord);
+          await supabase
+            .from("subscriber_sessions")
+            .update({ last_message_at: new Date().toISOString() })
+            .eq("id", session.id);
+          return new Response(JSON.stringify({ ok: true, action: "llm_response" }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
       }
     } else {
       // Other node types — find next in chain
@@ -1214,11 +1097,12 @@ Deno.serve(async (req) => {
       if (!node) { console.log("[flow] Chain: node not found:", nextNodeId); break; }
       console.log("[flow] Chain: executing node:", node.id, node.type);
 
-      // AI agent in chain — call LLM and stay on node
+      // Legacy ai_agent nodes — skip through to next
       if (node.type === "ai_agent") {
-        await callOpenLLM(profile.id, userMessage, session.id, workflow.id, customerId, phone, flow, { node });
-        nextNodeId = node.id;
-        break;
+        const next = findNextNode(flow, node.id);
+        nextNodeId = next?.id || null;
+        if (!nextNodeId) break;
+        continue;
       }
 
       const result = await executeNode(
