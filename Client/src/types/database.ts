@@ -696,6 +696,7 @@ export type Database = {
       }
       subscriber_sessions: {
         Row: {
+          cooldown_until: string | null
           created_at: string
           current_node_id: string | null
           id: string
@@ -706,6 +707,7 @@ export type Database = {
           workflow_id: string
         }
         Insert: {
+          cooldown_until?: string | null
           created_at?: string
           current_node_id?: string | null
           id?: string
@@ -716,6 +718,7 @@ export type Database = {
           workflow_id: string
         }
         Update: {
+          cooldown_until?: string | null
           created_at?: string
           current_node_id?: string | null
           id?: string
