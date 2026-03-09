@@ -1,17 +1,17 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { ReactFlowProvider } from "@xyflow/react";
-import { useTranslation } from "react-i18next";
-import { GitBranch, Plus, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useFlowBuilder } from "@/hooks/useFlowBuilder";
 import FlowCanvas from "./Components/FlowCanvas";
 import FlowToolbar from "./Components/FlowToolbar";
+import FlowSettingsModal from "./Components/FlowSettingsModal";
 import NodePalette from "./Components/NodePalette";
 import NodeEditorSidebar from "./Components/NodeEditorSidebar";
 import FlowPreviewSimulator from "./Components/FlowPreviewSimulator";
 
 function FlowBuilderContent() {
-  const { t } = useTranslation("flow");
   const fb = useFlowBuilder();
+  const [showSettings, setShowSettings] = useState(false);
 
   // Listen for node delete events from node components
   useEffect(() => {
@@ -23,29 +23,8 @@ function FlowBuilderContent() {
     return () => document.removeEventListener("flow:delete-node", handler);
   }, [fb]);
 
-  // No workflows — show create prompt
-  if (!fb.isLoadingList && fb.workflows.length === 0) {
-    return (
-      <div className="h-[calc(100vh-3.5rem)] flex flex-col items-center justify-center gap-4">
-        <div className="w-16 h-16 rounded-2xl bg-[#FF7E47]/10 flex items-center justify-center">
-          <GitBranch className="w-8 h-8 text-[#FF7E47]" />
-        </div>
-        <h2 className="text-xl font-bold text-[#2D2A26]">{t("createFirst")}</h2>
-        <p className="text-sm text-[#7A7267] max-w-sm text-center">{t("createFirstDesc")}</p>
-        <button
-          onClick={fb.createWorkflow}
-          disabled={fb.isCreating}
-          className="flex items-center gap-2 px-6 py-3 rounded-xl bg-[#FF7E47] text-white font-medium hover:bg-[#E86B38] transition-colors cursor-pointer disabled:opacity-50"
-        >
-          {fb.isCreating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-          {t("newFlow")}
-        </button>
-      </div>
-    );
-  }
-
-  // Loading
-  if (fb.isLoadingList) {
+  // Loading or auto-creating
+  if (fb.isLoadingList || (!fb.activeWorkflowId && fb.workflows.length === 0)) {
     return (
       <div className="h-[calc(100vh-3.5rem)] flex items-center justify-center">
         <Loader2 className="w-8 h-8 text-[#FF7E47] animate-spin" />
@@ -62,13 +41,8 @@ function FlowBuilderContent() {
         onNameChange={fb.setWorkflowName}
         onSave={fb.save}
         onToggleStatus={fb.toggleStatus}
-        onDelete={fb.deleteWorkflow}
-        onCreate={fb.createWorkflow}
+        onOpenSettings={() => setShowSettings(true)}
         saveStatus={fb.saveStatus}
-        workflows={fb.workflows}
-        activeWorkflowId={fb.activeWorkflowId}
-        onSelectWorkflow={fb.selectWorkflow}
-        isCreating={fb.isCreating}
       />
 
       {/* Main 3-panel layout */}
@@ -98,6 +72,15 @@ function FlowBuilderContent() {
 
       {/* Preview simulator */}
       <FlowPreviewSimulator workflowId={fb.activeWorkflowId} />
+
+      {/* Settings modal */}
+      {showSettings && (
+        <FlowSettingsModal
+          settings={fb.flowSettings}
+          onUpdate={fb.updateFlowSettings}
+          onClose={() => setShowSettings(false)}
+        />
+      )}
     </div>
   );
 }
