@@ -39,8 +39,9 @@ Only `Client/` has a package.json. Run `npm install` from there.
 ### Backend (Supabase — no local server)
 - **Auth:** Supabase Auth with `handle_new_user()` trigger → auto-creates `profiles` row
 - **Database:** 20 tables in Supabase PostgreSQL (see `clix-backend-reference.md` for schema)
-- **Edge Functions:** 9 deployed at `https://gctijcljpjtmpyuzaohm.supabase.co/functions/v1/`
-  - form-submission, form-update, bot-demo, bot-edit, wclixapi-connect, flow-webhook, flow-demo, scrape-trigger, scrape-status
+- **Edge Functions:** 10 at `https://gctijcljpjtmpyuzaohm.supabase.co/functions/v1/`
+  - form-submission, form-update, bot-demo, bot-edit, wclixapi-connect, flow-webhook, flow-demo, scrape-trigger, scrape-status, inngest
+  - **Shared modules:** `_shared/llm-engine.ts` (single LLM calling logic), `_shared/wa-messaging.ts` (WhatsApp via WClixAPI), `_shared/cors.ts`
 - **RPC Functions:** 19 PostgreSQL functions (admin operations, profile, product search, draft/publish bot, etc.)
 
 ### Environment Variables
@@ -97,7 +98,7 @@ Only `Client/` has a package.json. Run `npm install` from there.
   - Approvals — approve/reject users (wired to RPCs)
   - Users — list + search + filter (wired to RPCs)
   - FormBuilder — drag-drop field editor (wired to 7 RPCs)
-- **FlowBuilderPage** — visual @xyflow/react flow editor at `/dashboard/flow-builder`. 3-panel layout (editor sidebar, canvas, node palette) + toolbar + preview simulator. 8 node types (start, text, image, buttons, collect_input, delay, follow_up, condition). `useFlowBuilder` hook with React Query, auto-save (3s debounce), workflow CRUD. Preview wired to `callFlowDemo()`. All 7 edge functions now wired.
+- **FlowBuilderPage** — visual @xyflow/react flow editor at `/dashboard/flow-builder`. 3-panel layout (editor sidebar, canvas, node palette) + toolbar + preview simulator. 9 node types (get_message, text, image, buttons, collect_input, delay, follow_up, condition, **ai_agent**). 1 workflow per account (auto-created). Default template: Get Message → AI Agent. Dashboard demo chat unified with flow preview (both use `callFlowDemo()`). Preview wired to `callFlowDemo()`.
 - **AdminGuard** — route protection for admin pages
 - **i18n** — 15 namespaces (including `flow`), Hebrew + English, RTL support via i18next
 
