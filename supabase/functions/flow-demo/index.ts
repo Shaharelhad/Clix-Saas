@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
+import { callLLMEngine, type LLMConfig } from "../_shared/llm-engine.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -25,6 +26,15 @@ interface FlowNode {
     expectedReply?: string;
     continueAuto?: boolean;
     followUpMessage?: string;
+    // ai_agent fields
+    systemPromptOverride?: string;
+    temperature?: number;
+    maxTokens?: number;
+    model?: string;
+    includeProducts?: boolean;
+    includeFaqs?: boolean;
+    includeScrapedContent?: boolean;
+    maxHistoryMessages?: number;
   };
 }
 
@@ -112,6 +122,91 @@ function resolveVariables(
   return text.replace(/\{\{(\w+)\}\}/g, (_, key) => variables[key] || "");
 }
 
+// ── Find catch-all AI Agent node ────────────────────────────
+// Looks for a start node with empty triggerText that leads to an ai_agent node
+function findCatchAllAgentNode(flow: FlowJSON): FlowNode | undefined {
+  const catchAllStart = flow.nodes.find(
+    (n) => n.type === "start" && (!n.data.triggerText || !n.data.triggerText.trim())
+  );
+  if (!catchAllStart) return undefined;
+  const nextNode = findNextNode(flow, catchAllStart.id);
+  if (nextNode?.type === "ai_agent") return nextNode;
+  return undefined;
+}
+
+// ── Build trigger context for LLM awareness ─────────────────
+function buildTriggerContext(flow: FlowJSON): string {
+  const triggers = flow.nodes
+    .filter((n) => n.type === "start" && n.data.triggerText?.trim())
+    .map((startNode) => {
+      const trigger = startNode.data.triggerText!.trim();
+      const nextNode = findNextNode(flow, startNode.id);
+      let description = "";
+      if (nextNode) {
+        if (nextNode.type === "text" && nextNode.data.message) {
+          description = nextNode.data.message.substring(0, 50);
+        } else if (nextNode.type === "buttons") {
+          description = nextNode.data.message || "תפריט אפשרויות";
+        } else if (nextNode.type === "collect_input" && nextNode.data.message) {
+          description = nextNode.data.message.substring(0, 50);
+        } else if (nextNode.type === "image" && nextNode.data.message) {
+          description = nextNode.data.message.substring(0, 50);
+        }
+      }
+      return { trigger, description };
+    });
+
+  if (triggers.length === 0) return "";
+
+  const lines = triggers.map((t) => {
+    const desc = t.description ? ` — ${t.description}` : "";
+    return `- "${t.trigger}"${desc}`;
+  });
+
+  return `\n\nתהליכים אוטומטיים שזמינים ללקוחות (הזכר ללקוח כשרלוונטי לשיחה, אל תזכיר את כולם בבת אחת):
+${lines.join("\n")}
+אם הלקוח שואל על נושא שקשור לאחד מהתהליכים, הצע לו לכתוב את מילת המפתח. לדוגמה: "כתוב לי 'מחירון' ואשלח לך את כל המחירים"`;
+}
+
+// ── LLM Fallback — uses shared engine ───────────────────────
+async function callLLMFallback(
+  userId: string,
+  userMessage: string,
+  conversationId: string,
+  flow?: FlowJSON,
+  nodeConfig?: LLMConfig
+): Promise<string> {
+  // Fetch conversation history from demo_conversations
+  const { data: history } = await supabase
+    .from("demo_conversations")
+    .select("user_message, bot_response")
+    .eq("conversation_id", conversationId)
+    .order("created_at", { ascending: true })
+    .limit(nodeConfig?.maxHistoryMessages ?? 10);
+
+  const conversationHistory: { role: string; content: string }[] = [];
+  if (history) {
+    for (const row of history) {
+      conversationHistory.push({ role: "user", content: row.user_message });
+      conversationHistory.push({ role: "assistant", content: row.bot_response });
+    }
+  }
+
+  const triggerContext = flow ? buildTriggerContext(flow) : "";
+
+  const result = await callLLMEngine(
+    supabase,
+    userId,
+    userMessage,
+    conversationHistory,
+    nodeConfig,
+    triggerContext,
+    true, // useDraft for preview
+  );
+
+  return result.response;
+}
+
 // ── Execute node in demo mode (no WhatsApp, collect responses) ──
 function executeNodeDemo(
   node: FlowNode,
@@ -167,191 +262,13 @@ function executeNodeDemo(
     return { nextNodeId: next?.id || null, waitForInput: false };
   }
 
+  if (node.type === "ai_agent") {
+    // Mark as pending — handled async in main loop
+    responses.push({ type: "ai_agent_pending", content: "" });
+    return { nextNodeId: node.id, waitForInput: true };
+  }
+
   return { nextNodeId: null, waitForInput: false };
-}
-
-// ── Build trigger context for LLM awareness ─────────────────
-function buildTriggerContext(flow: FlowJSON): string {
-  const triggers = flow.nodes
-    .filter((n) => n.type === "start" && n.data.triggerText?.trim())
-    .map((startNode) => {
-      const trigger = startNode.data.triggerText!.trim();
-      const nextNode = findNextNode(flow, startNode.id);
-      let description = "";
-      if (nextNode) {
-        if (nextNode.type === "text" && nextNode.data.message) {
-          description = nextNode.data.message.substring(0, 50);
-        } else if (nextNode.type === "buttons") {
-          description = nextNode.data.message || "תפריט אפשרויות";
-        } else if (nextNode.type === "collect_input" && nextNode.data.message) {
-          description = nextNode.data.message.substring(0, 50);
-        } else if (nextNode.type === "image" && nextNode.data.message) {
-          description = nextNode.data.message.substring(0, 50);
-        }
-      }
-      return { trigger, description };
-    });
-
-  if (triggers.length === 0) return "";
-
-  const lines = triggers.map((t) => {
-    const desc = t.description ? ` — ${t.description}` : "";
-    return `- "${t.trigger}"${desc}`;
-  });
-
-  return `\n\nתהליכים אוטומטיים שזמינים ללקוחות (הזכר ללקוח כשרלוונטי לשיחה, אל תזכיר את כולם בבת אחת):
-${lines.join("\n")}
-אם הלקוח שואל על נושא שקשור לאחד מהתהליכים, הצע לו לכתוב את מילת המפתח. לדוגמה: "כתוב לי 'מחירון' ואשלח לך את כל המחירים"`;
-}
-
-// ── LLM Fallback (same as bot-demo) ────────────────────────
-async function callLLMFallback(
-  userId: string,
-  userMessage: string,
-  conversationId: string,
-  flow?: FlowJSON
-): Promise<string> {
-  // Fetch bot prompt and scraped content
-  const { data: formRow } = await supabase
-    .from("form_responses")
-    .select("bot_prompt, draft_bot_prompt, business_name, scraped_content")
-    .eq("user_id", userId)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .single();
-
-  const basePrompt =
-    formRow?.draft_bot_prompt ||
-    formRow?.bot_prompt ||
-    `אתה בעל עסק בשם ${formRow?.business_name || "העסק"}. דבר בגוף ראשון, בצורה טבעית ואנושית כמו בוואטסאפ.`;
-
-  const scrapedContext = formRow?.scraped_content
-    ? `\n\nמידע מהאתר שלך (השתמש במידע הזה כשרלוונטי לשאלה):\n${(formRow.scraped_content as string).substring(0, 8000)}`
-    : "";
-
-  // Search for relevant products
-  let productContext = "";
-  try {
-    const { data: products } = await supabase.rpc("search_products", {
-      p_user_id: userId,
-      p_query: userMessage,
-      p_limit: 5,
-    });
-    if (products && products.length > 0) {
-      const productLines = products.map(
-        (p: { name: string; description: string; price: string; product_url: string; image_urls: string[] }, i: number) => {
-          const parts = [`${i + 1}. ${p.name}`];
-          if (p.description) parts.push(p.description);
-          if (p.price) parts.push(`מחיר: ${p.price}`);
-          if (p.product_url) parts.push(`קישור: ${p.product_url}`);
-          if (p.image_urls && p.image_urls.length > 0) parts.push(`תמונה: ${p.image_urls[0]}`);
-          return parts.join(" - ");
-        }
-      );
-      productContext = `\n\nמוצרים/שירותים רלוונטיים:\n${productLines.join("\n")}`;
-    }
-  } catch { /* Products not available */ }
-
-  // Fetch FAQ entries
-  let faqContext = "";
-  try {
-    const { data: faqs } = await supabase
-      .from("faq_entries")
-      .select("question, answer")
-      .eq("user_id", userId)
-      .eq("is_active", true)
-      .order("sort_order", { ascending: true });
-    if (faqs && faqs.length > 0) {
-      const faqLines = faqs.map(
-        (f: { question: string; answer: string }) => `שאלה: ${f.question}\nתשובה: ${f.answer}`
-      );
-      faqContext = `\n\nשאלות ותשובות נפוצות (עדיפות גבוהה — אם הלקוח שואל שאלה דומה, ענה בדיוק לפי התשובה כאן):\n${faqLines.join("\n\n")}`;
-    }
-  } catch { /* FAQ not available */ }
-
-  const triggerContext = flow ? buildTriggerContext(flow) : "";
-
-  const systemPrompt = basePrompt + scrapedContext + productContext + faqContext + triggerContext + `\n\nהנחיות קריטיות לסגנון התשובה:
-- אתה בעל העסק, לא בוט. דבר בגוף ראשון: "אצלי", "אני", "שלי"
-- כתוב בצורה טבעית, קצרה וחמה
-- תשובות קצרות וממוקדות! מקסימום 3-4 שורות לכל הודעה
-- אל תכתוב פסקאות ארוכות, אל תעשה רשימות מפורטות
-- אל תשתמש במילים: "בוט", "מערכת", "שירות לקוחות", "אוטומטי"
-- תגיב כמו בשיחת וואטסאפ אמיתית בין שני אנשים
-- אל תשתמש באימוג'ים בשום מקרה, אלא אם הפרומפט למעלה מציין במפורש להשתמש באימוג'ים. ברירת המחדל היא ללא אימוג'ים`;
-
-  // Fetch conversation history
-  const { data: history } = await supabase
-    .from("demo_conversations")
-    .select("user_message, bot_response")
-    .eq("conversation_id", conversationId)
-    .order("created_at", { ascending: true })
-    .limit(10);
-
-  const messages: { role: string; content: string }[] = [
-    { role: "system", content: systemPrompt },
-  ];
-  if (history) {
-    for (const row of history) {
-      messages.push({ role: "user", content: row.user_message });
-      messages.push({ role: "assistant", content: row.bot_response });
-    }
-  }
-  messages.push({ role: "user", content: userMessage });
-
-  let botResponse = "";
-  const openrouterKey = Deno.env.get("OPENROUTER_API_KEY");
-
-  // Try Grok 4 Fast
-  let primaryOk = false;
-  if (openrouterKey) {
-    try {
-      const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${openrouterKey}`,
-        },
-        body: JSON.stringify({
-          model: "x-ai/grok-4-fast",
-          messages,
-          max_tokens: 2048,
-          temperature: 1.0,
-        }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        const text = data.choices?.[0]?.message?.content;
-        if (text) { botResponse = text; primaryOk = true; }
-      }
-    } catch { /* Grok 4 Fast failed */ }
-  }
-
-  // Fallback to Grok 4.1 Fast
-  if (!primaryOk && openrouterKey) {
-    try {
-      const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${openrouterKey}`,
-        },
-        body: JSON.stringify({
-          model: "x-ai/grok-4.1-fast",
-          messages,
-          max_tokens: 2048,
-          temperature: 1.0,
-        }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        const text = data.choices?.[0]?.message?.content;
-        if (text) { botResponse = text; }
-      }
-    } catch { /* Grok 4.1 Fast also failed */ }
-  }
-
-  return botResponse || "איך אפשר לעזור?";
 }
 
 // ── Main Handler ────────────────────────────────────────────
@@ -413,7 +330,6 @@ Deno.serve(async (req) => {
 
     const flow = workflow.flow_json as FlowJSON;
     if (!flow?.nodes?.length) {
-      // Empty flow — pure LLM fallback
       const botResponse = await callLLMFallback(user_id, message, convId);
       await supabase.from("demo_conversations").insert({
         user_id,
@@ -434,6 +350,26 @@ Deno.serve(async (req) => {
 
     const responses: DemoResponse[] = [];
 
+    // Helper: call LLM with agent config if available, save conversation, return response
+    async function llmFallbackResponse(agentConfig?: LLMConfig, stayOnNode?: string | null) {
+      const botResponse = await callLLMFallback(user_id, message, convId, flow, agentConfig);
+      await supabase.from("demo_conversations").insert({
+        user_id,
+        conversation_id: convId,
+        user_message: message,
+        bot_response: botResponse,
+      });
+      const nodeId = stayOnNode !== undefined ? stayOnNode : currentNodeId;
+      return new Response(
+        JSON.stringify({
+          response: botResponse,
+          conversation_id: convId,
+          session_state: { current_node_id: nodeId, variables, status: nodeId ? "active" : "completed" },
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // If session completed or no current node, check for trigger match
     if (sessionStatus === "completed" || !currentNodeId) {
       const triggerNode = findStartNodeByTrigger(flow, message);
@@ -442,22 +378,21 @@ Deno.serve(async (req) => {
         variables = {};
         sessionStatus = "active";
       } else {
-        // No trigger match — LLM fallback
-        const botResponse = await callLLMFallback(user_id, message, convId, flow);
-        await supabase.from("demo_conversations").insert({
-          user_id,
-          conversation_id: convId,
-          user_message: message,
-          bot_response: botResponse,
-        });
-        return new Response(
-          JSON.stringify({
-            response: botResponse,
-            conversation_id: convId,
-            session_state: { current_node_id: currentNodeId, variables, status: sessionStatus },
-          }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        // No trigger match — check for catch-all AI Agent node
+        const agentNode = findCatchAllAgentNode(flow);
+        if (agentNode) {
+          const config: LLMConfig = {
+            systemPromptOverride: agentNode.data.systemPromptOverride,
+            temperature: agentNode.data.temperature,
+            maxTokens: agentNode.data.maxTokens,
+            model: agentNode.data.model,
+            includeProducts: agentNode.data.includeProducts,
+            includeFaqs: agentNode.data.includeFaqs,
+            includeScrapedContent: agentNode.data.includeScrapedContent,
+          };
+          return llmFallbackResponse(config, agentNode.id);
+        }
+        return llmFallbackResponse();
       }
     } else {
       // Active session — check if message matches a trigger (restart flow)
@@ -472,21 +407,34 @@ Deno.serve(async (req) => {
 
     const currentNode = currentNodeId ? findNodeById(flow, currentNodeId) : null;
     if (!currentNode) {
-      const botResponse = await callLLMFallback(user_id, message, convId, flow);
-      await supabase.from("demo_conversations").insert({
-        user_id,
-        conversation_id: convId,
-        user_message: message,
-        bot_response: botResponse,
-      });
-      return new Response(
-        JSON.stringify({
-          response: botResponse,
-          conversation_id: convId,
-          session_state: { current_node_id: null, variables, status: "completed" },
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      const agentNode = findCatchAllAgentNode(flow);
+      if (agentNode) {
+        const config: LLMConfig = {
+          systemPromptOverride: agentNode.data.systemPromptOverride,
+          temperature: agentNode.data.temperature,
+          maxTokens: agentNode.data.maxTokens,
+          model: agentNode.data.model,
+          includeProducts: agentNode.data.includeProducts,
+          includeFaqs: agentNode.data.includeFaqs,
+          includeScrapedContent: agentNode.data.includeScrapedContent,
+        };
+        return llmFallbackResponse(config, agentNode.id);
+      }
+      return llmFallbackResponse(undefined, null);
+    }
+
+    // If currently on an ai_agent node and receiving a new message, call LLM
+    if (currentNode.type === "ai_agent") {
+      const config: LLMConfig = {
+        systemPromptOverride: currentNode.data.systemPromptOverride,
+        temperature: currentNode.data.temperature,
+        maxTokens: currentNode.data.maxTokens,
+        model: currentNode.data.model,
+        includeProducts: currentNode.data.includeProducts,
+        includeFaqs: currentNode.data.includeFaqs,
+        includeScrapedContent: currentNode.data.includeScrapedContent,
+      };
+      return llmFallbackResponse(config, currentNode.id);
     }
 
     let nextNodeId: string | null = null;
@@ -519,21 +467,17 @@ Deno.serve(async (req) => {
           nextNodeId = nextNode?.id || null;
         } else {
           // No match — LLM fallback, stay on same node
-          const botResponse = await callLLMFallback(user_id, message, convId, flow);
-          await supabase.from("demo_conversations").insert({
-            user_id,
-            conversation_id: convId,
-            user_message: message,
-            bot_response: botResponse,
-          });
-          return new Response(
-            JSON.stringify({
-              response: botResponse,
-              conversation_id: convId,
-              session_state: { current_node_id: currentNodeId, variables, status: "active" },
-            }),
-            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
+          const agentNode = findCatchAllAgentNode(flow);
+          const config = agentNode ? {
+            systemPromptOverride: agentNode.data.systemPromptOverride,
+            temperature: agentNode.data.temperature,
+            maxTokens: agentNode.data.maxTokens,
+            model: agentNode.data.model,
+            includeProducts: agentNode.data.includeProducts,
+            includeFaqs: agentNode.data.includeFaqs,
+            includeScrapedContent: agentNode.data.includeScrapedContent,
+          } as LLMConfig : undefined;
+          return llmFallbackResponse(config, currentNodeId);
         }
       } else {
         // continueAuto — any response continues
@@ -550,22 +494,17 @@ Deno.serve(async (req) => {
         const nextNode = findNextNode(flow, currentNode.id);
         nextNodeId = nextNode?.id || null;
       } else {
-        // No trigger match — LLM fallback
-        const botResponse = await callLLMFallback(user_id, message, convId, flow);
-        await supabase.from("demo_conversations").insert({
-          user_id,
-          conversation_id: convId,
-          user_message: message,
-          bot_response: botResponse,
-        });
-        return new Response(
-          JSON.stringify({
-            response: botResponse,
-            conversation_id: convId,
-            session_state: { current_node_id: currentNodeId, variables, status: "active" },
-          }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        const agentNode = findCatchAllAgentNode(flow);
+        const config = agentNode ? {
+          systemPromptOverride: agentNode.data.systemPromptOverride,
+          temperature: agentNode.data.temperature,
+          maxTokens: agentNode.data.maxTokens,
+          model: agentNode.data.model,
+          includeProducts: agentNode.data.includeProducts,
+          includeFaqs: agentNode.data.includeFaqs,
+          includeScrapedContent: agentNode.data.includeScrapedContent,
+        } as LLMConfig : undefined;
+        return llmFallbackResponse(config, agentNode?.id || currentNodeId);
       }
     } else {
       const nextNode = findNextNode(flow, currentNode.id);
@@ -579,6 +518,23 @@ Deno.serve(async (req) => {
       const node = findNodeById(flow, nextNodeId);
       if (!node) break;
 
+      // Handle ai_agent inline — call LLM and return
+      if (node.type === "ai_agent") {
+        const config: LLMConfig = {
+          systemPromptOverride: node.data.systemPromptOverride,
+          temperature: node.data.temperature,
+          maxTokens: node.data.maxTokens,
+          model: node.data.model,
+          includeProducts: node.data.includeProducts,
+          includeFaqs: node.data.includeFaqs,
+          includeScrapedContent: node.data.includeScrapedContent,
+        };
+        const botResponse = await callLLMFallback(user_id, message, convId, flow, config);
+        responses.push({ type: "text", content: botResponse });
+        nextNodeId = node.id; // Stay on agent node
+        break;
+      }
+
       const result = executeNodeDemo(node, variables, flow, responses);
       if (result.waitForInput) {
         nextNodeId = result.nextNodeId;
@@ -588,23 +544,19 @@ Deno.serve(async (req) => {
       if (!nextNodeId) break;
     }
 
-    // If flow executed but produced no responses (e.g., disconnected nodes), fallback to LLM
+    // If flow executed but produced no responses, fallback to LLM
     if (responses.length === 0) {
-      const botResponse = await callLLMFallback(user_id, message, convId, flow);
-      await supabase.from("demo_conversations").insert({
-        user_id,
-        conversation_id: convId,
-        user_message: message,
-        bot_response: botResponse,
-      });
-      return new Response(
-        JSON.stringify({
-          response: botResponse,
-          conversation_id: convId,
-          session_state: { current_node_id: null, variables, status: "completed" },
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      const agentNode = findCatchAllAgentNode(flow);
+      const config = agentNode ? {
+        systemPromptOverride: agentNode.data.systemPromptOverride,
+        temperature: agentNode.data.temperature,
+        maxTokens: agentNode.data.maxTokens,
+        model: agentNode.data.model,
+        includeProducts: agentNode.data.includeProducts,
+        includeFaqs: agentNode.data.includeFaqs,
+        includeScrapedContent: agentNode.data.includeScrapedContent,
+      } as LLMConfig : undefined;
+      return llmFallbackResponse(config, agentNode?.id || null);
     }
 
     const finalStatus = nextNodeId ? "active" : "completed";
