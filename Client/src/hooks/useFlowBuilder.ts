@@ -11,22 +11,20 @@ import {
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/services/supabase";
 import { useAuth } from "@/hooks/useAuth";
-import type { FlowNode, FlowEdge, FlowJSON, FlowNodeData, Workflow } from "@/types/flow";
-import { NODE_DEFAULTS } from "@/types/flow";
+import type { FlowNode, FlowEdge, FlowJSON, FlowNodeData, FlowSettings, Workflow } from "@/types/flow";
+import { NODE_DEFAULTS, DEFAULT_FLOW_SETTINGS } from "@/types/flow";
 
 // ── Types ──────────────────────────────────────────────────────
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 
 interface UseFlowBuilderReturn {
-  // Workflow list
+  // Workflow
   workflows: Workflow[];
   isLoadingList: boolean;
-  // Active workflow
   activeWorkflowId: string | null;
   workflowName: string;
   workflowStatus: string;
   setWorkflowName: (name: string) => void;
-  selectWorkflow: (id: string) => void;
   // Nodes & edges
   nodes: FlowNode[];
   edges: FlowEdge[];
@@ -41,15 +39,14 @@ interface UseFlowBuilderReturn {
   addNode: (type: FlowNodeData["type"], position: { x: number; y: number }) => void;
   updateNodeData: (nodeId: string, data: Partial<FlowNodeData>) => void;
   deleteNode: (nodeId: string) => void;
+  // Workflow settings
+  flowSettings: FlowSettings;
+  updateFlowSettings: (patch: Partial<FlowSettings>) => void;
   // Workflow operations
-  createWorkflow: () => void;
-  deleteWorkflow: () => void;
   toggleStatus: () => void;
   save: () => void;
   // Save status
   saveStatus: SaveStatus;
-  isCreating: boolean;
-  isDeleting: boolean;
 }
 
 // ── Hook ───────────────────────────────────────────────────────
@@ -62,6 +59,7 @@ export function useFlowBuilder(): UseFlowBuilderReturn {
   const [workflowStatus, setWorkflowStatus] = useState("draft");
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
+  const [flowSettings, setFlowSettings] = useState<FlowSettings>({ ...DEFAULT_FLOW_SETTINGS });
 
   const [nodes, setNodes, onNodesChange] = useNodesState<FlowNode>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<FlowEdge>([]);
@@ -104,21 +102,26 @@ export function useFlowBuilder(): UseFlowBuilderReturn {
     const flowJson = loadedWorkflow.flow_json as unknown as FlowJSON | null;
     setNodes(flowJson?.nodes ?? []);
     setEdges(flowJson?.edges ?? []);
+    setFlowSettings({ ...DEFAULT_FLOW_SETTINGS, ...flowJson?.settings });
     setSelectedNodeId(null);
   }, [loadedWorkflow, setNodes, setEdges]);
 
-  // Auto-select first workflow if none selected
+  // Auto-select first workflow, or auto-create if none exist
   useEffect(() => {
     if (!activeWorkflowId && workflows.length > 0) {
       setActiveWorkflowId(workflows[0].id);
     }
-  }, [workflows, activeWorkflowId]);
+    if (!isLoadingList && workflows.length === 0 && user?.id && !createMutation.isPending) {
+      createMutation.mutate();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workflows, activeWorkflowId, isLoadingList, user?.id]);
 
   // ── Save mutation ────────────────────────────────────────────
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (!activeWorkflowId) return;
-      const flowJson: FlowJSON = { nodes, edges };
+      const flowJson: FlowJSON = { nodes, edges, settings: flowSettings };
       const { error } = await supabase
         .from("workflows")
         .update({
@@ -147,7 +150,40 @@ export function useFlowBuilder(): UseFlowBuilderReturn {
         .insert({
           user_id: user.id,
           name: "תהליך חדש",
-          flow_json: { nodes: [], edges: [] },
+          flow_json: {
+            nodes: [
+              {
+                id: "start-default",
+                type: "start",
+                position: { x: 400, y: 50 },
+                data: { type: "start", triggerText: "" },
+              },
+              {
+                id: "ai-agent-default",
+                type: "ai_agent",
+                position: { x: 400, y: 200 },
+                data: {
+                  type: "ai_agent",
+                  temperature: 1.0,
+                  maxTokens: 2048,
+                  includeProducts: true,
+                  includeFaqs: true,
+                  includeScrapedContent: true,
+                  maxHistoryMessages: 20,
+                },
+              },
+            ],
+            edges: [
+              {
+                id: "edge-start-to-agent",
+                source: "start-default",
+                target: "ai-agent-default",
+                type: "smoothstep",
+                animated: true,
+              },
+            ],
+            settings: { ...DEFAULT_FLOW_SETTINGS },
+          },
           status: "draft",
         })
         .select()
@@ -161,25 +197,6 @@ export function useFlowBuilder(): UseFlowBuilderReturn {
     },
   });
 
-  // ── Delete workflow ──────────────────────────────────────────
-  const deleteMutation = useMutation({
-    mutationFn: async () => {
-      if (!activeWorkflowId) return;
-      const { error } = await supabase
-        .from("workflows")
-        .delete()
-        .eq("id", activeWorkflowId);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["workflows", user?.id] });
-      setActiveWorkflowId(null);
-      setNodes([]);
-      setEdges([]);
-      setSelectedNodeId(null);
-    },
-  });
-
   // ── Toggle status (publish/unpublish) ────────────────────────
   const toggleMutation = useMutation({
     mutationFn: async () => {
@@ -188,7 +205,7 @@ export function useFlowBuilder(): UseFlowBuilderReturn {
 
       // If publishing, save flow_json first so the latest changes go live
       if (newStatus === "active") {
-        const flowJson: FlowJSON = { nodes, edges };
+        const flowJson: FlowJSON = { nodes, edges, settings: flowSettings };
         const { error: saveErr } = await supabase
           .from("workflows")
           .update({
@@ -269,10 +286,13 @@ export function useFlowBuilder(): UseFlowBuilderReturn {
     [setNodes, setEdges, selectedNodeId]
   );
 
-  // ── Select workflow ──────────────────────────────────────────
-  const selectWorkflow = useCallback((id: string) => {
-    setActiveWorkflowId(id);
-  }, []);
+  // ── Update flow settings ────────────────────────────────────
+  const updateFlowSettings = useCallback(
+    (patch: Partial<FlowSettings>) => {
+      setFlowSettings((prev) => ({ ...prev, ...patch }));
+    },
+    []
+  );
 
   // ── Selected node ────────────────────────────────────────────
   const selectedNode = selectedNodeId
@@ -286,7 +306,6 @@ export function useFlowBuilder(): UseFlowBuilderReturn {
     workflowName,
     workflowStatus,
     setWorkflowName,
-    selectWorkflow,
     nodes,
     edges,
     onNodesChange,
@@ -298,12 +317,10 @@ export function useFlowBuilder(): UseFlowBuilderReturn {
     addNode,
     updateNodeData,
     deleteNode,
-    createWorkflow: () => createMutation.mutate(),
-    deleteWorkflow: () => deleteMutation.mutate(),
+    flowSettings,
+    updateFlowSettings,
     toggleStatus: () => toggleMutation.mutate(),
     save: () => saveMutation.mutate(),
     saveStatus,
-    isCreating: createMutation.isPending,
-    isDeleting: deleteMutation.isPending,
   };
 }
