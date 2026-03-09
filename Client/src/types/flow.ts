@@ -10,7 +10,8 @@ export type FlowNodeType =
   | "collect_input"
   | "delay"
   | "follow_up"
-  | "condition"; // visual-only — no backend execution yet
+  | "condition" // visual-only — no backend execution yet
+  | "ai_agent";
 
 export interface ButtonItem {
   id: string;
@@ -39,15 +40,40 @@ export interface FlowNodeData extends Record<string, unknown> {
   variable?: string;
   operator?: "equals" | "contains" | "not_empty";
   value?: string;
+  // ai_agent
+  systemPromptOverride?: string;
+  temperature?: number;
+  maxTokens?: number;
+  model?: string;
+  includeProducts?: boolean;
+  includeFaqs?: boolean;
+  includeScrapedContent?: boolean;
+  maxHistoryMessages?: number;
 }
 
 // XYFlow typed node / edge
 export type FlowNode = Node<FlowNodeData, FlowNodeType>;
 export type FlowEdge = Edge;
 
+// ── Workflow-level settings (pre-processing guards) ────────
+export interface FlowSettings {
+  ignoreGroupChats: boolean;
+  cooldownEnabled: boolean;
+  cooldownMinutes: number;
+  deduplicateMessages: boolean;
+}
+
+export const DEFAULT_FLOW_SETTINGS: FlowSettings = {
+  ignoreGroupChats: true,
+  cooldownEnabled: true,
+  cooldownMinutes: 60,
+  deduplicateMessages: true,
+};
+
 export interface FlowJSON {
   nodes: FlowNode[];
   edges: FlowEdge[];
+  settings?: FlowSettings;
 }
 
 // Database row type
@@ -63,6 +89,7 @@ export const NODE_COLORS: Record<FlowNodeType, string> = {
   delay: "#6b7280",
   follow_up: "#ec4899",
   condition: "#ef4444",
+  ai_agent: "#8B5CF6",
 };
 
 // Default labels for each node type
@@ -75,4 +102,13 @@ export const NODE_DEFAULTS: Record<FlowNodeType, Partial<FlowNodeData>> = {
   delay: { type: "delay", delayMinutes: 5 },
   follow_up: { type: "follow_up", followUpMessage: "", delayMinutes: 30 },
   condition: { type: "condition", variable: "", operator: "equals", value: "" },
+  ai_agent: {
+    type: "ai_agent",
+    temperature: 1.0,
+    maxTokens: 2048,
+    includeProducts: true,
+    includeFaqs: true,
+    includeScrapedContent: true,
+    maxHistoryMessages: 20,
+  },
 };
