@@ -1,6 +1,9 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { motion } from "framer-motion";
+import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/services/supabase";
 import EditBotSection from "./EditBotSection";
 import DemoChatSection from "./DemoChatSection";
 import BusinessContentSection from "./BusinessContentSection";
@@ -24,7 +27,25 @@ const fadeUp = {
 
 export default function EditBotPage() {
   const { t } = useTranslation("dashboard");
+  const { user } = useAuth();
   const [resetKey, setResetKey] = useState(0);
+
+  // Fetch user's workflow for demo chat
+  const { data: workflow } = useQuery({
+    queryKey: ["user-workflow", user?.id],
+    enabled: !!user?.id,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("workflows")
+        .select("id")
+        .eq("user_id", user!.id)
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .single();
+      if (error) return null;
+      return data;
+    },
+  });
 
   return (
     <motion.div
@@ -49,7 +70,7 @@ export default function EditBotPage() {
           <EditBotSection onEditApplied={() => setResetKey((k) => k + 1)} />
         </div>
         <div className="lg:col-span-4">
-          <DemoChatSection resetKey={resetKey} />
+          <DemoChatSection resetKey={resetKey} workflowId={workflow?.id} />
         </div>
       </div>
 
