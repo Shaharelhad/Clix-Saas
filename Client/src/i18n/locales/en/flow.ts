@@ -24,7 +24,7 @@ const flow = {
   deleteConfirm: "Are you sure you want to delete this flow?",
 
   // Node types
-  nodeStart: "Start",
+  nodeStart: "Get Message",
   nodeText: "Text Message",
   nodeImage: "Image",
   nodeButtons: "Buttons",
@@ -32,9 +32,10 @@ const flow = {
   nodeDelay: "Delay",
   nodeFollowUp: "Follow Up",
   nodeCondition: "Condition",
+  nodeAiAgent: "AI Agent",
 
   // Node descriptions (palette)
-  nodeStartDesc: "Trigger word to start the flow",
+  nodeStartDesc: "Receives incoming messages",
   nodeTextDesc: "Send a text message",
   nodeImageDesc: "Send an image with caption",
   nodeButtonsDesc: "Show interactive buttons",
@@ -42,10 +43,11 @@ const flow = {
   nodeDelayDesc: "Wait before continuing",
   nodeFollowUpDesc: "Send a scheduled follow-up",
   nodeConditionDesc: "Branch based on a condition",
+  nodeAiAgentDesc: "Your bot's brain — processes messages and replies",
 
   // Editor fields
-  triggerText: "Trigger Text",
-  triggerTextHint: "The word/phrase that starts this flow",
+  triggerText: "Keyword Filter",
+  triggerTextHint: "Optional keyword to filter messages (leave empty for all)",
   message: "Message",
   messageHint: "Use {{variableName}} for dynamic values",
   imageUrl: "Image URL",
@@ -71,17 +73,49 @@ const flow = {
   operatorContains: "Contains",
   operatorNotEmpty: "Not Empty",
 
+  // AI Agent fields
+  aiSystemPrompt: "System Prompt Override",
+  aiSystemPromptHint: "Leave empty to use your bot's personality",
+  aiTemperature: "Temperature",
+  aiTemperatureHint: "Creativity level (0 = precise, 2 = creative)",
+  aiModel: "Model",
+  aiMaxTokens: "Max Tokens",
+  aiMaxTokensHint: "Maximum response length (128-4096)",
+  aiKnowledgeSources: "Knowledge Sources",
+  aiProducts: "Products",
+  aiFaqs: "FAQs",
+  aiWebsite: "Website",
+  aiIncludeProducts: "Include products database",
+  aiIncludeFaqs: "Include FAQ entries",
+  aiIncludeScraped: "Include website content",
+  aiMaxHistory: "Max History Messages",
+  aiMaxHistoryHint: "How many past messages to include (1-50)",
+
   // Preview simulator
   previewTitle: "Flow Preview",
   previewStatus: "Simulating",
   previewPlaceholder: "Type a message...",
-  previewGreeting: "Send a trigger word to start the flow.",
+  previewGreeting: "Send a message to test your bot.",
   previewReset: "Reset",
   previewOpen: "Test Flow",
   previewClose: "Close Preview",
 
   // Canvas
   canvasEmpty: "Drag nodes from the panel to start building your flow",
+
+  // Workflow Settings
+  settingsTitle: "Workflow Settings",
+  settingsIgnoreGroups: "Ignore Group Chats",
+  settingsIgnoreGroupsHint: "Skip messages from WhatsApp groups — only respond to private chats",
+  settingsCooldown: "Human Takeover Cooldown",
+  settingsCooldownHint: "When you reply manually, disable the bot for this chat temporarily",
+  settingsCooldownMinutes: "Cooldown Duration (minutes)",
+  settingsCooldownPreset30: "30 min",
+  settingsCooldownPreset60: "1 hour",
+  settingsCooldownPreset120: "2 hours",
+  settingsDedup: "Duplicate Message Filter",
+  settingsDedupHint: "Prevent double-processing from duplicate webhook deliveries",
+  settingsDone: "Done",
 
   // Misc
   deleteNode: "Delete Node",
