@@ -111,19 +111,35 @@ See [`.claude/migration-status.md`](.claude/migration-status.md) for the full ga
 
 ## Implementation Workflow
 
-**When implementing features (especially multiple in one prompt), follow this strict loop:**
+**For every feature (especially when multiple features are requested in one prompt), follow this strict loop per feature:**
 
-1. Implement feature 1
-2. Test feature 1 (`npm run build` from `Client/`, or `npm run dev` and verify behavior)
-   - If broken → fix and re-test until working
-   - If good → proceed
-3. Implement feature 2
-4. Test feature 2 (same verification)
-   - If broken → fix and re-test until working
-   - If good → proceed
-5. Continue for all features, then done
+### Per-Feature Loop
 
-**Never batch-implement multiple features without testing each one individually first.**
+1. **Implement** the feature
+2. **Build check** — run `npm run build` from `Client/`
+   - If fails → fix and re-run build until it passes
+3. **Code review** — use the **code-simplifier** agent (`.claude/agents/code-simplifier.md`) to check:
+   - Functions longer than 30 lines (likely doing too much)
+   - Logic duplicated more than twice (extract to utility)
+   - Any `any` type usage in TypeScript (replace with real types)
+   - Components with more than 3 props that could be grouped into an object
+   - Missing error handling on async operations
+   - If issues found → fix them, re-run build, re-check until clean
+4. **Visual verify** (UI/frontend changes only) — use the **browser-tester** agent (`.claude/agents/browser-tester.md`) to verify pages render correctly
+   - If issues found → fix them, loop back to step 2
+5. **Feature complete** → proceed to next feature
+
+### Multi-Feature Order
+
+```
+Feature 1 → build → code-simplifier → browser-tester → PASS → Feature 2
+Feature 2 → build → code-simplifier → browser-tester → PASS → Feature 3
+...repeat until all features done
+```
+
+**Never batch-implement multiple features. Each feature must pass the full loop before starting the next.**
+
+Run /simplify before presenting code to the user.
 
 ## Maintenance Rule
 
