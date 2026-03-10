@@ -452,6 +452,7 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json();
+    console.log("[flow] Received webhook:", { type: body.type, customerId: body.customerId, from: body.from, hasMessage: !!body.message });
 
     // Handle outgoing messages — set cooldown when owner replies manually
     if (body.type === "outgoing") {
@@ -497,6 +498,7 @@ Deno.serve(async (req) => {
 
     // Skip non-incoming, non-outgoing event types
     if (body.type !== "incoming") {
+      console.log("[flow] Skipping non-incoming type:", body.type);
       return new Response(JSON.stringify({ ok: true, skipped: body.type || "unknown" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -505,6 +507,7 @@ Deno.serve(async (req) => {
     // Deduplicate using customerId + from + timestamp combo
     const dedupKey = `${body.customerId}:${body.from}:${body.timestamp}`;
     if (dedupKey && await isDuplicateDb(dedupKey)) {
+      console.log("[flow] Skipping duplicate:", dedupKey);
       return new Response(JSON.stringify({ ok: true, skipped: "duplicate" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -520,6 +523,7 @@ Deno.serve(async (req) => {
     const buttonClickId = ""; // WClixAPI sends button clicks as plain text — matched by label/number
 
     if (!customerId || !phone || !userMessage) {
+      console.log("[flow] Missing fields:", { customerId, phone, userMessage });
       return new Response(JSON.stringify({ ok: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -536,6 +540,7 @@ Deno.serve(async (req) => {
     profile = data;
 
     if (!profile) {
+      console.log("[flow] No profile found for customerId:", customerId);
       return new Response(JSON.stringify({ ok: true, reason: "no_profile" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -543,6 +548,7 @@ Deno.serve(async (req) => {
 
     // Skip processing if bot is paused or not connected
     if (profile.bot_status !== "connected") {
+      console.log("[flow] Bot not active. Status:", profile.bot_status, "for user:", profile.id);
       return new Response(JSON.stringify({ ok: true, skipped: "bot_not_active" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -597,6 +603,7 @@ Deno.serve(async (req) => {
     }
 
     if (!activeFlowId) {
+      console.log("[flow] No active flow for user:", profile.id);
       return new Response(JSON.stringify({ ok: true, reason: "no_active_flow" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -610,6 +617,7 @@ Deno.serve(async (req) => {
       .single();
 
     if (!workflow || workflow.status !== "active") {
+      console.log("[flow] Workflow not active:", activeFlowId, workflow?.status);
       return new Response(JSON.stringify({ ok: true, reason: "workflow_not_active" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
