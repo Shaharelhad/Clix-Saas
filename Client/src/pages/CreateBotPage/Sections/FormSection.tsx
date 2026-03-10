@@ -14,6 +14,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { useFormFields } from "@/hooks/useFormFields";
 import { useFileUpload } from "@/hooks/useFileUpload";
 import { FormFieldRenderer, parseListItems } from "@/components/form/FormFieldRenderer";
+import { SubmissionProgress } from "@/components/SubmissionProgress";
+import type { SubmissionPhase, ScrapeProgress } from "@/components/SubmissionProgress";
+import { RICH_TEXT_CLASS, buildFileCategoryOptions } from "@/lib/form-constants";
 import WizardNavigator from "./WizardNavigator";
 import type { FormField, FormSettings } from "@/types/form";
 
@@ -34,89 +37,12 @@ const stepVariants = {
   exit: (dir: number) => ({ y: dir > 0 ? -50 : 50, opacity: 0 }),
 };
 
-/* ── Rich text class ── */
-const richTextClass =
-  "[&_p]:m-0 [&_ol]:list-decimal [&_ol]:pr-5 [&_ol]:space-y-0.5 [&_ul]:list-disc [&_ul]:pr-5 [&_ul]:space-y-0.5 [&_li]:pr-1";
-
 /* ── Step types ── */
 type WizardStep =
   | { type: "opening"; settings: FormSettings }
   | { type: "field"; field: FormField }
   | { type: "sub_field"; field: FormField; label: string; index: number; totalSubs: number; parentLabel: string }
   | { type: "closing"; settings: FormSettings };
-
-/* ── Loading overlay during submission ── */
-function SubmissionProgress({
-  phase,
-  scrapeProgress,
-}: {
-  phase: "prompt" | "scraping" | "done";
-  scrapeProgress: { pages: number; products: number };
-}) {
-  const { t } = useTranslation("createBot");
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      className="flex flex-col items-center justify-center min-h-[60vh] text-center"
-    >
-      <motion.div
-        animate={{ rotate: 360 }}
-        transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-        className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#FF7E47] to-[#E86B38] flex items-center justify-center shadow-[0_4px_24px_rgba(255,126,71,0.3)] mb-6"
-      >
-        <Bot className="w-8 h-8 text-white" />
-      </motion.div>
-
-      <h3 className="text-xl font-bold text-[#2D2A26] mb-2">
-        {phase === "prompt" && t("creatingBot")}
-        {phase === "scraping" && t("scrapingWebsite")}
-        {phase === "done" && t("botCreated")}
-      </h3>
-
-      <p className="text-sm text-[#7A7267] max-w-xs">
-        {phase === "prompt" && t("creatingBotDesc")}
-        {phase === "scraping" && t("scrapingDesc")}
-        {phase === "done" && t("botReadyForPreview")}
-      </p>
-
-      {phase === "scraping" &&
-        (scrapeProgress.pages > 0 || scrapeProgress.products > 0) && (
-          <div className="mt-4 flex items-center gap-4 text-sm text-[#7A7267]">
-            {scrapeProgress.pages > 0 && (
-              <span>
-                {t("pagesScraped")}:{" "}
-                <strong className="text-[#FF7E47]">
-                  {scrapeProgress.pages}
-                </strong>
-              </span>
-            )}
-            {scrapeProgress.products > 0 && (
-              <span>
-                {t("productsFound")}:{" "}
-                <strong className="text-[#FF7E47]">
-                  {scrapeProgress.products}
-                </strong>
-              </span>
-            )}
-          </div>
-        )}
-
-      <motion.div className="mt-6 h-1 w-48 rounded-full bg-[#EDE6DD] overflow-hidden">
-        <motion.div
-          className="h-full bg-[#FF7E47] rounded-full"
-          initial={{ width: "0%" }}
-          animate={{ width: phase === "done" ? "100%" : "70%" }}
-          transition={{
-            duration: phase === "done" ? 0.3 : 8,
-            ease: "easeOut",
-          }}
-        />
-      </motion.div>
-    </motion.div>
-  );
-}
 
 const FormSection = ({ onNext }: FormSectionProps) => {
   const { t } = useTranslation("createBot");
@@ -126,24 +52,12 @@ const FormSection = ({ onNext }: FormSectionProps) => {
 
   /* ── Submission state ── */
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [loadingPhase, setLoadingPhase] = useState<
-    "prompt" | "scraping" | "done"
-  >("prompt");
-  const [scrapeProgress, setScrapeProgress] = useState({
-    pages: 0,
-    products: 0,
-  });
+  const [loadingPhase, setLoadingPhase] = useState<SubmissionPhase>("prompt");
+  const [scrapeProgress, setScrapeProgress] = useState<ScrapeProgress>({ pages: 0, products: 0 });
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [stepError, setStepError] = useState<string | null>(null);
 
-  const fileCategoryOptions = [
-    { value: "product", label: t("common:categoryProduct") },
-    { value: "service", label: t("common:categoryService") },
-    { value: "portfolio", label: t("common:categoryPortfolio") },
-    { value: "team", label: t("common:categoryTeam") },
-    { value: "logo", label: t("common:categoryLogo") },
-    { value: "general", label: t("common:categoryGeneral") },
-  ];
+  const fileCategoryOptions = buildFileCategoryOptions(t);
 
   /* ── Form field state management ── */
   const {
@@ -540,6 +454,17 @@ const FormSection = ({ onNext }: FormSectionProps) => {
       <SubmissionProgress
         phase={loadingPhase}
         scrapeProgress={scrapeProgress}
+        ns="createBot"
+        icon={Bot}
+        phaseKeys={{
+          promptTitle: "creatingBot",
+          promptDesc: "creatingBotDesc",
+          scrapingTitle: "scrapingWebsite",
+          scrapingDesc: "scrapingDesc",
+          doneTitle: "botCreated",
+          doneDesc: "botReadyForPreview",
+        }}
+        className="min-h-[60vh]"
       />
     );
   }
@@ -604,7 +529,7 @@ const FormSection = ({ onNext }: FormSectionProps) => {
 
                 {currentStepData.settings.opening_title && (
                   <div
-                    className={`text-2xl sm:text-3xl font-bold text-[#2D2A26] mb-4 ${richTextClass}`}
+                    className={`text-2xl sm:text-3xl font-bold text-[#2D2A26] mb-4 ${RICH_TEXT_CLASS}`}
                     dangerouslySetInnerHTML={{
                       __html: DOMPurify.sanitize(
                         currentStepData.settings.opening_title,
@@ -614,7 +539,7 @@ const FormSection = ({ onNext }: FormSectionProps) => {
                 )}
                 {currentStepData.settings.opening_text && (
                   <div
-                    className={`text-base text-[#7A7267] leading-relaxed max-w-md mx-auto ${richTextClass}`}
+                    className={`text-base text-[#7A7267] leading-relaxed max-w-md mx-auto ${RICH_TEXT_CLASS}`}
                     dangerouslySetInnerHTML={{
                       __html: DOMPurify.sanitize(
                         currentStepData.settings.opening_text,
@@ -749,7 +674,7 @@ const FormSection = ({ onNext }: FormSectionProps) => {
                 </div>
                 {currentStepData.settings.closing_text && (
                   <div
-                    className={`text-sm text-[#7A7267] leading-relaxed max-w-sm mx-auto mb-6 ${richTextClass}`}
+                    className={`text-sm text-[#7A7267] leading-relaxed max-w-sm mx-auto mb-6 ${RICH_TEXT_CLASS}`}
                     dangerouslySetInnerHTML={{
                       __html: DOMPurify.sanitize(
                         currentStepData.settings.closing_text,

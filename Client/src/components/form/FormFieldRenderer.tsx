@@ -3,6 +3,7 @@ import { Plus, Trash2, Globe } from "lucide-react";
 import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
+import { RICH_TEXT_CLASS } from "@/lib/form-constants";
 import type { FormField, FileUploadItem } from "@/types/form";
 import { FileUploadZone } from "./FileUploadZone";
 
@@ -52,8 +53,6 @@ interface FormFieldRendererProps {
 const inputBase =
   "w-full bg-[#FAF7F3] border border-[#E5DDD3] rounded-xl px-4 py-3 text-sm text-[#2D2A26] placeholder-[#B8AFA4] focus:border-[#FF7E47] focus:ring-2 focus:ring-[#FF7E47]/15 outline-none transition-all duration-200";
 
-const richTextClass =
-  "[&_p]:m-0 [&_ol]:list-decimal [&_ol]:pr-5 [&_ol]:space-y-0.5 [&_ul]:list-disc [&_ul]:pr-5 [&_ul]:space-y-0.5 [&_li]:pr-1";
 
 /* ── Warm-themed checkbox (matches OrangeCheck pattern) ── */
 function WarmCheckbox({
@@ -248,7 +247,7 @@ function FieldLabel({
           <span className="text-red-400 leading-relaxed">*</span>
         )}
         <span
-          className={richTextClass}
+          className={RICH_TEXT_CLASS}
           dangerouslySetInnerHTML={{ __html: field.label }}
         />
         {!field.is_required && (
@@ -259,7 +258,7 @@ function FieldLabel({
       </div>
       {field.description && field.field_type !== "rules_list" && (
         <div
-          className={`text-xs text-[#7A7267] ${richTextClass}`}
+          className={`text-xs text-[#7A7267] ${RICH_TEXT_CLASS}`}
           dangerouslySetInnerHTML={{ __html: field.description }}
         />
       )}
