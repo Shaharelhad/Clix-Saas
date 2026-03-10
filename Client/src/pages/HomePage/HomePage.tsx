@@ -2,14 +2,7 @@ import { useRef, useState, useEffect, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { motion, useInView } from "framer-motion";
-import {
-  Eye,
-  CreditCard,
-  HelpCircle,
-  Sparkles,
-  ArrowLeft,
-} from "lucide-react";
-import { AnimeNavBar } from "@/components/ui/anime-navbar";
+import { ArrowLeft } from "lucide-react";
 import HeroSection from "./Sections/HeroSection";
 import ProductPreviewSection from "./Sections/ProductPreviewSection";
 import FeaturesSection from "./Sections/FeaturesSection";
@@ -45,10 +38,10 @@ function Reveal({
 
 /* ─── navbar section mapping ─── */
 const NAV_SECTIONS = [
-  { id: "preview", icon: <Eye className="w-4 h-4" /> },
-  { id: "features", icon: <Sparkles className="w-4 h-4" /> },
-  { id: "pricing", icon: <CreditCard className="w-4 h-4" /> },
-  { id: "faq", icon: <HelpCircle className="w-4 h-4" /> },
+  { id: "preview" },
+  { id: "features" },
+  { id: "pricing" },
+  { id: "faq" },
 ];
 
 const HomePage = () => {
@@ -98,11 +91,7 @@ const HomePage = () => {
   const navItems = NAV_SECTIONS.map((s) => ({
     name: t(`nav${s.id.charAt(0).toUpperCase() + s.id.slice(1)}`),
     id: s.id,
-    icon: s.icon,
   }));
-
-  const activeNavName =
-    navItems.find((i) => i.id === activeSection)?.name ?? "";
 
   return (
     <div
@@ -110,48 +99,68 @@ const HomePage = () => {
       className="min-h-screen bg-black text-white font-secular-one"
     >
       {/* ── Fixed Navbar ── */}
-      <header
-        className={`fixed top-0 inset-x-0 z-50 transition-all duration-300 ${
-          scrolled
-            ? "bg-black/80 backdrop-blur-md border-b border-white/5"
-            : ""
-        }`}
-      >
-        <div className="max-w-6xl mx-auto px-6 py-3 grid grid-cols-[auto_1fr_auto] items-center">
-          {/* Logo + Brand */}
-          <motion.button
-            onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.97 }}
-            transition={{ type: "spring", stiffness: 400, damping: 25 }}
-            className="flex items-center gap-2 cursor-pointer group"
-            aria-label="חזרה לתחילת העמוד"
-          >
-            <span className="text-white font-bold text-lg tracking-wide leading-none select-none transition-opacity duration-300 group-hover:opacity-80">
-              CLIX
-            </span>
-            <img
-              src="/clix-logo.svg"
-              alt=""
-              aria-hidden="true"
-              className="h-8 w-8 transition-[filter] duration-300 group-hover:drop-shadow-[0_0_8px_rgba(255,107,44,0.6)]"
-            />
-          </motion.button>
+      <header className="fixed top-0 inset-x-0 z-50">
+        <div
+          className={`max-w-6xl mx-auto px-6 py-3 flex items-center justify-between transition-all duration-500 ${
+            scrolled
+              ? "mt-2 mx-4 lg:mx-auto rounded-2xl bg-white/70 backdrop-blur-xl border border-black/5 shadow-[0_8px_32px_rgba(0,0,0,0.08)]"
+              : "mt-0"
+          }`}
+        >
+          {/* Logo + Nav grouped together */}
+          <div className="flex items-center gap-8">
+            <motion.button
+              onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.97 }}
+              transition={{ type: "spring", stiffness: 400, damping: 25 }}
+              className="flex items-center gap-2 cursor-pointer group"
+              aria-label="חזרה לתחילת העמוד"
+            >
+              <span className="font-bold text-lg tracking-wide leading-none select-none text-[#0A0A0A] transition-colors duration-300 group-hover:opacity-80">
+                CLIX
+              </span>
+              <img
+                src="/clix-logo.svg"
+                alt=""
+                aria-hidden="true"
+                className="h-8 w-8 transition-[filter] duration-300 group-hover:drop-shadow-[0_0_8px_rgba(255,107,44,0.6)]"
+              />
+            </motion.button>
 
-          {/* Center nav */}
-          <div className="hidden md:flex justify-center overflow-visible">
-            <AnimeNavBar
-              items={navItems}
-              activeItem={activeNavName}
-              onItemClick={scrollToSection}
-            />
+            <nav className="hidden md:flex items-center gap-6">
+              {navItems.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => scrollToSection(item.id)}
+                  className={`relative py-2 text-sm font-medium transition-colors duration-300 cursor-pointer ${
+                    activeSection === item.id
+                      ? "text-[#0A0A0A]"
+                      : "text-[#3D3630]/70 hover:text-[#0A0A0A]"
+                  }`}
+                >
+                  {item.name}
+                  {activeSection === item.id && (
+                    <motion.div
+                      layoutId="nav-underline"
+                      className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#FF6B2C] rounded-full"
+                      transition={{
+                        type: "spring",
+                        stiffness: 400,
+                        damping: 30,
+                      }}
+                    />
+                  )}
+                </button>
+              ))}
+            </nav>
           </div>
 
           {/* Auth buttons */}
           <div className="flex items-center gap-3">
             <button
               onClick={() => navigate("/auth")}
-              className="text-white/60 hover:text-white text-sm transition-colors"
+              className="text-sm text-[#3D3630]/70 hover:text-[#0A0A0A] transition-colors duration-300"
             >
               {t("navLogin")}
             </button>
@@ -166,9 +175,6 @@ const HomePage = () => {
           </div>
         </div>
       </header>
-
-      {/* ── Spacer for fixed header ── */}
-      <div className="h-16" />
 
       {/* ── Sections ── */}
       <HeroSection />
