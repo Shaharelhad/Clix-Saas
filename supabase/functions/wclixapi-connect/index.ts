@@ -34,12 +34,13 @@ Deno.serve(async (req) => {
       );
       const statusData = await statusRes.json();
 
-      // If connected, update profile
+      // If connected, update profile (but respect "paused" state)
       if (statusData.status === "connected") {
         await supabase
           .from("profiles")
           .update({ bot_status: "connected" })
-          .eq("id", user_id);
+          .eq("id", user_id)
+          .neq("bot_status", "paused");
         // Publish draft bot prompt → live on successful connection
         await supabase.rpc("publish_bot_changes", { p_user_id: user_id });
       }
