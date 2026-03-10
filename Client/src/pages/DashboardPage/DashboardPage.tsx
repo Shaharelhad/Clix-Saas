@@ -108,7 +108,8 @@ function BotStatusPill({ userId }: { userId: string }) {
   const FAIL_THRESHOLD = 2;
 
   useEffect(() => {
-    if (status !== "connected") return;
+    if (status !== "connected" && status !== "paused") return;
+    if (status === "paused") return; // Don't health-check while paused
     let cancelled = false;
     failCountRef.current = 0;
 
