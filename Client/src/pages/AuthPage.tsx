@@ -156,7 +156,7 @@ export default function AuthPage() {
   useEffect(() => {
     if (authLoading) return;
     if (!isAuthenticated) return;
-    if (isAdmin) navigate("/admin/approvals", { replace: true });
+    if (isAdmin) navigate("/admin/dashboard", { replace: true });
     else if (isPending) navigate("/pending", { replace: true });
     else if (isApproved)
       navigate(hasCompletedOnboarding ? "/dashboard" : "/create-bot", {
