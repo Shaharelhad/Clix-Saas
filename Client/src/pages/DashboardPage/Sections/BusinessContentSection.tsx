@@ -212,6 +212,14 @@ export default function BusinessContentSection() {
     updateUrlEntry,
     addUrlEntry,
     removeUrlEntry,
+    getQaEntries,
+    updateQaEntry,
+    addQaEntry,
+    removeQaEntry,
+    getRulesEntries,
+    updateRulesItem,
+    addRulesItem,
+    removeRulesItem,
     resolveFieldValue,
   } = useFormFields();
 
@@ -495,6 +503,14 @@ export default function BusinessContentSection() {
               updateUrlEntry={updateUrlEntry}
               addUrlEntry={addUrlEntry}
               removeUrlEntry={removeUrlEntry}
+              getQaEntries={getQaEntries}
+              updateQaEntry={updateQaEntry}
+              addQaEntry={addQaEntry}
+              removeQaEntry={removeQaEntry}
+              getRulesEntries={getRulesEntries}
+              updateRulesItem={updateRulesItem}
+              addRulesItem={addRulesItem}
+              removeRulesItem={removeRulesItem}
               fileUploads={fileUploads}
               fileInputRefs={fileInputRefs}
               handleFileSelect={handleFileSelect}

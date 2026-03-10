@@ -46,7 +46,20 @@ export function useAuth() {
     } = supabase.auth.onAuthStateChange((event, newSession) => {
       setSession(newSession);
 
-      if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+      if (event === "SIGNED_IN") {
+        // Only clear wizard data when switching to a different account
+        const prevUserId = sessionStorage.getItem("createBot_userId");
+        const newUserId = newSession?.user?.id;
+        if (prevUserId && newUserId && prevUserId !== newUserId) {
+          ["createBot_phase", "createBot_wizardStep", "createBot_formValues",
+           "createBot_otherValues", "createBot_urlEntries", "createBot_qaEntries",
+           "createBot_rulesEntries"].forEach((k) => sessionStorage.removeItem(k));
+        }
+        if (newUserId) {
+          sessionStorage.setItem("createBot_userId", newUserId);
+        }
+        fetchProfile();
+      } else if (event === "TOKEN_REFRESHED") {
         fetchProfile();
       } else if (event === "SIGNED_OUT") {
         clear();
@@ -74,7 +87,21 @@ export function useAuth() {
 
   const signOut = async () => {
     const { error } = await supabase.auth.signOut();
-    if (!error) clear();
+    if (!error) {
+      clear();
+      // Clear CreateBot wizard session data so it doesn't leak to another account
+      const keysToRemove = [
+        "createBot_phase",
+        "createBot_wizardStep",
+        "createBot_formValues",
+        "createBot_otherValues",
+        "createBot_urlEntries",
+        "createBot_qaEntries",
+        "createBot_rulesEntries",
+        "createBot_userId",
+      ];
+      keysToRemove.forEach((k) => sessionStorage.removeItem(k));
+    }
     return { error };
   };
 

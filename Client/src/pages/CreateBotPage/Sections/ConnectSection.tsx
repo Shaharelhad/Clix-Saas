@@ -2,13 +2,14 @@ import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Play,
   Wifi,
   Loader2,
   CheckCircle2,
   AlertCircle,
   ArrowRight,
   RefreshCw,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -30,6 +31,37 @@ const fadeUp = {
 const stagger = {
   hidden: {},
   show: { transition: { staggerChildren: 0.1, delayChildren: 0.1 } },
+};
+
+/* ── Tutorial slider config ── */
+type Platform = "android" | "iphone";
+
+const TUTORIAL_STEPS = {
+  android: [
+    { textKey: "tutorialStepAndroid1", image: "/tutorial/android/androidstep1.jpg" },
+    { textKey: "tutorialStepAndroid2", image: "/tutorial/android/androidstep2.jpg" },
+  ],
+  iphone: [
+    { textKey: "tutorialStepIphone1", image: "/tutorial/iphone/iphonestep1.jpg" },
+    { textKey: "tutorialStepIphone2", image: "/tutorial/iphone/iphonestep2.jpg" },
+  ],
+} as const;
+
+const slideVariants = {
+  enter: (dir: number) => ({
+    x: dir > 0 ? 120 : -120,
+    opacity: 0,
+  }),
+  center: {
+    x: 0,
+    opacity: 1,
+    transition: { duration: 0.35, ease: EASE },
+  },
+  exit: (dir: number) => ({
+    x: dir > 0 ? -120 : 120,
+    opacity: 0,
+    transition: { duration: 0.25, ease: EASE },
+  }),
 };
 
 /* ── Confetti particle config ── */
@@ -152,10 +184,38 @@ function SuccessOverlay({ onGoToDashboard, t }: { onGoToDashboard: () => void; t
 }
 
 const ConnectSection = () => {
-  const { t } = useTranslation("createBot");
+  const { t, i18n } = useTranslation("createBot");
+  const isRTL = i18n.language === "he";
   const { user, refreshProfile } = useAuth();
   const navigate = useNavigate();
 
+  /* ── Tutorial slider state ── */
+  const [platform, setPlatform] = useState<Platform>("android");
+  const [tutorialStep, setTutorialStep] = useState(0);
+  const [slideDirection, setSlideDirection] = useState(0);
+
+  const steps = TUTORIAL_STEPS[platform];
+  const currentStep = steps[tutorialStep];
+  const totalSteps = steps.length;
+
+  const handlePlatformChange = (p: Platform) => {
+    setPlatform(p);
+    setTutorialStep(0);
+    setSlideDirection(0);
+  };
+
+  const goNext = () => {
+    if (tutorialStep >= totalSteps - 1) return;
+    setSlideDirection(isRTL ? -1 : 1);
+    setTutorialStep((s) => s + 1);
+  };
+  const goPrev = () => {
+    if (tutorialStep <= 0) return;
+    setSlideDirection(isRTL ? 1 : -1);
+    setTutorialStep((s) => s - 1);
+  };
+
+  /* ── Bot status & connect logic (unchanged) ── */
   const { data: botStatus, refetch: refetchBotStatus } = useQuery({
     queryKey: ["bot_status", user?.id],
     queryFn: async () => {
@@ -170,8 +230,6 @@ const ConnectSection = () => {
     enabled: !!user?.id,
   });
 
-  // Verify gateway connection matches DB status — auto-correct stale "connected"
-  // Require 3 consecutive failures to avoid transient gateway blips
   const connectFailCountRef = useRef(0);
   const CONNECT_FAIL_THRESHOLD = 3;
 
@@ -222,7 +280,6 @@ const ConnectSection = () => {
   const [connectError, setConnectError] = useState("");
   const [errorCount, setErrorCount] = useState(0);
 
-  // Poll session status when QR is shown
   const pollStatus = useCallback(async () => {
     if (!user?.id) return;
     const result = await callWClixAPIConnect({
@@ -294,90 +351,9 @@ const ConnectSection = () => {
         animate="show"
         className="flex flex-col gap-6 pt-4"
       >
-        {/* ── Tutorial Card ── */}
+        {/* ── Unified Dark Tutorial + Connect Card ── */}
         <motion.div
-          variants={fadeUp}
-          className="bg-white rounded-2xl overflow-hidden shadow-[0_2px_24px_rgba(45,42,38,0.05)] border border-[#EDE6DD]/50"
-        >
-          <div className="px-6 sm:px-8 pt-8 pb-4">
-            <div className="flex items-center justify-center gap-3">
-              <h2 className="text-xl sm:text-2xl font-bold text-[#2D2A26] text-center">
-                {t("connectTitle")}
-              </h2>
-              <motion.div
-                animate={{ scale: [1, 1.15, 1] }}
-                transition={{ duration: 2, repeat: Infinity, repeatDelay: 2 }}
-                className="w-8 h-8 rounded-full bg-[#FF7E47] flex items-center justify-center flex-shrink-0"
-              >
-                <Play className="w-4 h-4 text-white ms-0.5" fill="white" />
-              </motion.div>
-            </div>
-          </div>
-
-          {/* Video Placeholder */}
-          <div className="px-6 sm:px-8 pb-6">
-            <motion.div
-              variants={fadeUp}
-              className="relative group cursor-pointer rounded-2xl overflow-hidden"
-              style={{
-                background:
-                  "linear-gradient(135deg, #FAF7F3 0%, #F3ECE3 100%)",
-              }}
-            >
-              <div className="flex flex-col items-center justify-center py-20 sm:py-28">
-                <motion.div
-                  whileHover={{ scale: 1.08 }}
-                  whileTap={{ scale: 0.95 }}
-                  className="relative mb-5"
-                >
-                  <motion.div
-                    animate={{ scale: [1, 1.3, 1], opacity: [0.4, 0, 0.4] }}
-                    transition={{ duration: 2, repeat: Infinity }}
-                    className="absolute inset-0 rounded-full bg-[#FF7E47]/20"
-                  />
-                  <div className="relative w-20 h-20 rounded-full bg-[#FF7E47] shadow-[0_4px_24px_rgba(255,126,71,0.35)] flex items-center justify-center transition-shadow group-hover:shadow-[0_6px_32px_rgba(255,126,71,0.45)]">
-                    <Play className="w-8 h-8 text-white ms-1" fill="white" />
-                  </div>
-                </motion.div>
-                <span className="text-sm text-[#7A7267] font-medium">
-                  {t("watchVideo")}
-                </span>
-              </div>
-            </motion.div>
-          </div>
-
-          {/* Steps */}
-          <div className="px-6 sm:px-8 pb-8">
-            <h3 className="text-base font-bold text-[#2D2A26] mb-5 text-center">
-              {t("mainSteps")}
-            </h3>
-            <div className="space-y-3 max-w-md mx-auto">
-              {[
-                t("connectStep1"),
-                t("connectStep2"),
-                t("connectStep3"),
-                t("connectStep4"),
-              ].map((step, i) => (
-                <motion.div
-                  key={i}
-                  variants={fadeUp}
-                  className="flex items-start gap-4 bg-[#FAF7F3] rounded-xl px-5 py-4 border border-[#EDE6DD]/40"
-                >
-                  <div className="flex-shrink-0 w-7 h-7 rounded-full bg-[#FF7E47]/10 text-[#FF7E47] font-bold text-xs flex items-center justify-center mt-0.5">
-                    {i + 1}
-                  </div>
-                  <p className="text-sm text-[#4A4640] leading-relaxed pt-0.5">
-                    {step}
-                  </p>
-                </motion.div>
-              ))}
-            </div>
-          </div>
-        </motion.div>
-
-        {/* ── WhatsApp Connect Card ── */}
-        <motion.div
-          key={`credentials-${errorCount}`}
+          key={`card-${errorCount}`}
           variants={fadeUp}
           animate={
             connectStatus === "error"
@@ -389,118 +365,195 @@ const ConnectSection = () => {
               ? { duration: 0.5 }
               : undefined
           }
-          className="bg-white rounded-2xl overflow-hidden shadow-[0_2px_24px_rgba(45,42,38,0.05)] border border-[#EDE6DD]/50"
+          className="rounded-2xl overflow-hidden shadow-[0_4px_32px_rgba(0,0,0,0.3)]"
+          style={{ background: "#111B21" }}
         >
-          {/* Title */}
-          <div className="px-6 sm:px-8 pt-8 pb-2">
-            <div className="flex items-center justify-center gap-3">
-              <h2 className="text-xl sm:text-2xl font-bold text-[#2D2A26] text-center">
-                {t("connectWhatsApp")}
-              </h2>
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#FF7E47] to-[#E86B38] flex items-center justify-center flex-shrink-0 shadow-[0_2px_10px_rgba(255,126,71,0.3)]">
-                <Wifi className="w-4 h-4 text-white" />
-              </div>
-            </div>
+          {/* ── Platform Toggle ── */}
+          <div className="flex justify-center gap-2 pt-6 pb-2">
+            {(["android", "iphone"] as const).map((p) => (
+              <button
+                key={p}
+                onClick={() => handlePlatformChange(p)}
+                className={`px-5 py-2 rounded-full text-sm font-semibold transition-all duration-200 cursor-pointer ${
+                  platform === p
+                    ? "bg-[#25D366] text-white shadow-[0_2px_12px_rgba(37,211,102,0.35)]"
+                    : "bg-white/10 text-gray-400 hover:bg-white/15 hover:text-white"
+                }`}
+              >
+                {t(p === "android" ? "platformAndroid" : "platformIphone")}
+              </button>
+            ))}
           </div>
 
-          {/* Already connected banner */}
-          {(isAlreadyConnected || connectStatus === "success") && !showReconnect && (
-            <div className="px-6 sm:px-8 py-6 space-y-4">
-              <motion.div
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="flex items-center gap-3 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl px-5 py-4 text-sm"
-              >
-                <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
-                <span className="font-semibold">
-                  {connectStatus === "success"
-                    ? t("connectSuccess")
-                    : t("alreadyConnected")}
-                </span>
-              </motion.div>
-              <div className="flex gap-3">
-                <motion.button
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.2 }}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => navigate("/dashboard")}
-                  className="flex-1 inline-flex items-center justify-center gap-2 bg-[#FF7E47] hover:bg-[#E86B38] text-white font-bold text-base rounded-2xl py-4 transition-all duration-300 shadow-[0_4px_20px_rgba(255,126,71,0.3)] hover:shadow-[0_6px_28px_rgba(255,126,71,0.4)] cursor-pointer"
+          {/* ── Title ── */}
+          <div className="text-center px-6 pt-3 pb-4">
+            <h2 className="text-xl sm:text-2xl font-bold text-white">
+              {t("connectTitle")}
+            </h2>
+          </div>
+
+          {/* ── Tutorial Slider ── */}
+          <div className="relative px-4 sm:px-8 pb-4">
+            {/* Prev Arrow (always visual left) */}
+            <button
+              onClick={goPrev}
+              disabled={tutorialStep <= 0}
+              className="absolute left-1 sm:left-2 top-1/2 -translate-y-1/2 z-10 w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all disabled:opacity-20 disabled:cursor-not-allowed cursor-pointer"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+
+            {/* Slide Content */}
+            <div className="overflow-hidden mx-8 sm:mx-10">
+              <AnimatePresence mode="wait" custom={slideDirection}>
+                <motion.div
+                  key={`${platform}-${tutorialStep}`}
+                  custom={slideDirection}
+                  variants={slideVariants}
+                  initial="enter"
+                  animate="center"
+                  exit="exit"
+                  className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center"
                 >
-                  {t("gotIt", { defaultValue: "Continue" })}
-                </motion.button>
-                <motion.button
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.3 }}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => setShowReconnect(true)}
-                  className="flex-1 inline-flex items-center justify-center gap-2 bg-white border-2 border-[#FF7E47] text-[#FF7E47] hover:bg-[#FFF5F0] font-bold text-base rounded-2xl py-4 transition-all duration-300 cursor-pointer"
-                >
-                  {t("reconnect", { defaultValue: "Reconnect" })}
-                </motion.button>
-              </div>
+                  {/* Text Column */}
+                  <div className="space-y-4 order-2 md:order-1 text-center md:text-start">
+                    <p className="text-xs sm:text-sm text-gray-500 font-medium">
+                      {t("stepCounter", { current: tutorialStep + 1, total: totalSteps })}
+                    </p>
+                    <p className="text-base sm:text-lg text-white leading-relaxed">
+                      {t(currentStep.textKey)}
+                    </p>
+                  </div>
+
+                  {/* Image Column */}
+                  <div className="flex justify-center order-1 md:order-2">
+                    <img
+                      src={currentStep.image}
+                      alt={t(currentStep.textKey)}
+                      className="h-[260px] sm:h-[320px] rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.4)] object-contain"
+                    />
+                  </div>
+                </motion.div>
+              </AnimatePresence>
             </div>
-          )}
 
-          {/* QR Code + Connect flow — shown when not connected or reconnecting */}
-          {(!isAlreadyConnected || showReconnect) && connectStatus !== "success" && (
-            <>
-              <div className="px-6 sm:px-8 py-8">
-                <div className="max-w-md mx-auto space-y-6">
-                  {/* QR Code display */}
-                  {connectStatus === "qr" && qrCode && (
-                    <motion.div
-                      initial={{ opacity: 0, scale: 0.9 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      className="flex flex-col items-center gap-4"
-                    >
-                      <p className="text-sm text-[#7A7267] text-center">
-                        {t("scanQrCode")}
-                      </p>
-                      <div className="bg-white p-4 rounded-2xl shadow-[0_4px_24px_rgba(45,42,38,0.08)] border border-[#EDE6DD]/50">
-                        <img
-                          src={qrCode}
-                          alt="WhatsApp QR Code"
-                          className="w-64 h-64 object-contain"
-                        />
-                      </div>
-                      <div className="flex items-center gap-2 text-sm text-[#A39B90]">
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        {t("waitingForScan")}
-                      </div>
-                      <button
-                        onClick={handleConnect}
-                        className="inline-flex items-center gap-2 text-sm text-[#FF7E47] hover:text-[#E86B38] font-medium transition-colors cursor-pointer"
-                      >
-                        <RefreshCw className="w-4 h-4" />
-                        {t("refreshQr", { defaultValue: "Refresh QR Code" })}
-                      </button>
-                    </motion.div>
-                  )}
+            {/* Next Arrow (always visual right) */}
+            <button
+              onClick={goNext}
+              disabled={tutorialStep >= totalSteps - 1}
+              className="absolute right-1 sm:right-2 top-1/2 -translate-y-1/2 z-10 w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all disabled:opacity-20 disabled:cursor-not-allowed cursor-pointer"
+            >
+              <ChevronRight className="w-5 h-5" />
+            </button>
+          </div>
 
-                  {/* Initial state — show connect button */}
-                  {connectStatus !== "qr" && (
-                    <motion.div variants={fadeUp} className="text-center">
-                      <p className="text-sm text-[#7A7267] mb-4">
-                        {t("connectDescription")}
-                      </p>
-                    </motion.div>
-                  )}
+          {/* ── Dot Indicators ── */}
+          <div className="flex justify-center gap-2 pb-5">
+            {steps.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => {
+                  setSlideDirection(i > tutorialStep ? (isRTL ? -1 : 1) : (isRTL ? 1 : -1));
+                  setTutorialStep(i);
+                }}
+                className={`rounded-full transition-all duration-300 cursor-pointer ${
+                  i === tutorialStep
+                    ? "w-6 h-2 bg-[#25D366]"
+                    : "w-2 h-2 bg-white/25 hover:bg-white/40"
+                }`}
+              />
+            ))}
+          </div>
+
+          {/* ── Divider ── */}
+          <div className="mx-6 sm:mx-8 border-t border-white/10" />
+
+          {/* ── Connect Actions Area ── */}
+          <div className="px-6 sm:px-8 py-6 space-y-4">
+            {/* Already connected banner */}
+            {(isAlreadyConnected || connectStatus === "success") && !showReconnect && (
+              <div className="space-y-4">
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="flex items-center gap-3 bg-emerald-900/40 border border-emerald-700/40 text-emerald-300 rounded-xl px-5 py-4 text-sm"
+                >
+                  <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
+                  <span className="font-semibold">
+                    {connectStatus === "success"
+                      ? t("connectSuccess")
+                      : t("alreadyConnected")}
+                  </span>
+                </motion.div>
+                <div className="flex gap-3">
+                  <motion.button
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.2 }}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => navigate("/dashboard")}
+                    className="flex-1 inline-flex items-center justify-center gap-2 bg-[#25D366] hover:bg-[#1fb855] text-white font-bold text-base rounded-xl py-3.5 transition-all duration-300 shadow-[0_4px_20px_rgba(37,211,102,0.3)] cursor-pointer"
+                  >
+                    {t("gotIt")}
+                  </motion.button>
+                  <motion.button
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.3 }}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => setShowReconnect(true)}
+                    className="flex-1 inline-flex items-center justify-center gap-2 bg-transparent border-2 border-[#25D366] text-[#25D366] hover:bg-[#25D366]/10 font-bold text-base rounded-xl py-3.5 transition-all duration-300 cursor-pointer"
+                  >
+                    {t("reconnect", { defaultValue: "Reconnect" })}
+                  </motion.button>
                 </div>
               </div>
+            )}
 
-              {/* Error feedback */}
-              <AnimatePresence>
-                {connectStatus === "error" && (
-                  <div className="px-6 sm:px-8 pb-2">
+            {/* QR Code + Connect flow */}
+            {(!isAlreadyConnected || showReconnect) && connectStatus !== "success" && (
+              <>
+                {/* QR Code display */}
+                {connectStatus === "qr" && qrCode && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="flex flex-col items-center gap-4"
+                  >
+                    <p className="text-sm text-gray-400 text-center">
+                      {t("scanQrCode")}
+                    </p>
+                    <div className="bg-white p-4 rounded-2xl shadow-[0_4px_24px_rgba(0,0,0,0.3)]">
+                      <img
+                        src={qrCode}
+                        alt="WhatsApp QR Code"
+                        className="w-64 h-64 object-contain"
+                      />
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-gray-500">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      {t("waitingForScan")}
+                    </div>
+                    <button
+                      onClick={handleConnect}
+                      className="inline-flex items-center gap-2 text-sm text-[#25D366] hover:text-[#1fb855] font-medium transition-colors cursor-pointer"
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                      {t("refreshQr")}
+                    </button>
+                  </motion.div>
+                )}
+
+                {/* Error feedback */}
+                <AnimatePresence>
+                  {connectStatus === "error" && (
                     <motion.div
                       initial={{ opacity: 0, y: 8 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -8 }}
-                      className="flex items-center gap-3 bg-red-50 border border-red-200 text-red-700 rounded-xl px-5 py-3.5 text-sm"
+                      className="flex items-center gap-3 bg-red-900/30 border border-red-700/40 text-red-300 rounded-xl px-5 py-3.5 text-sm"
                     >
                       <motion.div
                         animate={{
@@ -517,31 +570,45 @@ const ConnectSection = () => {
                       </motion.div>
                       {connectError}
                     </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Action buttons (when not showing QR) */}
+                {connectStatus !== "qr" && (
+                  <div className="space-y-3">
+                    <button
+                      onClick={handleConnect}
+                      disabled={isConnecting}
+                      className="group w-full inline-flex items-center justify-center gap-3 bg-[#25D366] hover:bg-[#1fb855] text-white font-bold text-base rounded-xl py-3.5 transition-all duration-300 shadow-[0_4px_20px_rgba(37,211,102,0.3)] hover:shadow-[0_6px_28px_rgba(37,211,102,0.4)] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                    >
+                      <span className={isConnecting ? "inline-flex items-center gap-3" : "hidden"}>
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        {t("connecting")}
+                      </span>
+                      <span className={isConnecting ? "hidden" : "inline-flex items-center gap-3"}>
+                        {t("getQrCode")}
+                        <Wifi className="w-5 h-5 transition-transform group-hover:scale-110" />
+                      </span>
+                    </button>
+                    <div className="flex justify-center gap-6 text-sm">
+                      <button
+                        className="text-gray-500 hover:text-white transition-colors cursor-pointer"
+                        onClick={(e) => e.preventDefault()}
+                      >
+                        {t("linkWithPhone")}
+                      </button>
+                      <button
+                        className="text-gray-500 hover:text-white transition-colors cursor-pointer"
+                        onClick={(e) => e.preventDefault()}
+                      >
+                        {t("sendQrToClient")}
+                      </button>
+                    </div>
                   </div>
                 )}
-              </AnimatePresence>
-
-              {/* Connect Button (only shown when not showing QR) */}
-              {connectStatus !== "qr" && (
-                <div className="px-6 sm:px-8 pb-8">
-                  <button
-                    onClick={handleConnect}
-                    disabled={isConnecting}
-                    className="group w-full inline-flex items-center justify-center gap-3 bg-[#FF7E47] hover:bg-[#E86B38] text-white font-bold text-base rounded-2xl py-4 transition-all duration-300 shadow-[0_4px_20px_rgba(255,126,71,0.3)] hover:shadow-[0_6px_28px_rgba(255,126,71,0.4)] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 cursor-pointer"
-                  >
-                    <span className={isConnecting ? "inline-flex items-center gap-3" : "hidden"}>
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                      {t("connecting")}
-                    </span>
-                    <span className={isConnecting ? "hidden" : "inline-flex items-center gap-3"}>
-                      {t("connectBot")}
-                      <Wifi className="w-5 h-5 transition-transform group-hover:scale-110" />
-                    </span>
-                  </button>
-                </div>
-              )}
-            </>
-          )}
+              </>
+            )}
+          </div>
         </motion.div>
       </motion.div>
     </>
