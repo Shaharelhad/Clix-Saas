@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(npm install)",
-      "mcp__claude_ai_n8n__search_workflows"
+      "mcp__claude_ai_n8n__search_workflows",
+      "Bash(npm run build)"
     ]
   },
   "enabledMcpjsonServers": [
