@@ -7,17 +7,9 @@ import {
   LayoutDashboard,
   Pencil,
   GitBranch,
-  Upload,
-  Trash2,
-  Loader2,
-  Check,
-  AlertCircle,
   BookOpen,
 } from "lucide-react";
-import { AnimatePresence, motion } from "framer-motion";
 import { useAuth } from "@/hooks/useAuth";
-import { useDraftStatus } from "@/hooks/useDraftStatus";
-import { usePublishDraft } from "@/hooks/usePublishDraft";
 import { supabase } from "@/services/supabase";
 import RagUploadModal from "@/components/RagUploadModal";
 import { cn } from "@/lib/utils";
@@ -30,11 +22,8 @@ const navItems = [
 
 export default function UserLayout() {
   const { t } = useTranslation("sidebar");
-  const { t: td } = useTranslation("dashboard");
   const { signOut, user } = useAuth();
   const navigate = useNavigate();
-  const { hasDraft } = useDraftStatus();
-  const { publish, discard, isPublishing, isDiscarding, feedback } = usePublishDraft();
   const [ragModalOpen, setRagModalOpen] = useState(false);
 
   const { data: ragStatus } = useQuery({
@@ -130,69 +119,6 @@ export default function UserLayout() {
           </div>
         </div>
       </header>
-
-      {/* Publish Banner */}
-      <AnimatePresence>
-        {(hasDraft || feedback) && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.25 }}
-            className="overflow-hidden"
-          >
-            {feedback ? (
-              <div
-                className={cn(
-                  "flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-medium",
-                  feedback.type === "success"
-                    ? "bg-emerald-50 text-emerald-700 border-b border-emerald-200"
-                    : "bg-red-50 text-red-700 border-b border-red-200",
-                )}
-              >
-                {feedback.type === "success" ? (
-                  <Check className="w-4 h-4" />
-                ) : (
-                  <AlertCircle className="w-4 h-4" />
-                )}
-                {td(feedback.message)}
-              </div>
-            ) : (
-              <div className="flex items-center justify-between px-5 sm:px-8 py-2.5 bg-amber-50 border-b border-amber-200">
-                <span className="text-sm font-medium text-amber-800">
-                  {td("unpublishedChanges")}
-                </span>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={discard}
-                    disabled={isDiscarding}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-amber-700 hover:bg-amber-100 transition-colors cursor-pointer disabled:opacity-50"
-                  >
-                    {isDiscarding ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      <Trash2 className="w-3.5 h-3.5" />
-                    )}
-                    {td("discardDraft")}
-                  </button>
-                  <button
-                    onClick={publish}
-                    disabled={isPublishing}
-                    className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-bold text-white bg-[#FF7E47] hover:bg-[#E86B38] transition-colors cursor-pointer disabled:opacity-50"
-                  >
-                    {isPublishing ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      <Upload className="w-3.5 h-3.5" />
-                    )}
-                    {td("publishChanges")}
-                  </button>
-                </div>
-              </div>
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* Main content */}
       <main className="flex-1 min-w-0">
