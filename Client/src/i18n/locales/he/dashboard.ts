@@ -55,16 +55,7 @@ const dashboard = {
   editBotSuccess: "השינויים הוחלו בהצלחה!",
   editBotError: "משהו השתבש. נסה שוב.",
 
-  // Draft / Publish
-  publishChanges: "פרסם שינויים",
-  discardDraft: "בטל טיוטה",
-  unpublishedChanges: "יש שינויים שלא פורסמו",
-  publishSuccess: "השינויים פורסמו בהצלחה!",
-  publishError: "פרסום נכשל. נסה שוב.",
-  discardSuccess: "הטיוטה בוטלה.",
-  discardError: "ביטול נכשל. נסה שוב.",
-  draftIndicator: "טיוטה",
-  draftSaved: "טיוטה נשמרה",
+  changesSaved: "השינויים נשמרו",
 
   // Business Content Section
   businessContentTitle: "תוכן עסקי",
@@ -89,6 +80,16 @@ const dashboard = {
   productsFound: "מוצרים נמצאו",
   noFormData: "לא נמצא תוכן עסקי. צרו את הבוט שלכם תחילה.",
   goToCreateBot: "צור בוט",
+
+  // Business Content Categories
+  categoryAbout: "אודות העסק",
+  categoryAudience: "קהל יעד וסגנון",
+  categoryRules: "כללים וגבולות",
+  categoryCommunication: "תקשורת",
+  categoryMedia: "מדיה וקישורים",
+  categoryOther: "מידע נוסף",
+  cancelChanges: "ביטול",
+  categorySaved: "נשמר!",
 };
 
 export default dashboard;

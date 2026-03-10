@@ -56,16 +56,7 @@ const dashboard = {
   editBotSuccess: "Changes applied successfully!",
   editBotError: "Something went wrong. Please try again.",
 
-  // Draft / Publish
-  publishChanges: "Publish Changes",
-  discardDraft: "Discard Draft",
-  unpublishedChanges: "You have unpublished changes",
-  publishSuccess: "Changes published successfully!",
-  publishError: "Publish failed. Please try again.",
-  discardSuccess: "Draft discarded.",
-  discardError: "Discard failed. Please try again.",
-  draftIndicator: "Draft",
-  draftSaved: "Draft saved",
+  changesSaved: "Changes saved",
 
   // Business Content Section
   businessContentTitle: "Business Content",
@@ -90,6 +81,16 @@ const dashboard = {
   productsFound: "Products found",
   noFormData: "No business content found. Please create your bot first.",
   goToCreateBot: "Create Bot",
+
+  // Business Content Categories
+  categoryAbout: "About the Business",
+  categoryAudience: "Audience & Tone",
+  categoryRules: "Rules & Boundaries",
+  categoryCommunication: "Communication",
+  categoryMedia: "Media & Links",
+  categoryOther: "Additional Info",
+  cancelChanges: "Cancel",
+  categorySaved: "Saved!",
 };
 
 export default dashboard;
