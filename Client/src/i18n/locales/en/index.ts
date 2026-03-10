@@ -8,5 +8,6 @@ import sidebar from "./sidebar";
 import dashboard from "./dashboard";
 import faq from "./faq";
 import flow from "./flow";
+import rag from "./rag";
 
-export default { landing, common, createBot, auth, pending, admin, sidebar, dashboard, faq, flow };
+export default { landing, common, createBot, auth, pending, admin, sidebar, dashboard, faq, flow, rag };

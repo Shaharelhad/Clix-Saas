@@ -1,5 +1,7 @@
+import { useState } from "react";
 import { Outlet, NavLink, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { useQuery } from "@tanstack/react-query";
 import {
   LogOut,
   LayoutDashboard,
@@ -10,11 +12,14 @@ import {
   Loader2,
   Check,
   AlertCircle,
+  BookOpen,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useAuth } from "@/hooks/useAuth";
 import { useDraftStatus } from "@/hooks/useDraftStatus";
 import { usePublishDraft } from "@/hooks/usePublishDraft";
+import { supabase } from "@/services/supabase";
+import RagUploadModal from "@/components/RagUploadModal";
 import { cn } from "@/lib/utils";
 
 const navItems = [
@@ -30,6 +35,22 @@ export default function UserLayout() {
   const navigate = useNavigate();
   const { hasDraft } = useDraftStatus();
   const { publish, discard, isPublishing, isDiscarding, feedback } = usePublishDraft();
+  const [ragModalOpen, setRagModalOpen] = useState(false);
+
+  const { data: ragStatus } = useQuery({
+    queryKey: ["rag-status", user?.id],
+    enabled: !!user?.id,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("user_documents")
+        .select("status")
+        .eq("user_id", user!.id)
+        .maybeSingle();
+      return data?.status ?? null;
+    },
+  });
+  const hasReadyDoc = ragStatus === "ready";
 
   const handleSignOut = async () => {
     await signOut();
@@ -80,8 +101,19 @@ export default function UserLayout() {
             ))}
           </nav>
 
-          {/* User info + logout */}
+          {/* Knowledge Base + User info + logout */}
           <div className="flex items-center gap-4">
+            <button
+              onClick={() => setRagModalOpen(true)}
+              className="relative flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-[#7A7267] hover:text-[#2D2A26] hover:bg-[#EDE6DD]/40 transition-all duration-200 cursor-pointer"
+              title={t("knowledgeBase")}
+            >
+              <BookOpen className="w-4 h-4 shrink-0" />
+              <span className="hidden sm:inline">{t("knowledgeBase")}</span>
+              {hasReadyDoc && (
+                <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-white" />
+              )}
+            </button>
             {user && (
               <div className="hidden sm:block text-end">
                 <p className="text-xs font-semibold text-[#2D2A26]">{user.full_name}</p>
@@ -166,6 +198,8 @@ export default function UserLayout() {
       <main className="flex-1 min-w-0">
         <Outlet />
       </main>
+
+      <RagUploadModal isOpen={ragModalOpen} onClose={() => setRagModalOpen(false)} />
     </div>
   );
 }

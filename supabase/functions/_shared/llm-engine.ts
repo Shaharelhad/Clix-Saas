@@ -5,6 +5,8 @@
 
 // deno-lint-ignore-file no-explicit-any
 
+import { embedText } from "./embeddings.ts";
+
 export interface LLMConfig {
   systemPromptOverride?: string;
   temperature?: number;
@@ -13,6 +15,7 @@ export interface LLMConfig {
   includeProducts?: boolean;
   includeFaqs?: boolean;
   includeScrapedContent?: boolean;
+  includeRag?: boolean;
 }
 
 export interface LLMResult {
@@ -194,7 +197,34 @@ export async function callLLMEngine(
     } catch { /* FAQ not available */ }
   }
 
-  // 5. Build system prompt
+  // 5. RAG context (conditional — user-uploaded document chunks)
+  let ragContext = "";
+  if (config?.includeRag !== false) {
+    try {
+      const queryEmbedding = await embedText(userMessage);
+      if (queryEmbedding) {
+        const { data: matchedChunks } = await supabase.rpc(
+          "match_document_chunks",
+          {
+            p_user_id: userId,
+            p_embedding: JSON.stringify(queryEmbedding),
+            p_match_count: 5,
+            p_match_threshold: 0.3,
+          },
+        );
+        if (matchedChunks && matchedChunks.length > 0) {
+          const sorted = [...matchedChunks].sort(
+            (a: { chunk_index: number }, b: { chunk_index: number }) =>
+              a.chunk_index - b.chunk_index,
+          );
+          ragContext =
+            `\n\nמידע נוסף מהמסמך שהועלה:\n${sorted.map((c: { content: string }) => c.content).join("\n\n")}`;
+        }
+      }
+    } catch { /* RAG failure must not break existing functionality */ }
+  }
+
+  // 6. Build system prompt
   const flowContext = workflowRecord
     ? `\n\n${workflowRecord}`
     : (triggerContext || "");
@@ -202,6 +232,7 @@ export async function callLLMEngine(
     scrapedContext +
     productContext +
     faqContext +
+    ragContext +
     flowContext +
     `\n\nהנחיות קריטיות לסגנון התשובה:
 - אתה בעל העסק, לא בוט. דבר בגוף ראשון: "אצלי", "אני", "שלי"
@@ -212,14 +243,14 @@ export async function callLLMEngine(
 - תגיב כמו בשיחת וואטסאפ אמיתית בין שני אנשים
 - אל תשתמש באימוג'ים בשום מקרה, אלא אם הפרומפט למעלה מציין במפורש להשתמש באימוג'ים. ברירת המחדל היא ללא אימוג'ים`;
 
-  // 6. Build messages array
+  // 7. Build messages array
   const messages: { role: string; content: string }[] = [
     { role: "system", content: systemPrompt },
     ...conversationHistory,
     { role: "user", content: userMessage },
   ];
 
-  // 7. Call OpenRouter
+  // 8. Call OpenRouter
   const openrouterKey = Deno.env.get("OPENROUTER_API_KEY");
   if (!openrouterKey) {
     return { response: "איך אפשר לעזור?", model: "none" };
