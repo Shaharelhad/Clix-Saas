@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, Component, type ReactNode, type ErrorInfo } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -9,21 +9,74 @@ import FormSection from "./Sections/FormSection";
 import PreviewSection from "./Sections/PreviewSection";
 import ConnectSection from "./Sections/ConnectSection";
 
+/**
+ * Local error boundary that swallows DOM manipulation errors caused by
+ * browser extensions (Google Translate, Grammarly, etc.) modifying text nodes.
+ * Placed INSIDE CreateBotPage so that phase state above it is preserved
+ * when React recreates this subtree after catching the error.
+ */
+class PhaseContentBoundary extends Component<
+  { children: ReactNode },
+  { hasRealError: boolean }
+> {
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = { hasRealError: false };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    // Swallow DOM manipulation errors from browser extensions
+    if (
+      error.name === "NotFoundError" &&
+      (error.message.includes("removeChild") ||
+        error.message.includes("insertBefore"))
+    ) {
+      return { hasRealError: false };
+    }
+    // Mark real errors so we can re-throw in render
+    return { hasRealError: true };
+  }
+
+  componentDidCatch(error: Error, _info: ErrorInfo) {
+    if (
+      error.name === "NotFoundError" &&
+      (error.message.includes("removeChild") ||
+        error.message.includes("insertBefore"))
+    ) {
+      return;
+    }
+  }
+
+  render() {
+    // For non-DOM errors, throw so the outer ErrorBoundary handles them
+    if (this.state.hasRealError) {
+      this.setState({ hasRealError: false });
+      throw new Error("Application error caught by PhaseContentBoundary");
+    }
+    return this.props.children;
+  }
+}
+
+type Phase = "form" | "preview" | "connect";
+
 const STEPS = [
   { id: "form", icon: FileText, labelKey: "stepForm" },
   { id: "preview", icon: Eye, labelKey: "stepPreview" },
   { id: "connect", icon: Wifi, labelKey: "stepConnect" },
 ] as const;
 
+const PHASE_INDEX: Record<Phase, number> = {
+  form: 0,
+  preview: 1,
+  connect: 2,
+};
+
 const slideVariants = {
   enter: (direction: number) => ({
     x: direction > 0 ? 80 : -80,
     opacity: 0,
   }),
-  center: {
-    x: 0,
-    opacity: 1,
-  },
+  center: { x: 0, opacity: 1 },
   exit: (direction: number) => ({
     x: direction > 0 ? -80 : 80,
     opacity: 0,
@@ -34,46 +87,58 @@ const CreateBotPage = () => {
   const { t, i18n } = useTranslation("createBot");
   const { signOut } = useAuth();
   const navigate = useNavigate();
-  const [currentStep, setCurrentStep] = useState(() => {
-    const saved = sessionStorage.getItem("createBot_currentStep");
-    return saved ? Number(saved) : 0;
-  });
-  const [direction, setDirection] = useState(0);
-  const [completedSteps, setCompletedSteps] = useState<Set<number>>(() => {
-    const saved = sessionStorage.getItem("createBot_completedSteps");
-    return saved ? new Set(JSON.parse(saved) as number[]) : new Set();
-  });
-
-  useEffect(() => {
-    sessionStorage.setItem("createBot_currentStep", String(currentStep));
-  }, [currentStep]);
-
-  useEffect(() => {
-    sessionStorage.setItem("createBot_completedSteps", JSON.stringify([...completedSteps]));
-  }, [completedSteps]);
   const isRTL = i18n.language === "he";
 
-  const goToStep = (step: number) => {
-    if (step === currentStep) return;
-    // TODO: re-enable step guard after integration is done
-    // if (step > currentStep && !completedSteps.has(currentStep)) return;
-    const dir = isRTL ? (step < currentStep ? 1 : -1) : step > currentStep ? 1 : -1;
+  const [phase, setPhase] = useState<Phase>(() => {
+    const saved = sessionStorage.getItem("createBot_phase") as Phase | null;
+    return saved && ["form", "preview", "connect"].includes(saved)
+      ? saved
+      : "form";
+  });
+  const [direction, setDirection] = useState(0);
+
+  useEffect(() => {
+    sessionStorage.setItem("createBot_phase", phase);
+  }, [phase]);
+
+  const goToPhase = (nextPhase: Phase) => {
+    if (nextPhase === phase) return;
+    // Save immediately so phase survives auth-guard remounts
+    sessionStorage.setItem("createBot_phase", nextPhase);
+    const nextIdx = PHASE_INDEX[nextPhase];
+    const curIdx = PHASE_INDEX[phase];
+    const dir = isRTL
+      ? nextIdx < curIdx
+        ? 1
+        : -1
+      : nextIdx > curIdx
+        ? 1
+        : -1;
     setDirection(dir);
-    setCurrentStep(step);
+    setPhase(nextPhase);
   };
 
-  const handleNext = () => {
-    setCompletedSteps((prev) => new Set([...prev, currentStep]));
-    if (currentStep < STEPS.length - 1) {
-      setDirection(isRTL ? -1 : 1);
-      setCurrentStep((s) => s + 1);
-    }
-  };
+  const handleNext = useCallback(() => {
+    setPhase((prev) => {
+      const next: Phase | null =
+        prev === "form" ? "preview" : prev === "preview" ? "connect" : null;
+      if (!next) return prev;
+      sessionStorage.setItem("createBot_phase", next);
+      // Direction is set separately (non-critical for correctness)
+      setDirection(1);
+      return next;
+    });
+  }, []);
+
+  const showStepper = phase !== "form";
 
   return (
     <div
       dir={isRTL ? "rtl" : "ltr"}
-      className="min-h-screen font-secular-one relative overflow-hidden"
+      className={cn(
+        "min-h-screen font-secular-one relative",
+        phase === "connect" ? "overflow-y-auto" : "overflow-hidden h-screen",
+      )}
       style={{
         background:
           "linear-gradient(170deg, #FDF8F2 0%, #F8F0E6 40%, #FBF5EE 100%)",
@@ -118,93 +183,110 @@ const CreateBotPage = () => {
         </div>
       </motion.button>
 
-      {/* ── Stepper ── */}
-      <div className="relative z-10 pt-8 pb-4 flex justify-center px-4">
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-          className="inline-flex items-center gap-0 rounded-full px-2 py-2 backdrop-blur-xl"
-          style={{
-            background: "rgba(255,255,255,0.7)",
-            boxShadow:
-              "0 4px 30px rgba(45,42,38,0.06), 0 1px 3px rgba(45,42,38,0.04)",
-            border: "1px solid rgba(237,230,221,0.6)",
-          }}
-        >
-          {STEPS.map((step, i) => {
-            const Icon = step.icon;
-            const isActive = i === currentStep;
-            const isCompleted = completedSteps.has(i);
-            // TODO: re-enable step guard after integration is done
-            const isClickable = true;
-
-            return (
-              <div key={step.id} className="flex items-center">
-                {/* Dashed connector */}
-                {i > 0 && (
-                  <div className="w-8 sm:w-14 mx-1 flex items-center">
-                    <div
-                      className={cn(
-                        "w-full border-t-2 border-dashed transition-colors duration-500",
-                        isCompleted || (i <= currentStep)
-                          ? "border-[#FF7E47]/50"
-                          : "border-[#DDD5CA]"
-                      )}
-                    />
-                  </div>
-                )}
-
-                {/* Step pill */}
-                <motion.button
-                  onClick={() => isClickable ? goToStep(i) : undefined}
-                  whileHover={isClickable ? { scale: 1.04 } : undefined}
-                  whileTap={isClickable ? { scale: 0.97 } : undefined}
-                  className={cn(
-                    "relative flex items-center gap-2 rounded-full px-4 sm:px-5 py-2.5 text-sm font-bold transition-all duration-400",
-                    isActive &&
-                      "bg-[#FF7E47] text-white shadow-[0_2px_16px_rgba(255,126,71,0.35)]",
-                    isCompleted &&
-                      !isActive &&
-                      "bg-white text-[#FF7E47] border border-[#FF7E47]/20",
-                    !isActive &&
-                      !isCompleted &&
-                      "bg-transparent text-[#A39B90]",
-                    isClickable ? "cursor-pointer" : "cursor-default"
-                  )}
-                >
-                  {isCompleted && !isActive ? (
-                    <Check className="w-4 h-4" strokeWidth={3} />
-                  ) : (
-                    <Icon className="w-4 h-4" />
-                  )}
-                  <span className="hidden sm:inline">
-                    {t(step.labelKey)}
-                  </span>
-                </motion.button>
-              </div>
-            );
-          })}
-        </motion.div>
-      </div>
-
-      {/* ── Step Content ── */}
-      <div className={cn("relative z-10 mx-auto px-4 pb-16", currentStep === 1 ? "max-w-6xl" : "max-w-3xl")}>
-        <AnimatePresence mode="wait" custom={direction}>
+      {/* ── Stepper (only shown during preview/connect) ── */}
+      {showStepper && (
+        <div className="relative z-10 pt-8 pb-4 flex justify-center px-4">
           <motion.div
-            key={currentStep}
-            custom={direction}
-            variants={slideVariants}
-            initial="enter"
-            animate="center"
-            exit="exit"
-            transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+            className="inline-flex items-center gap-0 rounded-full px-2 py-2 backdrop-blur-xl"
+            style={{
+              background: "rgba(255,255,255,0.7)",
+              boxShadow:
+                "0 4px 30px rgba(45,42,38,0.06), 0 1px 3px rgba(45,42,38,0.04)",
+              border: "1px solid rgba(237,230,221,0.6)",
+            }}
           >
-            {currentStep === 0 && <FormSection onNext={handleNext} />}
-            {currentStep === 1 && <PreviewSection onNext={handleNext} />}
-            {currentStep === 2 && <ConnectSection />}
+            {STEPS.map((step, i) => {
+              const Icon = step.icon;
+              const currentIdx = PHASE_INDEX[phase];
+              const isActive = i === currentIdx;
+              const isCompleted = i < currentIdx;
+              // Form step (0) is always completed and unclickable
+              const isFormStep = i === 0;
+              const isClickable = !isFormStep && i <= currentIdx;
+
+              return (
+                <div key={step.id} className="flex items-center">
+                  {i > 0 && (
+                    <div className="w-8 sm:w-14 mx-1 flex items-center">
+                      <div
+                        className={cn(
+                          "w-full border-t-2 border-dashed transition-colors duration-500",
+                          isCompleted || i <= currentIdx
+                            ? "border-[#FF7E47]/50"
+                            : "border-[#DDD5CA]",
+                        )}
+                      />
+                    </div>
+                  )}
+
+                  <motion.button
+                    onClick={() =>
+                      isClickable
+                        ? goToPhase(step.id as Phase)
+                        : undefined
+                    }
+                    whileHover={isClickable ? { scale: 1.04 } : undefined}
+                    whileTap={isClickable ? { scale: 0.97 } : undefined}
+                    className={cn(
+                      "relative flex items-center gap-2 rounded-full px-4 sm:px-5 py-2.5 text-sm font-bold transition-all duration-400",
+                      isActive &&
+                        "bg-[#FF7E47] text-white shadow-[0_2px_16px_rgba(255,126,71,0.35)]",
+                      isCompleted &&
+                        !isActive &&
+                        "bg-white text-[#FF7E47] border border-[#FF7E47]/20",
+                      !isActive &&
+                        !isCompleted &&
+                        "bg-transparent text-[#A39B90]",
+                      isClickable ? "cursor-pointer" : "cursor-default",
+                    )}
+                  >
+                    {isCompleted && !isActive ? (
+                      <Check className="w-4 h-4" strokeWidth={3} />
+                    ) : (
+                      <Icon className="w-4 h-4" />
+                    )}
+                    <span className="hidden sm:inline">
+                      {t(step.labelKey)}
+                    </span>
+                  </motion.button>
+                </div>
+              );
+            })}
           </motion.div>
-        </AnimatePresence>
+        </div>
+      )}
+
+      {/* ── Phase Content ── */}
+      <div
+        className={cn(
+          "relative z-10 mx-auto",
+          phase === "form"
+            ? "pt-8"
+            : phase === "preview"
+              ? "max-w-6xl px-4"
+              : "max-w-4xl px-4",
+        )}
+      >
+        <PhaseContentBoundary>
+          <AnimatePresence mode="wait" custom={direction}>
+            <motion.div
+              key={phase}
+              custom={direction}
+              variants={slideVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+            >
+              {phase === "form" && <FormSection onNext={handleNext} />}
+              {phase === "preview" && <PreviewSection onNext={handleNext} />}
+              {phase === "connect" && <ConnectSection />}
+            </motion.div>
+          </AnimatePresence>
+        </PhaseContentBoundary>
       </div>
     </div>
   );
