@@ -51,7 +51,7 @@ body {
   transform: translateX(50%);
 }
 
-/* ── Hero glow — dot grid + focused orange glow ── */
+/* ── Hero glow — diagonal lines + orange glow (dark backgrounds) ── */
 .hero-glow {
   position: absolute;
   inset: 0;
@@ -66,11 +66,54 @@ body {
   background-image: repeating-linear-gradient(-45deg,
       transparent,
       transparent 40px,
-      rgba(0, 0, 0, 0.06) 40px,
-      rgba(0, 0, 0, 0.06) 41px);
+      rgba(255, 255, 255, 0.015) 40px,
+      rgba(255, 255, 255, 0.015) 41px);
 }
 
 .hero-glow::after {
+  content: "";
+  position: absolute;
+  width: 500px;
+  height: 500px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -60%);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 107, 44, 0.12) 0%, transparent 70%);
+  animation: hero-pulse 8s ease-in-out infinite;
+}
+
+@keyframes hero-pulse {
+  0%, 100% {
+    opacity: 0.5;
+    transform: translate(-50%, -60%) scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: translate(-50%, -60%) scale(1.05);
+  }
+}
+
+/* ── Hero glow — light variant (cream/white backgrounds) ── */
+.hero-glow-light {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.hero-glow-light::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: repeating-linear-gradient(-45deg,
+      transparent,
+      transparent 40px,
+      rgba(0, 0, 0, 0.04) 40px,
+      rgba(0, 0, 0, 0.04) 41px);
+}
+
+.hero-glow-light::after {
   content: "";
   position: absolute;
   width: 500px;
@@ -83,18 +126,23 @@ body {
   animation: hero-pulse 8s ease-in-out infinite;
 }
 
-@keyframes hero-pulse {
+/* ── Grain texture overlay ── */
+.grain-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.035;
+  mix-blend-mode: multiply;
+}
 
-  0%,
-  100% {
-    opacity: 0.5;
-    transform: translate(-50%, -60%) scale(1);
-  }
+/* ── CTA ambient glow pulse ── */
+@keyframes glow-pulse {
+  0%, 100% { box-shadow: 0 0 30px rgba(255, 107, 44, 0.2); }
+  50% { box-shadow: 0 0 50px rgba(255, 107, 44, 0.35); }
+}
 
-  50% {
-    opacity: 0.8;
-    transform: translate(-50%, -60%) scale(1.05);
-  }
+.cta-glow-pulse {
+  animation: glow-pulse 3s ease-in-out infinite;
 }
 
 /* ── CTA glow — diagonal lines + orange glow ── */
@@ -142,6 +190,34 @@ body {
     transform: translate(-50%, -50%) scale(1.05);
   }
 }
+
+/* ── Glassmorphism card ── */
+.glass-card {
+  background: rgba(255, 255, 255, 0.45);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: 1.25rem;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.08),
+    0 2px 8px rgba(0, 0, 0, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+/* ── Typing indicator dots ── */
+@keyframes typing-bounce {
+  0%, 60%, 100% { transform: translateY(0); }
+  30% { transform: translateY(-4px); }
+}
+.typing-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #999;
+  animation: typing-bounce 1.4s ease-in-out infinite;
+}
+.typing-dot:nth-child(2) { animation-delay: 0.2s; }
+.typing-dot:nth-child(3) { animation-delay: 0.4s; }
 
 /* ── Utilities ── */
 .dot-grid {
