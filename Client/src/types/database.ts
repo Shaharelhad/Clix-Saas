@@ -811,6 +811,104 @@ export type Database = {
           },
         ]
       }
+      user_documents: {
+        Row: {
+          id: string
+          user_id: string
+          file_name: string
+          file_size: number
+          file_type: string
+          storage_path: string
+          chunk_count: number
+          status: string
+          error_message: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          file_name: string
+          file_size: number
+          file_type: string
+          storage_path: string
+          chunk_count?: number
+          status?: string
+          error_message?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          file_name?: string
+          file_size?: number
+          file_type?: string
+          storage_path?: string
+          chunk_count?: number
+          status?: string
+          error_message?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_documents_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      document_chunks: {
+        Row: {
+          id: string
+          user_id: string
+          document_id: string
+          chunk_index: number
+          content: string
+          token_count: number | null
+          embedding: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          document_id: string
+          chunk_index: number
+          content: string
+          token_count?: number | null
+          embedding?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          document_id?: string
+          chunk_index?: number
+          content?: string
+          token_count?: number | null
+          embedding?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_chunks_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_chunks_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "user_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workflows: {
         Row: {
           created_at: string
@@ -1057,6 +1155,20 @@ export type Database = {
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
+      match_document_chunks: {
+        Args: {
+          p_user_id: string
+          p_embedding: string
+          p_match_count?: number
+          p_match_threshold?: number
+        }
+        Returns: {
+          id: string
+          content: string
+          chunk_index: number
+          similarity: number
+        }[]
+      }
     }
     Enums: {
       subscription_tier: "basic" | "pro" | "premium"
