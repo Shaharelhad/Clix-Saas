@@ -6,6 +6,7 @@ const sidebar = {
   faq: "שאלות נפוצות",
   connect: "חיבור",
   flowBuilder: "בונה תהליכים",
+  knowledgeBase: "בסיס ידע",
   logout: "התנתק",
 };
 

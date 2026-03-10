@@ -16,6 +16,7 @@ const ns = [
   "pending",
   "dashboard",
   "flow",
+  "rag",
 ] as const;
 
 i18n
