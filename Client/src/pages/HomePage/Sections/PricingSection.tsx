@@ -56,7 +56,7 @@ const PricingSection = () => {
             <PricingCard
               key={tier.tier}
               {...tier}
-              onSelect={() => navigate("/auth")}
+              onSelect={() => navigate("/auth?mode=signup")}
             />
           ))}
         </div>
