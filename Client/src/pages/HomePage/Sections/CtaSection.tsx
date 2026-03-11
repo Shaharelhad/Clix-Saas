@@ -15,7 +15,7 @@ const CtaSection = () => {
         </h2>
         <p className="text-white/50 text-lg mb-8">{t("ctaSubtitle")}</p>
         <button
-          onClick={() => navigate("/auth")}
+          onClick={() => navigate("/auth?mode=signup")}
           className="clix-btn text-lg px-10 py-4 rounded-xl"
         >
           {t("ctaBtn")}

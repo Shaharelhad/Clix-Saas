@@ -165,7 +165,7 @@ const HomePage = () => {
               {t("navLogin")}
             </button>
             <button
-              onClick={() => navigate("/auth")}
+              onClick={() => navigate("/auth?mode=signup")}
               className="bg-[#FF6B2C] text-white text-sm px-4 py-2 rounded-lg hover:bg-[#E85D04] transition-colors flex items-center gap-1.5"
             >
               {t("navStartFree")}

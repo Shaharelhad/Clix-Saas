@@ -173,7 +173,7 @@ const HeroSection = () => {
             }}
           >
             <button
-              onClick={() => navigate("/auth")}
+              onClick={() => navigate("/auth?mode=signup")}
               className="clix-btn cta-glow-pulse text-lg px-8 py-4 rounded-xl"
             >
               {t("heroBtn")}

@@ -44,6 +44,13 @@ const auth = {
   // Email confirmation
   signupConfirmEmail: "החשבון נוצר! בדוק את האימייל שלך לאישור, ואז התחבר.",
 
+  // Illustration panel
+  illustrationTitle: "הווטסאפ שלך,\nעובד בשבילך",
+  illustrationSubtitle: "בוט AI חכם שעונה ללקוחות שלך 24/7",
+  chatMsg1: "שלום, מה שעות הפעילות?",
+  chatMsg2: "היי! שעות הפעילות: א׳-ה׳ 9:00-18:00. איך אפשר לעזור עוד? 😊",
+  chatMsg3: "יש לכם מבצעים?",
+
   // Footer
   tagline: "WhatsApp AI Bot בלחיצה אחת",
 };
