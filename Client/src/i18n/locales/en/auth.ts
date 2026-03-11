@@ -44,6 +44,13 @@ const auth = {
   // Email confirmation
   signupConfirmEmail: "Account created! Check your email to confirm, then log in.",
 
+  // Illustration panel
+  illustrationTitle: "Your WhatsApp,\nWorking for You",
+  illustrationSubtitle: "A smart AI bot that answers your customers 24/7",
+  chatMsg1: "Hello, what are the hours of operation?",
+  chatMsg2: "Hi! Our hours: Sun-Thu 9:00-18:00. How can we help? 😊",
+  chatMsg3: "Do you have any promotions?",
+
   // Footer
   tagline: "WhatsApp AI Bot in One Click",
 };
