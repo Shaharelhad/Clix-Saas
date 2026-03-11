@@ -19,7 +19,11 @@ const flow = {
   publish: "פרסם",
   unpublish: "Unpublish",
   live: "פעיל",
-  publishConfirm: "לפרסם את התהליך לבוט הוואטסאפ?",
+  publishConfirm: "התהליך יהיה פעיל בבוט הוואטסאפ שלך. לקוחות יתחילו לקבל הודעות לפי התהליך הזה.",
+  unpublishConfirm: "התהליך יושהה. הבוט ימשיך לענות באמצעות AI, אבל לא יעקוב אחרי שלבי התהליך.",
+  cancel: "ביטול",
+  confirmPublish: "פרסם",
+  confirmUnpublish: "השהה",
   deleteFlow: "מחק תהליך",
   deleteConfirm: "האם אתה בטוח שברצונך למחוק את התהליך?",
 
@@ -48,10 +52,14 @@ const flow = {
   messageHint: "השתמש ב-{{שםמשתנה}} לערכים דינמיים",
   imageUrl: "כתובת תמונה",
   imageUrlHint: "קישור ישיר לתמונה",
+  imageUpload: "העלאת תמונה",
+  imageUploading: "מעלה...",
+  imageRemove: "הסרת תמונה",
+  imageUploadError: "ההעלאה נכשלה — נסה שוב",
   expectedReply: "תשובה צפויה",
-  expectedReplyHint: "טקסט מדויק להתאמה (אופציונלי)",
-  continueAuto: "המתן לתשובה כלשהי",
-  continueAutoHint: "המשך את התהליך אחרי שהמשתמש מגיב",
+  expectedReplyHint: "טקסט מדויק או דומה להתאמה",
+  continueAuto: "המשך בכל תשובה",
+  continueAutoHint: "כל הודעה מהלקוח תמשיך את התהליך",
   variableName: "שם משתנה",
   variableNameHint: "השם לשמירת תשובת המשתמש",
   delayMinutes: "השהייה (דקות)",
@@ -108,6 +116,10 @@ const flow = {
   settingsSessionResetPreset360: "6 שעות",
   settingsSessionResetPreset1440: "24 שעות",
   settingsDone: "סגור",
+
+  // Auto-save & lock
+  autoSaved: "נשמר אוטומטית",
+  lockedBanner: "בטל פרסום התהליך כדי לערוך",
 
   // Misc
   deleteNode: "מחק צומת",
