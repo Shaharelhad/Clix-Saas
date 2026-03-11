@@ -385,11 +385,6 @@ const HeroSection = () => {
         </motion.div>
       </div>
 
-      {/* ── Bottom edge — clean transition ── */}
-      <div className="absolute bottom-0 left-0 right-0 pointer-events-none">
-        <div className="h-16 bg-gradient-to-b from-transparent to-[#F0E6D8]/60" />
-        <div className="h-px bg-gradient-to-r from-transparent via-[#FF6B2C]/20 to-transparent" />
-      </div>
     </section>
   );
 };

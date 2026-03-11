@@ -2,7 +2,6 @@ export default {
   /* ── nav ── */
   navFeatures: "Features",
   navPreview: "Preview",
-  navPricing: "Pricing",
   navFaq: "FAQ",
   navLogin: "Login",
   navStartFree: "Start Free",
@@ -17,6 +16,9 @@ export default {
   /* ── how it works / product preview ── */
   howItWorks: "How It Works",
   automationInMinutes: "Automation in minutes, no code",
+  step1: "Build your bot",
+  step2: "Customize it",
+  step3: "Connect to WhatsApp",
   mockSidebar: ["Preview", "Business Content", "FAQ", "Connect WhatsApp", "Flow Builder"],
   mockStart: "Start",
   mockTextMessage: "Text Message",
@@ -41,44 +43,6 @@ export default {
   feature6: "Advanced Security",
   feature6Desc: "Your data is protected with the highest standards",
 
-  /* ── pricing ── */
-  pricing: "Pricing",
-  pricingTitle: "Plans & Pricing",
-  tierFree: "Free",
-  tierPro: "Professional",
-  tierEnterprise: "Enterprise",
-  priceFree: "₪0",
-  pricePro: "₪149",
-  priceEnterprise: "Custom",
-  perMonth: "/month",
-  bestForFree: "Perfect for getting started",
-  bestForPro: "For businesses that want to grow",
-  bestForEnterprise: "For organizations with advanced needs",
-  ctaFree: "Start Free",
-  ctaPro: "Upgrade Now",
-  ctaEnterprise: "Contact Us",
-  featuresFree: [
-    { text: "One bot", included: true },
-    { text: "100 messages / month", included: true },
-    { text: "Basic support", included: true },
-    { text: "Flow builder", included: false },
-    { text: "Analytics", included: false },
-  ],
-  featuresPro: [
-    { text: "Unlimited bots", included: true },
-    { text: "10,000 messages / month", included: true },
-    { text: "Priority support", included: true },
-    { text: "Flow builder", included: true },
-    { text: "Analytics", included: false },
-  ],
-  featuresEnterprise: [
-    { text: "Unlimited bots", included: true },
-    { text: "Unlimited messages", included: true },
-    { text: "Dedicated support", included: true },
-    { text: "Flow builder", included: true },
-    { text: "Advanced analytics", included: true },
-  ],
-
   /* ── FAQ ── */
   faqLabel: "FAQ",
   faqTitle: "Got Questions? We've Got Answers",
@@ -97,12 +61,13 @@ export default {
   ctaTitle: "Ready to upgrade your business WhatsApp?",
   ctaSubtitle: "Join thousands of businesses already using CLIX",
   ctaBtn: "Start Free Now",
+  ctaStatSetup: "Setup in minutes",
+  ctaStat247: "24/7 support",
 
   /* ── footer ── */
   footerDesc: "Smart WhatsApp bots for Israeli businesses",
   footerProduct: "Product",
   footerFeatures: "Features",
-  footerPricing: "Pricing",
   footerFaq: "FAQ",
   footerCompany: "Company",
   footerAbout: "About",

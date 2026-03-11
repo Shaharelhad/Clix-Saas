@@ -90,7 +90,7 @@ Only `Client/` has a package.json. Run `npm install` from there.
 - **Draft/Publish system:** `form_responses.draft_bot_prompt` column separates preview from live bot. Edits go to draft, published on WhatsApp connect or via "Publish Changes" button in dashboard
 
 ### Frontend Pages Built
-- **HomePage** — full landing page with 7 sections (Hero, ProductPreview, Features, Pricing, FAQ, CTA, Footer)
+- **HomePage** — full landing page with 6 sections (Hero, ProductPreview, Features, FAQ, CTA, Footer)
 - **AuthPage** — login, signup, forgot-password modes (wired to Supabase Auth)
 - **PendingPage** — approval waiting screen with 30s auto-refresh (wired to `get_my_profile` RPC)
 - **CreateBotPage** — multi-step 3-section wizard: FormSection (`callFormSubmission()` + `callScrapeStatus()`), PreviewSection (`callBotDemo()` + `callBotEditRequest()`), ConnectSection (`callWClixAPIConnect()`). All wired to backend.
@@ -119,28 +119,11 @@ See [`.claude/migration-status.md`](.claude/migration-status.md) for the full ga
 1. **Implement** the feature
 2. **Build check** — run `npm run build` from `Client/`
    - If fails → fix and re-run build until it passes
-3. **Code review** — use the **code-simplifier** agent (`.claude/agents/code-simplifier.md`) to check:
-   - Functions longer than 30 lines (likely doing too much)
-   - Logic duplicated more than twice (extract to utility)
-   - Any `any` type usage in TypeScript (replace with real types)
-   - Components with more than 3 props that could be grouped into an object
-   - Missing error handling on async operations
-   - If issues found → fix them, re-run build, re-check until clean
-4. **Visual verify** (UI/frontend changes only) — use the **browser-tester** agent (`.claude/agents/browser-tester.md`) to verify pages render correctly
-   - If issues found → fix them, loop back to step 2
-5. **Feature complete** → proceed to next feature
+3. **Feature complete** → proceed to next feature
 
-### Multi-Feature Order
+**Do NOT automatically run code-simplifier, browser-tester, or /simplify agents after each feature.** Only run them when the user explicitly asks for it.
 
-```
-Feature 1 → build → code-simplifier → browser-tester → PASS → Feature 2
-Feature 2 → build → code-simplifier → browser-tester → PASS → Feature 3
-...repeat until all features done
-```
-
-**Never batch-implement multiple features. Each feature must pass the full loop before starting the next.**
-
-Run /simplify before presenting code to the user.
+**Never batch-implement multiple features. Each feature must pass the build before starting the next.**
 
 ## Maintenance Rule
 

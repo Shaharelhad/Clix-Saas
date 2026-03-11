@@ -2,7 +2,6 @@ export default {
   /* ── nav ── */
   navFeatures: "תכונות",
   navPreview: "תצוגה מקדימה",
-  navPricing: "מחירון",
   navFaq: "שאלות נפוצות",
   navLogin: "התחברות",
   navStartFree: "התחל בחינם",
@@ -17,6 +16,9 @@ export default {
   /* ── how it works / product preview ── */
   howItWorks: "איך זה עובד?",
   automationInMinutes: "אוטומציה בדקות, בלי קוד",
+  step1: "בנו את הבוט",
+  step2: "התאימו אישית",
+  step3: "חברו לוואטסאפ",
   mockSidebar: ["תצוגה מקדימה", "תוכן עסקי", "שאלות נפוצות", "חיבור וואטסאפ", "בונה תהליכים"],
   mockStart: "התחלה",
   mockTextMessage: "הודעת טקסט",
@@ -41,44 +43,6 @@ export default {
   feature6: "אבטחה מתקדמת",
   feature6Desc: "הנתונים שלך מוגנים בסטנדרטים הגבוהים ביותר",
 
-  /* ── pricing ── */
-  pricing: "מחירון",
-  pricingTitle: "תוכניות ומחירים",
-  tierFree: "חינמי",
-  tierPro: "מקצועי",
-  tierEnterprise: "עסקי",
-  priceFree: "₪0",
-  pricePro: "₪149",
-  priceEnterprise: "בהתאמה אישית",
-  perMonth: "/חודש",
-  bestForFree: "מושלם להתחלה ולניסיון",
-  bestForPro: "לעסקים שרוצים לצמוח",
-  bestForEnterprise: "לארגונים עם צרכים מתקדמים",
-  ctaFree: "התחל בחינם",
-  ctaPro: "שדרג עכשיו",
-  ctaEnterprise: "צור קשר",
-  featuresFree: [
-    { text: "בוט אחד", included: true },
-    { text: "100 הודעות / חודש", included: true },
-    { text: "תמיכה בסיסית", included: true },
-    { text: "בונה תהליכים", included: false },
-    { text: "ניתוח נתונים", included: false },
-  ],
-  featuresPro: [
-    { text: "בוטים ללא הגבלה", included: true },
-    { text: "10,000 הודעות / חודש", included: true },
-    { text: "תמיכה מועדפת", included: true },
-    { text: "בונה תהליכים", included: true },
-    { text: "ניתוח נתונים", included: false },
-  ],
-  featuresEnterprise: [
-    { text: "בוטים ללא הגבלה", included: true },
-    { text: "הודעות ללא הגבלה", included: true },
-    { text: "תמיכה ייעודית", included: true },
-    { text: "בונה תהליכים", included: true },
-    { text: "ניתוח נתונים מתקדם", included: true },
-  ],
-
   /* ── FAQ ── */
   faqLabel: "שאלות נפוצות",
   faqTitle: "יש שאלות? יש לנו תשובות",
@@ -97,12 +61,13 @@ export default {
   ctaTitle: "מוכן לשדרג את הוואטסאפ העסקי שלך?",
   ctaSubtitle: "הצטרף לאלפי עסקים שכבר משתמשים ב-CLIX",
   ctaBtn: "התחל בחינם עכשיו",
+  ctaStatSetup: "הגדרה בדקות",
+  ctaStat247: "מענה 24/7",
 
   /* ── footer ── */
   footerDesc: "בוטים חכמים לוואטסאפ לעסקים ישראליים",
   footerProduct: "מוצר",
   footerFeatures: "תכונות",
-  footerPricing: "מחירון",
   footerFaq: "שאלות נפוצות",
   footerCompany: "חברה",
   footerAbout: "אודות",

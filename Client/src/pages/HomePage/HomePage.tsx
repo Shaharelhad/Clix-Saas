@@ -6,7 +6,6 @@ import { ArrowLeft } from "lucide-react";
 import HeroSection from "./Sections/HeroSection";
 import ProductPreviewSection from "./Sections/ProductPreviewSection";
 import FeaturesSection from "./Sections/FeaturesSection";
-import PricingSection from "./Sections/PricingSection";
 import FaqSection from "./Sections/FaqSection";
 import CtaSection from "./Sections/CtaSection";
 import FooterSection from "./Sections/FooterSection";
@@ -40,7 +39,6 @@ function Reveal({
 const NAV_SECTIONS = [
   { id: "preview" },
   { id: "features" },
-  { id: "pricing" },
   { id: "faq" },
 ];
 
@@ -96,14 +94,14 @@ const HomePage = () => {
   return (
     <div
       dir="rtl"
-      className="min-h-screen bg-black text-white font-secular-one"
+      className="min-h-screen bg-[#FDF8F2] text-[#1A1A1A] font-secular-one"
     >
       {/* ── Fixed Navbar ── */}
       <header className="fixed top-0 inset-x-0 z-50">
         <div
           className={`max-w-6xl mx-auto px-6 py-3 flex items-center justify-between transition-all duration-500 ${
             scrolled
-              ? "mt-2 mx-4 lg:mx-auto rounded-2xl bg-white/70 backdrop-blur-xl border border-black/5 shadow-[0_8px_32px_rgba(0,0,0,0.08)]"
+              ? "mt-2 mx-4 lg:mx-auto rounded-2xl bg-white/70 backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.06)]"
               : "mt-0"
           }`}
         >
@@ -179,18 +177,12 @@ const HomePage = () => {
       {/* ── Sections ── */}
       <HeroSection />
 
-      <Reveal>
-        <div id="preview">
-          <ProductPreviewSection />
-        </div>
-      </Reveal>
+      <div id="preview">
+        <ProductPreviewSection />
+      </div>
 
       <Reveal>
         <FeaturesSection />
-      </Reveal>
-
-      <Reveal>
-        <PricingSection />
       </Reveal>
 
       <Reveal>
