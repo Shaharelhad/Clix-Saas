@@ -23,7 +23,12 @@ const PALETTE_ITEMS: { type: FlowNodeType; icon: typeof MessageSquareText; label
   { type: "condition", icon: GitBranch, labelKey: "nodeCondition", descKey: "nodeConditionDesc" },
 ];
 
-export default function NodePalette() {
+interface NodePaletteProps {
+  isLocked: boolean;
+  onLockedDrag: () => void;
+}
+
+export default function NodePalette({ isLocked, onLockedDrag }: NodePaletteProps) {
   const { t } = useTranslation("flow");
 
   const onDragStart = (e: DragEvent, type: FlowNodeType) => {
@@ -43,9 +48,14 @@ export default function NodePalette() {
           return (
             <div
               key={item.type}
-              draggable
-              onDragStart={(e) => onDragStart(e, item.type)}
-              className="flex items-center gap-2.5 p-2.5 rounded-lg border border-[#EDE6DD]/60 hover:border-[#FF7E47]/30 hover:bg-[#FFF5F0]/50 cursor-grab active:cursor-grabbing transition-all"
+              draggable={!isLocked}
+              onDragStart={isLocked ? undefined : (e) => onDragStart(e, item.type)}
+              onClick={isLocked ? onLockedDrag : undefined}
+              className={`flex items-center gap-2.5 p-2.5 rounded-lg border border-[#EDE6DD]/60 transition-all ${
+                isLocked
+                  ? "opacity-50 cursor-not-allowed"
+                  : "hover:border-[#FF7E47]/30 hover:bg-[#FFF5F0]/50 cursor-grab active:cursor-grabbing"
+              }`}
             >
               <div
                 className="w-7 h-7 rounded-md flex items-center justify-center shrink-0"
