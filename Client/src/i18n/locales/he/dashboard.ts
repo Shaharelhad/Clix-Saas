@@ -67,7 +67,7 @@ const dashboard = {
   websiteUrl: "כתובת אתר",
   additionalInfo: "מידע נוסף",
   saveChanges: "שמור שינויים",
-  saving: "שומר...",
+  saving: "שומר, זה עשוי לקחת כמה שניות...",
   savedSuccessfully: "נשמר בהצלחה!",
   saveError: "שמירה נכשלה. נסה שוב.",
   updatingBot: "מעדכן את הבוט שלך...",

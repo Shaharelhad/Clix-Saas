@@ -284,11 +284,11 @@ function CategoryCard({
                 className="flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-bold bg-[#FF7E47] hover:bg-[#E86B38] text-white transition-colors shadow-[0_2px_12px_rgba(255,126,71,0.25)] cursor-pointer disabled:opacity-60"
               >
                 {saving ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <Loader2 key="loader" className="w-4 h-4 animate-spin" />
                 ) : (
-                  <Sparkles className="w-4 h-4" />
+                  <Sparkles key="sparkles" className="w-4 h-4" />
                 )}
-                {saving ? t("saving") : t("saveChanges")}
+                <span>{saving ? t("saving") : t("saveChanges")}</span>
               </button>
             </div>
           </motion.div>
@@ -551,16 +551,12 @@ export default function BusinessContentSection() {
       // Force-refetch so cache has fresh data (prevents stale data on remount)
       await queryClient.refetchQueries({ queryKey: ["form_response", user?.id] });
 
-      // Clear spinner first (Render 1: button swaps Loader2→Sparkles)
-      setSavingCategory(null);
+      // Commit snapshot (ref update) + show feedback. Keep savingCategory set so the
+      // button content (LoaderCircle) stays stable during the AnimatePresence exit
+      // animation — swapping icons inside an exiting element causes insertBefore errors.
+      commitCategory(categoryId, catFields);
       showFeedback(categoryId, "success");
-
-      // Delay snapshot commit to next frame so dirty→false (bar exit animation)
-      // happens in a separate render from the button content swap — prevents
-      // the insertBefore DOM error caused by AnimatePresence exit + child update.
-      requestAnimationFrame(() => {
-        commitCategory(categoryId, catFields);
-      });
+      setTimeout(() => setSavingCategory(null), 300);
     } catch {
       showFeedback(categoryId, "error");
       setSavingCategory(null);
