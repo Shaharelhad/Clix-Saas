@@ -114,6 +114,32 @@ export default function FlowSettingsModal({ settings, onUpdate, onClose }: FlowS
               </div>
             )}
           </div>
+          {/* Session Auto-Reset */}
+          <div className="border-t border-[#EDE6DD]/40 pt-5">
+            <SettingRow
+              label={t("settingsSessionReset")}
+              hint={t("settingsSessionResetHint")}
+              checked={settings.sessionResetEnabled}
+              onChange={(v) => onUpdate({ sessionResetEnabled: v })}
+            />
+
+            {settings.sessionResetEnabled && (
+              <div className="mt-3 ms-6">
+                <MinutesPresetInput
+                  label={t("settingsSessionResetMinutes")}
+                  value={settings.sessionResetMinutes}
+                  presets={[
+                    { value: 60, label: t("settingsSessionResetPreset60") },
+                    { value: 360, label: t("settingsSessionResetPreset360") },
+                    { value: 1440, label: t("settingsSessionResetPreset1440") },
+                  ]}
+                  min={30}
+                  max={10080}
+                  onChange={(v) => onUpdate({ sessionResetMinutes: v })}
+                />
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Footer */}

@@ -60,7 +60,7 @@ Only `Client/` has a package.json. Run `npm install` from there.
 - Auth: use `useAuth()` hook from `@/hooks/useAuth.ts` for all auth operations
 - State: Zustand for client state (`src/store/`), React Query for server state
 - Database types: import from `@/types/database` (e.g., `Tables<"profiles">`, `TablesInsert<"form_responses">`)
-- External operations (Supabase, APIs, third-party services): always read `Client/.env` first to get credentials/URLs before asking the user for access details
+- External operations (Supabase, APIs, third-party services): always read `Client/.env` first to get credentials/URLs before asking the user for access details (includes `SUPABASE_ACCESS_TOKEN` for CLI deploys)
 
 ### Page Structure (`src/pages/`)
 - **Naming:** pages are `{Name}Page.tsx`, sections are `{Name}Section.tsx`

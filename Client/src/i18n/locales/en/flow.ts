@@ -101,6 +101,12 @@ const flow = {
   settingsAutoFollowUpMaxCountHint: "How many follow-ups to send before stopping",
   settingsDedup: "Duplicate Message Filter",
   settingsDedupHint: "Prevent double-processing from duplicate webhook deliveries",
+  settingsSessionReset: "Session Auto-Reset",
+  settingsSessionResetHint: "Restart the conversation from scratch when a customer hasn't messaged in a while",
+  settingsSessionResetMinutes: "Reset after inactivity (minutes)",
+  settingsSessionResetPreset60: "1 hour",
+  settingsSessionResetPreset360: "6 hours",
+  settingsSessionResetPreset1440: "24 hours",
   settingsDone: "Done",
 
   // Misc

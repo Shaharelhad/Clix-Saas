@@ -101,6 +101,12 @@ const flow = {
   settingsAutoFollowUpMaxCountHint: "כמה הודעות מעקב לשלוח לפני שמפסיקים",
   settingsDedup: "סינון הודעות כפולות",
   settingsDedupHint: "מנע עיבוד כפול מהודעות webhook שחוזרות על עצמן",
+  settingsSessionReset: "איפוס שיחה אוטומטי",
+  settingsSessionResetHint: "התחל את השיחה מחדש כשלקוח לא שלח הודעה זמן רב",
+  settingsSessionResetMinutes: "איפוס לאחר חוסר פעילות (דקות)",
+  settingsSessionResetPreset60: "שעה",
+  settingsSessionResetPreset360: "6 שעות",
+  settingsSessionResetPreset1440: "24 שעות",
   settingsDone: "סגור",
 
   // Misc

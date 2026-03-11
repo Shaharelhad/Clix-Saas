@@ -74,6 +74,8 @@ interface FlowSettings {
   autoFollowUpEnabled?: boolean;
   autoFollowUpDelayMinutes?: number;
   autoFollowUpMaxCount?: number;
+  sessionResetEnabled?: boolean;
+  sessionResetMinutes?: number;
 }
 
 interface FlowJSON {
@@ -91,6 +93,8 @@ function getFlowSettings(flow: FlowJSON) {
     autoFollowUpEnabled: flow.settings?.autoFollowUpEnabled ?? false,
     autoFollowUpDelayMinutes: flow.settings?.autoFollowUpDelayMinutes ?? 120,
     autoFollowUpMaxCount: flow.settings?.autoFollowUpMaxCount ?? 1,
+    sessionResetEnabled: flow.settings?.sessionResetEnabled ?? false,
+    sessionResetMinutes: flow.settings?.sessionResetMinutes ?? 1440,
   };
 }
 
@@ -753,6 +757,32 @@ Deno.serve(async (req) => {
 
     let session = sessions?.[0] || null;
 
+    // ── Session Auto-Reset: clear expired sessions ──────────────
+    if (session && settings.sessionResetEnabled && session.last_message_at) {
+      const idleMs = Date.now() - new Date(session.last_message_at).getTime();
+      const resetMs = settings.sessionResetMinutes * 60 * 1000;
+      if (idleMs >= resetMs) {
+        console.log("[flow] Session reset: idle", Math.round(idleMs / 60000), "min >=", settings.sessionResetMinutes, "min for", phone);
+        const resetState = {
+          current_node_id: null,
+          variables: { phone },
+          status: "completed" as const,
+          follow_up_count: 0,
+          conversation_stage: null,
+        };
+        // Run all three cleanup operations concurrently (allSettled so partial failures don't crash the webhook)
+        const results = await Promise.allSettled([
+          supabase.from("flow_message_log").delete().eq("session_id", session.id),
+          supabase.from("flow_delayed_jobs").update({ status: "cancelled" }).eq("session_id", session.id).eq("status", "pending"),
+          supabase.from("subscriber_sessions").update(resetState).eq("id", session.id),
+        ]);
+        results.forEach((r, i) => {
+          if (r.status === "rejected") console.error("[flow] Session reset op", i, "failed:", r.reason);
+        });
+        session = { ...session, ...resetState };
+      }
+    }
+
     if (!session) {
       const matchedNodeId0 = await classifyTrigger(triggers, userMessage);
       const triggerStart = matchedNodeId0 ? findStartNodeById(flow, matchedNodeId0) : undefined;
@@ -914,6 +944,18 @@ Deno.serve(async (req) => {
       .eq("session_id", session.id)
       .eq("status", "pending");
 
+    // Helper: reactivate session and fall back to open LLM conversation
+    async function reactivateAndFallbackToLLM(): Promise<Response> {
+      await supabase
+        .from("subscriber_sessions")
+        .update({ status: "active", last_message_at: new Date().toISOString() })
+        .eq("id", session!.id);
+      await callOpenLLM(profile.id, userMessage, session!.id, workflow.id, customerId, phone, workflowRecord);
+      return new Response(JSON.stringify({ ok: true, action: "llm_response" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     let variables = (session.variables as Record<string, string>) || {};
     let currentNodeId = session.current_node_id;
 
@@ -961,11 +1003,8 @@ Deno.serve(async (req) => {
         currentNodeId = triggerStartNode.id;
         variables = { phone };
       } else {
-        // No trigger match on completed session — use open LLM conversation
-        await callOpenLLM(profile.id, userMessage, session.id, workflow.id, customerId, phone, workflowRecord);
-        return new Response(JSON.stringify({ ok: true, action: "llm_response" }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        // No trigger match on completed session — fall back to open LLM
+        return await reactivateAndFallbackToLLM();
       }
     }
 
@@ -976,11 +1015,8 @@ Deno.serve(async (req) => {
       if (startNode) {
         currentNodeId = startNode.id;
       } else {
-        // No trigger match and no active flow — use LLM
-        await callOpenLLM(profile.id, userMessage, session.id, workflow.id, customerId, phone, workflowRecord);
-        return new Response(JSON.stringify({ ok: true, action: "llm_response" }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        // No trigger match and no active flow — fall back to open LLM
+        return await reactivateAndFallbackToLLM();
       }
     }
 

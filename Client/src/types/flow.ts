@@ -54,6 +54,8 @@ export interface FlowSettings {
   autoFollowUpEnabled: boolean;
   autoFollowUpDelayMinutes: number;
   autoFollowUpMaxCount: number;
+  sessionResetEnabled: boolean;
+  sessionResetMinutes: number;
 }
 
 export const DEFAULT_FLOW_SETTINGS: FlowSettings = {
@@ -64,6 +66,8 @@ export const DEFAULT_FLOW_SETTINGS: FlowSettings = {
   autoFollowUpEnabled: false,
   autoFollowUpDelayMinutes: 120,
   autoFollowUpMaxCount: 1,
+  sessionResetEnabled: false,
+  sessionResetMinutes: 1440,
 };
 
 export interface FlowJSON {
