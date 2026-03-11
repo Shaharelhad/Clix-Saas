@@ -700,15 +700,63 @@ Deno.serve(async (req) => {
       .eq("id", activeFlowId)
       .single();
 
-    if (!workflow || workflow.status !== "active") {
-      console.log("[flow] Workflow not active:", activeFlowId, workflow?.status);
-      return new Response(JSON.stringify({ ok: true, reason: "workflow_not_active" }), {
+    if (!workflow) {
+      console.log("[flow] Workflow not found:", activeFlowId);
+      return new Response(JSON.stringify({ ok: true, reason: "no_workflow" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
+    const isFlowActive = workflow.status === "active";
     const flow = workflow.flow_json as FlowJSON;
     const workflowRecord = (workflow.workflow_record as string) || undefined;
+
+    // When workflow is not active (paused/draft), skip flow execution but still respond via LLM
+    if (!isFlowActive) {
+      console.log("[flow] Workflow paused, using LLM-only mode:", activeFlowId, workflow.status);
+
+      // Find or create a session for LLM conversation
+      const { data: existingSessions } = await supabase
+        .from("subscriber_sessions")
+        .select("*")
+        .eq("workflow_id", workflow.id)
+        .eq("phone", phone)
+        .order("created_at", { ascending: false })
+        .limit(1);
+
+      let llmSession = existingSessions?.[0] || null;
+
+      if (!llmSession) {
+        const { data: newSession } = await supabase
+          .from("subscriber_sessions")
+          .insert({
+            workflow_id: workflow.id,
+            phone,
+            current_node_id: null,
+            variables: { phone },
+            status: "completed",
+          })
+          .select()
+          .single();
+        llmSession = newSession;
+      }
+
+      if (llmSession) {
+        await supabase.from("flow_message_log").insert({
+          workflow_id: workflow.id,
+          session_id: llmSession.id,
+          direction: "inbound",
+          message_type: "text",
+          content: userMessage,
+        });
+        await callOpenLLM(profile.id, userMessage, llmSession.id, workflow.id, customerId, phone, workflowRecord);
+      }
+
+      return new Response(JSON.stringify({ ok: true, action: "llm_response_paused" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const triggers = extractTriggers(flow);
     const settings = getFlowSettings(flow);
 
@@ -1134,25 +1182,32 @@ Deno.serve(async (req) => {
         }
         nextNodeId = nextNode?.id || null;
       } else {
-        // Re-send buttons
-        await sendButtonsMessage(customerId, phone, "לא הבנתי, בחר אפשרות:", buttons);
-        // Stay on same node
+        // Non-button text — reply via LLM, stay on buttons node
+        await callOpenLLM(profile.id, userMessage, session.id, workflow.id, customerId, phone, workflowRecord);
         await supabase
           .from("subscriber_sessions")
           .update({ last_message_at: new Date().toISOString() })
           .eq("id", session.id);
-        return new Response(JSON.stringify({ ok: true, action: "resent_buttons" }), {
+        return new Response(JSON.stringify({ ok: true, action: "llm_response" }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
     } else if ((currentNode.type === "text" || currentNode.type === "image") && (currentNode.data.continueAuto || currentNode.data.expectedReply)) {
       // Node is waiting for a response from the user
       if (currentNode.data.expectedReply) {
-        // Check if user's message matches the expected reply
+        // Check if user's message matches the expected reply (exact or semantic)
         const expected = currentNode.data.expectedReply.trim().toLowerCase();
         const userInput = userMessage.trim().toLowerCase();
-        console.log("[flow] expectedReply check:", { expected, userInput, match: userInput === expected, nodeId: currentNode.id });
-        if (userInput === expected) {
+        let matched = userInput === expected;
+        if (!matched) {
+          const semanticResult = await classifyTrigger(
+            [{ id: "expected", trigger: currentNode.data.expectedReply }],
+            userMessage,
+          );
+          matched = semanticResult !== null;
+        }
+        console.log("[flow] expectedReply check:", { expected, userInput, matched, nodeId: currentNode.id });
+        if (matched) {
           const nextNode = findNextNode(flow, currentNode.id);
           console.log("[flow] expectedReply matched, nextNode:", nextNode?.id || "null", "edges from node:", flow.edges.filter(e => e.source === currentNode.id));
           nextNodeId = nextNode?.id || null;
