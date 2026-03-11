@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { callLLMEngine, classifyTrigger, type TriggerInfo } from "../_shared/llm-engine.ts";
+import { callLLMEngine, classifyTrigger, type TriggerInfo, type LLMResult } from "../_shared/llm-engine.ts";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -71,6 +71,9 @@ interface FlowSettings {
   cooldownEnabled?: boolean;
   cooldownMinutes?: number;
   deduplicateMessages?: boolean;
+  autoFollowUpEnabled?: boolean;
+  autoFollowUpDelayMinutes?: number;
+  autoFollowUpMaxCount?: number;
 }
 
 interface FlowJSON {
@@ -85,6 +88,9 @@ function getFlowSettings(flow: FlowJSON) {
     cooldownEnabled: flow.settings?.cooldownEnabled ?? true,
     cooldownMinutes: flow.settings?.cooldownMinutes ?? 60,
     deduplicateMessages: flow.settings?.deduplicateMessages ?? true,
+    autoFollowUpEnabled: flow.settings?.autoFollowUpEnabled ?? false,
+    autoFollowUpDelayMinutes: flow.settings?.autoFollowUpDelayMinutes ?? 120,
+    autoFollowUpMaxCount: flow.settings?.autoFollowUpMaxCount ?? 1,
   };
 }
 
@@ -213,6 +219,7 @@ async function callOpenLLM(
     undefined, // no legacy triggerContext
     false,     // production = not draft
     workflowRecord,
+    true,      // classifyStage — detect engaging vs closed
   );
 
   // Send response via WClixAPI
@@ -227,6 +234,79 @@ async function callOpenLLM(
     message_type: "llm_response",
     content: result.response,
   });
+
+  // Update conversation stage if classified
+  if (result.conversationStage) {
+    await supabase
+      .from("subscriber_sessions")
+      .update({ conversation_stage: result.conversationStage })
+      .eq("id", sessionId);
+  }
+
+  // Schedule or cancel auto-follow-up
+  await handleAutoFollowUp(sessionId, workflowId, result.conversationStage);
+}
+
+// ── Auto-Follow-Up Scheduling ────────────────────────────────
+
+/**
+ * Cancel pending auto-follow-up jobs and optionally schedule a new one.
+ * Called after each bot response (LLM or flow node).
+ */
+async function handleAutoFollowUp(
+  sessionId: string,
+  workflowId: string,
+  conversationStage?: "engaging" | "closed",
+): Promise<void> {
+  try {
+    // Always cancel existing pending auto-follow-up jobs (timer resets)
+    await supabase
+      .from("flow_delayed_jobs")
+      .update({ status: "cancelled" })
+      .eq("session_id", sessionId)
+      .eq("job_type", "auto_follow_up")
+      .eq("status", "pending");
+
+    // Don't schedule if stage is closed
+    if (conversationStage === "closed") return;
+
+    // Fetch workflow to check settings
+    const { data: workflow } = await supabase
+      .from("workflows")
+      .select("flow_json")
+      .eq("id", workflowId)
+      .single();
+
+    if (!workflow?.flow_json) return;
+
+    const flowSettings = getFlowSettings(workflow.flow_json as FlowJSON);
+    if (!flowSettings.autoFollowUpEnabled) return;
+
+    // Fetch session to check follow_up_count
+    const { data: session } = await supabase
+      .from("subscriber_sessions")
+      .select("follow_up_count, status")
+      .eq("id", sessionId)
+      .single();
+
+    if (!session || session.status !== "active") return;
+    if (session.follow_up_count >= flowSettings.autoFollowUpMaxCount) return;
+
+    // Schedule new auto-follow-up job
+    const executeAt = new Date(
+      Date.now() + flowSettings.autoFollowUpDelayMinutes * 60 * 1000,
+    ).toISOString();
+
+    await supabase.from("flow_delayed_jobs").insert({
+      session_id: sessionId,
+      node_id: "auto_follow_up",
+      execute_at: executeAt,
+      status: "pending",
+      job_type: "auto_follow_up",
+    });
+  } catch (err) {
+    console.error("[flow] Auto-follow-up scheduling error:", err);
+  }
 }
 
 // ── WClixAPI Gateway Base URL & Auth ────────────────────────
@@ -1179,6 +1259,9 @@ Deno.serve(async (req) => {
           });
         }
       }
+
+      // Schedule auto-follow-up for flow-based conversations (stage defaults to "engaging")
+      await handleAutoFollowUp(session.id, workflow.id);
     }
 
     return new Response(
