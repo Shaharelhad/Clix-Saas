@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { ReactFlowProvider } from "@xyflow/react";
-import { Loader2 } from "lucide-react";
+import { Loader2, Lock } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
+import { useTranslation } from "react-i18next";
 import { useFlowBuilder } from "@/hooks/useFlowBuilder";
 import FlowCanvas from "./Components/FlowCanvas";
 import FlowToolbar from "./Components/FlowToolbar";
@@ -11,16 +13,25 @@ import FlowPreviewSimulator from "./Components/FlowPreviewSimulator";
 
 function FlowBuilderContent() {
   const fb = useFlowBuilder();
+  const { t } = useTranslation("flow");
   const [showSettings, setShowSettings] = useState(false);
 
-  // Listen for node delete events from node components
+  // Listen for node/edge delete events from custom components
   useEffect(() => {
-    const handler = (e: Event) => {
+    const onDeleteNode = (e: Event) => {
       const nodeId = (e as CustomEvent).detail;
       if (nodeId) fb.deleteNode(nodeId);
     };
-    document.addEventListener("flow:delete-node", handler);
-    return () => document.removeEventListener("flow:delete-node", handler);
+    const onDeleteEdge = (e: Event) => {
+      const edgeId = (e as CustomEvent).detail;
+      if (edgeId) fb.deleteEdge(edgeId);
+    };
+    document.addEventListener("flow:delete-node", onDeleteNode);
+    document.addEventListener("flow:delete-edge", onDeleteEdge);
+    return () => {
+      document.removeEventListener("flow:delete-node", onDeleteNode);
+      document.removeEventListener("flow:delete-edge", onDeleteEdge);
+    };
   }, [fb]);
 
   // Loading or auto-creating
@@ -39,10 +50,10 @@ function FlowBuilderContent() {
         workflowName={fb.workflowName}
         workflowStatus={fb.workflowStatus}
         onNameChange={fb.setWorkflowName}
-        onSave={fb.save}
         onToggleStatus={fb.toggleStatus}
         onOpenSettings={() => setShowSettings(true)}
         saveStatus={fb.saveStatus}
+        isLocked={fb.isLocked}
       />
 
       {/* Main 3-panel layout */}
@@ -52,6 +63,7 @@ function FlowBuilderContent() {
           node={fb.selectedNode}
           onUpdate={fb.updateNodeData}
           onClose={() => fb.setSelectedNodeId(null)}
+          isLocked={fb.isLocked}
         />
 
         {/* Canvas (center) */}
@@ -64,10 +76,12 @@ function FlowBuilderContent() {
           onNodeClick={(id) => fb.setSelectedNodeId(id)}
           onAddNode={fb.addNode}
           onPaneClick={() => fb.setSelectedNodeId(null)}
+          isLocked={fb.isLocked}
+          onLockedClick={fb.notifyLocked}
         />
 
         {/* Node palette (left in RTL = visually right) */}
-        <NodePalette />
+        <NodePalette isLocked={fb.isLocked} onLockedDrag={fb.notifyLocked} />
       </div>
 
       {/* Preview simulator */}
@@ -81,6 +95,22 @@ function FlowBuilderContent() {
           onClose={() => setShowSettings(false)}
         />
       )}
+
+      {/* Locked banner */}
+      <AnimatePresence>
+        {fb.showLockedBanner && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="fixed top-16 left-1/2 -translate-x-1/2 z-50 px-5 py-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 text-sm font-medium shadow-lg flex items-center gap-2"
+            dir="rtl"
+          >
+            <Lock className="w-4 h-4" />
+            {t("lockedBanner")}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

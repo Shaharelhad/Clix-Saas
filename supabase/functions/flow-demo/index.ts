@@ -251,7 +251,7 @@ Deno.serve(async (req) => {
 
     const { data: workflow } = await supabase
       .from("workflows")
-      .select("id, flow_json, workflow_record")
+      .select("id, flow_json, status, workflow_record")
       .eq("id", workflowId)
       .single();
 
@@ -259,6 +259,22 @@ Deno.serve(async (req) => {
       return new Response(
         JSON.stringify({ error: "Workflow not found" }),
         { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Workflow paused — use LLM-only mode (no flow node execution)
+    if (workflow.status !== "active") {
+      const workflowRecord = (workflow.workflow_record as string) || undefined;
+      const botResponse = await callLLMFallback(user_id, message, convId, workflowRecord);
+      await supabase.from("demo_conversations").insert({
+        user_id,
+        conversation_id: convId,
+        user_message: message,
+        bot_response: botResponse,
+      });
+      return new Response(
+        JSON.stringify({ response: botResponse, conversation_id: convId }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -367,7 +383,15 @@ Deno.serve(async (req) => {
       if (currentNode.data.expectedReply) {
         const expected = currentNode.data.expectedReply.trim().toLowerCase();
         const userInput = message.trim().toLowerCase();
-        if (userInput === expected) {
+        let matched = userInput === expected;
+        if (!matched) {
+          const semanticResult = await classifyTrigger(
+            [{ id: "expected", trigger: currentNode.data.expectedReply }],
+            message,
+          );
+          matched = semanticResult !== null;
+        }
+        if (matched) {
           const nextNode = findNextNode(flow, currentNode.id);
           nextNodeId = nextNode?.id || null;
         } else {

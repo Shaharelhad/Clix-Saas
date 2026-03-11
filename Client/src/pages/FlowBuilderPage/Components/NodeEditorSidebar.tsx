@@ -1,14 +1,18 @@
+import { useState, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { X, Plus, Trash2 } from "lucide-react";
+import { X, Plus, Trash2, Upload, Loader2 } from "lucide-react";
 import type { FlowNode, FlowNodeData, ButtonItem } from "@/types/flow";
+import { supabase } from "@/services/supabase";
+import { useAuthStore } from "@/store/auth.store";
 
 interface NodeEditorSidebarProps {
   node: FlowNode | null;
   onUpdate: (nodeId: string, data: Partial<FlowNodeData>) => void;
   onClose: () => void;
+  isLocked: boolean;
 }
 
-export default function NodeEditorSidebar({ node, onUpdate, onClose }: NodeEditorSidebarProps) {
+export default function NodeEditorSidebar({ node, onUpdate, onClose, isLocked }: NodeEditorSidebarProps) {
   const { t } = useTranslation("flow");
 
   if (!node) {
@@ -35,6 +39,7 @@ export default function NodeEditorSidebar({ node, onUpdate, onClose }: NodeEdito
       </div>
 
       {/* Fields */}
+      <fieldset disabled={isLocked} className={isLocked ? "opacity-60" : ""}>
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {/* Start node */}
         {data.type === "start" && (
@@ -61,41 +66,40 @@ export default function NodeEditorSidebar({ node, onUpdate, onClose }: NodeEdito
           </Field>
         )}
 
-        {/* Image URL */}
+        {/* Image upload */}
         {data.type === "image" && (
-          <Field label={t("imageUrl")} hint={t("imageUrlHint")}>
-            <input
-              type="url"
-              value={data.imageUrl ?? ""}
-              onChange={(e) => update({ imageUrl: e.target.value })}
-              className="field-input"
-              dir="ltr"
-            />
-          </Field>
+          <ImageUploadField
+            imageUrl={data.imageUrl ?? ""}
+            onUpdate={(imageUrl) => update({ imageUrl })}
+          />
         )}
 
-        {/* Expected reply */}
+        {/* Expected reply / continue on any */}
         {(data.type === "text" || data.type === "image") && (
-          <>
-            <Field label={t("expectedReply")} hint={t("expectedReplyHint")}>
+          <div className="space-y-3">
+            <Field label={t("expectedReply")} hint={data.continueAuto ? undefined : t("expectedReplyHint")}>
               <input
                 type="text"
-                value={data.expectedReply ?? ""}
-                onChange={(e) => update({ expectedReply: e.target.value })}
-                className="field-input"
+                value={data.continueAuto ? "" : (data.expectedReply ?? "")}
+                onChange={(e) => update({ expectedReply: e.target.value, continueAuto: false })}
+                disabled={data.continueAuto ?? false}
+                className={`field-input ${data.continueAuto ? "opacity-40 cursor-not-allowed" : ""}`}
                 dir="rtl"
               />
             </Field>
-            <label className="flex items-center gap-2 text-xs text-[#7A7267] cursor-pointer">
-              <input
-                type="checkbox"
-                checked={data.continueAuto ?? false}
-                onChange={(e) => update({ continueAuto: e.target.checked })}
-                className="accent-[#FF7E47]"
-              />
-              {t("continueAuto")}
-            </label>
-          </>
+            <div className="flex items-center justify-between px-1">
+              <span className="text-[10px] text-[#A39B90]">{t("continueAutoHint")}</span>
+              <label className="relative inline-flex items-center cursor-pointer shrink-0 ms-2">
+                <input
+                  type="checkbox"
+                  checked={data.continueAuto ?? false}
+                  onChange={(e) => update({ continueAuto: e.target.checked, ...(e.target.checked ? { expectedReply: "" } : {}) })}
+                  className="sr-only peer"
+                />
+                <div className="w-8 h-[18px] bg-[#EDE6DD] rounded-full peer peer-checked:bg-[#FF7E47] after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-[14px] after:w-[14px] after:transition-all peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full after:shadow-sm" />
+              </label>
+            </div>
+          </div>
         )}
 
         {/* Buttons list */}
@@ -182,6 +186,7 @@ export default function NodeEditorSidebar({ node, onUpdate, onClose }: NodeEdito
           </>
         )}
       </div>
+      </fieldset>
 
       {/* Inline styles for field inputs */}
       <style>{`
@@ -267,6 +272,97 @@ function ButtonsEditor({ buttons, onChange }: { buttons: ButtonItem[]; onChange:
         <p className="text-[10px] text-[#A39B90] mt-1">{t("maxButtons")}</p>
       )}
     </div>
+  );
+}
+
+const MAX_IMAGE_SIZE_MB = 5;
+
+async function uploadImageToStorage(
+  file: File,
+  userId: string,
+): Promise<string> {
+  if (file.size > MAX_IMAGE_SIZE_MB * 1024 * 1024) {
+    throw new Error(`File exceeds ${MAX_IMAGE_SIZE_MB}MB limit`);
+  }
+  const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+  const path = `${userId}/${crypto.randomUUID()}.${ext}`;
+  const { error } = await supabase.storage
+    .from("bot-media")
+    .upload(path, file, { contentType: file.type, upsert: false });
+  if (error) throw error;
+  const { data } = supabase.storage.from("bot-media").getPublicUrl(path);
+  return data.publicUrl;
+}
+
+function ImageUploadField({ imageUrl, onUpdate }: { imageUrl: string; onUpdate: (url: string) => void }) {
+  const { t } = useTranslation("flow");
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState("");
+  const fileRef = useRef<HTMLInputElement>(null);
+  const userId = useAuthStore((s) => s.user?.id);
+
+  const handleFile = async (file: File) => {
+    if (!userId || !file.type.startsWith("image/")) return;
+    setUploading(true);
+    setError("");
+    try {
+      const publicUrl = await uploadImageToStorage(file, userId);
+      onUpdate(publicUrl);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("imageUploadError"));
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  };
+
+  if (imageUrl) {
+    return (
+      <Field label={t("nodeImage")}>
+        <div className="relative rounded-lg overflow-hidden border border-[#EDE6DD]">
+          <img src={imageUrl} alt="" className="w-full h-28 object-cover" />
+          <button
+            type="button"
+            onClick={() => onUpdate("")}
+            className="absolute top-1 right-1 p-1 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors cursor-pointer"
+            title={t("imageRemove")}
+          >
+            <X className="w-3 h-3" />
+          </button>
+        </div>
+      </Field>
+    );
+  }
+
+  return (
+    <Field label={t("nodeImage")}>
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
+      />
+      <button
+        type="button"
+        onClick={() => fileRef.current?.click()}
+        disabled={uploading}
+        className="w-full flex flex-col items-center justify-center gap-1.5 py-4 rounded-lg border-2 border-dashed border-[#EDE6DD] hover:border-[#FF7E47]/40 hover:bg-[#FFF5F0]/30 transition-colors cursor-pointer disabled:cursor-wait"
+      >
+        {uploading ? (
+          <>
+            <Loader2 className="w-5 h-5 text-[#A39B90] animate-spin" />
+            <span className="text-[10px] text-[#A39B90]">{t("imageUploading")}</span>
+          </>
+        ) : (
+          <>
+            <Upload className="w-5 h-5 text-[#A39B90]" />
+            <span className="text-[10px] text-[#A39B90]">{t("imageUpload")}</span>
+          </>
+        )}
+      </button>
+      {error && <p className="text-[10px] text-red-500 mt-1">{error}</p>}
+    </Field>
   );
 }
 

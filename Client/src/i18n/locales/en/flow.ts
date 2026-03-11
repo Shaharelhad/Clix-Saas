@@ -19,7 +19,11 @@ const flow = {
   publish: "Publish",
   unpublish: "Unpublish",
   live: "Live",
-  publishConfirm: "Publish this flow to your WhatsApp bot?",
+  publishConfirm: "This will make your flow live on your WhatsApp bot. Customers will start receiving messages based on this flow.",
+  unpublishConfirm: "This will pause your flow. The bot will still respond using AI, but won't follow the flow steps.",
+  cancel: "Cancel",
+  confirmPublish: "Publish",
+  confirmUnpublish: "Unpublish",
   deleteFlow: "Delete Flow",
   deleteConfirm: "Are you sure you want to delete this flow?",
 
@@ -48,10 +52,14 @@ const flow = {
   messageHint: "Use {{variableName}} for dynamic values",
   imageUrl: "Image URL",
   imageUrlHint: "Direct link to the image",
-  expectedReply: "Expected Reply",
-  expectedReplyHint: "Exact text to match (optional)",
-  continueAuto: "Wait for any reply",
-  continueAutoHint: "Continue the flow after user responds",
+  imageUpload: "Upload image",
+  imageUploading: "Uploading...",
+  imageRemove: "Remove image",
+  imageUploadError: "Upload failed — please try again",
+  expectedReply: "Expected Answer",
+  expectedReplyHint: "Exact or similar text to match",
+  continueAuto: "Continue on any reply",
+  continueAutoHint: "Any message from the customer will continue the flow",
   variableName: "Variable Name",
   variableNameHint: "Name to store the user's answer",
   delayMinutes: "Delay (minutes)",
@@ -108,6 +116,10 @@ const flow = {
   settingsSessionResetPreset360: "6 hours",
   settingsSessionResetPreset1440: "24 hours",
   settingsDone: "Done",
+
+  // Auto-save & lock
+  autoSaved: "Auto-saved",
+  lockedBanner: "Unpublish the workflow to edit",
 
   // Misc
   deleteNode: "Delete Node",

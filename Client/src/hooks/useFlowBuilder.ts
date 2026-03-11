@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   useNodesState,
   useEdgesState,
@@ -111,14 +111,18 @@ interface UseFlowBuilderReturn {
   addNode: (type: FlowNodeData["type"], position: { x: number; y: number }) => void;
   updateNodeData: (nodeId: string, data: Partial<FlowNodeData>) => void;
   deleteNode: (nodeId: string) => void;
+  deleteEdge: (edgeId: string) => void;
   // Workflow settings
   flowSettings: FlowSettings;
   updateFlowSettings: (patch: Partial<FlowSettings>) => void;
   // Workflow operations
   toggleStatus: () => void;
-  save: () => void;
   // Save status
   saveStatus: SaveStatus;
+  // Lock state (published = locked)
+  isLocked: boolean;
+  showLockedBanner: boolean;
+  notifyLocked: () => void;
 }
 
 // ── Hook ───────────────────────────────────────────────────────
@@ -133,8 +137,22 @@ export function useFlowBuilder(): UseFlowBuilderReturn {
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [flowSettings, setFlowSettings] = useState<FlowSettings>({ ...DEFAULT_FLOW_SETTINGS });
 
-  const [nodes, setNodes, onNodesChange] = useNodesState<FlowNode>([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState<FlowEdge>([]);
+  const [nodes, setNodes, rawOnNodesChange] = useNodesState<FlowNode>([]);
+  const [edges, setEdges, rawOnEdgesChange] = useEdgesState<FlowEdge>([]);
+
+  // Auto-save refs
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const lastSavedJsonRef = useRef<string>("");
+
+  // Lock state (published = locked)
+  const isLocked = workflowStatus === "active";
+  const [showLockedBanner, setShowLockedBanner] = useState(false);
+  const lockedBannerTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const notifyLocked = useCallback(() => {
+    setShowLockedBanner(true);
+    clearTimeout(lockedBannerTimerRef.current);
+    lockedBannerTimerRef.current = setTimeout(() => setShowLockedBanner(false), 3000);
+  }, []);
 
   // ── List workflows ───────────────────────────────────────────
   const { data: workflows = [], isLoading: isLoadingList } = useQuery({
@@ -185,8 +203,17 @@ export function useFlowBuilder(): UseFlowBuilderReturn {
 
     setNodes(cleanNodes);
     setEdges(cleanEdges);
-    setFlowSettings({ ...DEFAULT_FLOW_SETTINGS, ...flowJson?.settings });
+    const loadedSettings = { ...DEFAULT_FLOW_SETTINGS, ...flowJson?.settings };
+    setFlowSettings(loadedSettings);
     setSelectedNodeId(null);
+
+    // Snapshot for auto-save comparison (prevents save-on-load)
+    lastSavedJsonRef.current = JSON.stringify({
+      nodes: cleanNodes,
+      edges: cleanEdges,
+      name: loadedWorkflow.name,
+      settings: loadedSettings,
+    });
   }, [loadedWorkflow, setNodes, setEdges]);
 
   // Auto-select first workflow, or auto-create if none exist
@@ -219,10 +246,31 @@ export function useFlowBuilder(): UseFlowBuilderReturn {
     onMutate: () => setSaveStatus("saving"),
     onSuccess: () => {
       setSaveStatus("saved");
+      lastSavedJsonRef.current = JSON.stringify({
+        nodes, edges, name: workflowName, settings: flowSettings,
+      });
       setTimeout(() => setSaveStatus("idle"), 2000);
     },
     onError: () => setSaveStatus("error"),
   });
+
+  // ── Debounced auto-save ────────────────────────────────────────
+  useEffect(() => {
+    if (!activeWorkflowId) return;
+
+    const currentJson = JSON.stringify({
+      nodes, edges, name: workflowName, settings: flowSettings,
+    });
+    if (currentJson === lastSavedJsonRef.current) return;
+
+    clearTimeout(autoSaveTimerRef.current);
+    autoSaveTimerRef.current = setTimeout(() => {
+      saveMutation.mutate(undefined);
+    }, 1500);
+
+    return () => clearTimeout(autoSaveTimerRef.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nodes, edges, workflowName, flowSettings, activeWorkflowId, workflowStatus]);
 
   // ── Create workflow ──────────────────────────────────────────
   const createMutation = useMutation({
@@ -302,19 +350,57 @@ export function useFlowBuilder(): UseFlowBuilderReturn {
     },
   });
 
+  // ── Guarded node/edge change handlers (allow select only when locked) ──
+  const onNodesChange: OnNodesChange<FlowNode> = useCallback(
+    (changes) => {
+      if (isLocked) {
+        const selectOnly = changes.filter((c) => c.type === "select");
+        if (selectOnly.length > 0) rawOnNodesChange(selectOnly);
+        if (changes.some((c) => c.type !== "select")) notifyLocked();
+        return;
+      }
+      rawOnNodesChange(changes);
+    },
+    [isLocked, rawOnNodesChange, notifyLocked]
+  );
+
+  const onEdgesChange: OnEdgesChange<FlowEdge> = useCallback(
+    (changes) => {
+      if (isLocked) {
+        const selectOnly = changes.filter((c) => c.type === "select");
+        if (selectOnly.length > 0) rawOnEdgesChange(selectOnly);
+        if (changes.some((c) => c.type !== "select")) notifyLocked();
+        return;
+      }
+      rawOnEdgesChange(changes);
+    },
+    [isLocked, rawOnEdgesChange, notifyLocked]
+  );
+
   // ── Connect edges ────────────────────────────────────────────
   const onConnect: OnConnect = useCallback(
     (connection: Connection) => {
+      if (isLocked) { notifyLocked(); return; }
       setEdges((eds) =>
         addEdge({ ...connection, type: "smoothstep", animated: true }, eds)
       );
     },
-    [setEdges]
+    [isLocked, notifyLocked, setEdges]
+  );
+
+  // ── Guarded workflow name setter ─────────────────────────────
+  const guardedSetWorkflowName = useCallback(
+    (name: string) => {
+      if (isLocked) { notifyLocked(); return; }
+      setWorkflowName(name);
+    },
+    [isLocked, notifyLocked]
   );
 
   // ── Add node ─────────────────────────────────────────────────
   const addNode = useCallback(
     (type: FlowNodeData["type"], position: { x: number; y: number }) => {
+      if (isLocked) { notifyLocked(); return; }
       const id = `${type}-${Date.now()}`;
       const newNode: FlowNode = {
         id,
@@ -324,29 +410,40 @@ export function useFlowBuilder(): UseFlowBuilderReturn {
       };
       setNodes((nds) => [...nds, newNode]);
     },
-    [setNodes]
+    [isLocked, notifyLocked, setNodes]
   );
 
   // ── Update node data ────────────────────────────────────────
   const updateNodeData = useCallback(
     (nodeId: string, data: Partial<FlowNodeData>) => {
+      if (isLocked) { notifyLocked(); return; }
       setNodes((nds) =>
         nds.map((n) =>
           n.id === nodeId ? { ...n, data: { ...n.data, ...data } } : n
         )
       );
     },
-    [setNodes]
+    [isLocked, notifyLocked, setNodes]
   );
 
   // ── Delete node ──────────────────────────────────────────────
   const deleteNode = useCallback(
     (nodeId: string) => {
+      if (isLocked) { notifyLocked(); return; }
       setNodes((nds) => nds.filter((n) => n.id !== nodeId));
       setEdges((eds) => eds.filter((e) => e.source !== nodeId && e.target !== nodeId));
       if (selectedNodeId === nodeId) setSelectedNodeId(null);
     },
-    [setNodes, setEdges, selectedNodeId]
+    [isLocked, notifyLocked, setNodes, setEdges, selectedNodeId]
+  );
+
+  // ── Delete edge ──────────────────────────────────────────────
+  const deleteEdge = useCallback(
+    (edgeId: string) => {
+      if (isLocked) { notifyLocked(); return; }
+      setEdges((eds) => eds.filter((e) => e.id !== edgeId));
+    },
+    [isLocked, notifyLocked, setEdges]
   );
 
   // ── Update flow settings ────────────────────────────────────
@@ -368,7 +465,7 @@ export function useFlowBuilder(): UseFlowBuilderReturn {
     activeWorkflowId,
     workflowName,
     workflowStatus,
-    setWorkflowName,
+    setWorkflowName: guardedSetWorkflowName,
     nodes,
     edges,
     onNodesChange,
@@ -380,10 +477,16 @@ export function useFlowBuilder(): UseFlowBuilderReturn {
     addNode,
     updateNodeData,
     deleteNode,
+    deleteEdge,
     flowSettings,
     updateFlowSettings,
-    toggleStatus: () => toggleMutation.mutate(),
-    save: () => saveMutation.mutate(),
+    toggleStatus: () => {
+      clearTimeout(autoSaveTimerRef.current);
+      toggleMutation.mutate();
+    },
     saveStatus,
+    isLocked,
+    showLockedBanner,
+    notifyLocked,
   };
 }
