@@ -68,7 +68,7 @@ const dashboard = {
   websiteUrl: "Website URL",
   additionalInfo: "Additional Info",
   saveChanges: "Save Changes",
-  saving: "Saving...",
+  saving: "Saving, this may take a few seconds...",
   savedSuccessfully: "Saved successfully!",
   saveError: "Failed to save. Please try again.",
   updatingBot: "Updating Your Bot...",
