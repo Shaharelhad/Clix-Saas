@@ -130,6 +130,7 @@ export type Database = {
           created_at: string
           execute_at: string
           id: string
+          job_type: string
           node_id: string
           session_id: string
           status: string
@@ -138,6 +139,7 @@ export type Database = {
           created_at?: string
           execute_at: string
           id?: string
+          job_type?: string
           node_id: string
           session_id: string
           status?: string
@@ -146,6 +148,7 @@ export type Database = {
           created_at?: string
           execute_at?: string
           id?: string
+          job_type?: string
           node_id?: string
           session_id?: string
           status?: string
@@ -696,9 +699,11 @@ export type Database = {
       }
       subscriber_sessions: {
         Row: {
+          conversation_stage: string
           cooldown_until: string | null
           created_at: string
           current_node_id: string | null
+          follow_up_count: number
           id: string
           last_message_at: string | null
           phone: string
@@ -707,9 +712,11 @@ export type Database = {
           workflow_id: string
         }
         Insert: {
+          conversation_stage?: string
           cooldown_until?: string | null
           created_at?: string
           current_node_id?: string | null
+          follow_up_count?: number
           id?: string
           last_message_at?: string | null
           phone: string
@@ -718,9 +725,11 @@ export type Database = {
           workflow_id: string
         }
         Update: {
+          conversation_stage?: string
           cooldown_until?: string | null
           created_at?: string
           current_node_id?: string | null
+          follow_up_count?: number
           id?: string
           last_message_at?: string | null
           phone?: string
@@ -955,6 +964,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      claim_pending_delayed_jobs: {
+        Args: { p_limit?: number }
+        Returns: {
+          created_at: string
+          execute_at: string
+          id: string
+          job_type: string
+          node_id: string
+          session_id: string
+          status: string
+        }[]
+      }
       admin_add_form_field: {
         Args: {
           p_allow_other?: boolean

@@ -55,36 +55,62 @@ export default function FlowSettingsModal({ settings, onUpdate, onClose }: FlowS
 
             {settings.cooldownEnabled && (
               <div className="mt-3 ms-6">
-                <label className="text-[10px] font-semibold text-[#2D2A26] block mb-1.5">
-                  {t("settingsCooldownMinutes")}
-                </label>
-                <div className="flex items-center gap-2 mb-2">
-                  {[30, 60, 120].map((mins) => (
-                    <button
-                      key={mins}
-                      onClick={() => onUpdate({ cooldownMinutes: mins })}
-                      className={`px-2.5 py-1 rounded text-[10px] font-medium border cursor-pointer transition-colors ${
-                        settings.cooldownMinutes === mins
-                          ? "bg-[#FF7E47] text-white border-[#FF7E47]"
-                          : "bg-white text-[#7A7267] border-[#EDE6DD] hover:border-[#FF7E47]/50"
-                      }`}
-                    >
-                      {mins === 30
-                        ? t("settingsCooldownPreset30")
-                        : mins === 60
-                          ? t("settingsCooldownPreset60")
-                          : t("settingsCooldownPreset120")}
-                    </button>
-                  ))}
-                </div>
-                <input
-                  type="number"
+                <MinutesPresetInput
+                  label={t("settingsCooldownMinutes")}
+                  value={settings.cooldownMinutes}
+                  presets={[
+                    { value: 30, label: t("settingsCooldownPreset30") },
+                    { value: 60, label: t("settingsCooldownPreset60") },
+                    { value: 120, label: t("settingsCooldownPreset120") },
+                  ]}
                   min={5}
                   max={1440}
-                  value={settings.cooldownMinutes}
-                  onChange={(e) => onUpdate({ cooldownMinutes: Math.max(5, Math.min(1440, Number(e.target.value))) })}
-                  className="field-input w-full"
+                  onChange={(v) => onUpdate({ cooldownMinutes: v })}
                 />
+              </div>
+            )}
+          </div>
+
+          {/* Auto Follow-Up */}
+          <div className="border-t border-[#EDE6DD]/40 pt-5">
+            <SettingRow
+              label={t("settingsAutoFollowUp")}
+              hint={t("settingsAutoFollowUpHint")}
+              checked={settings.autoFollowUpEnabled}
+              onChange={(v) => onUpdate({ autoFollowUpEnabled: v })}
+            />
+
+            {settings.autoFollowUpEnabled && (
+              <div className="mt-3 ms-6 space-y-3">
+                <MinutesPresetInput
+                  label={t("settingsAutoFollowUpDelay")}
+                  value={settings.autoFollowUpDelayMinutes}
+                  presets={[
+                    { value: 30, label: t("settingsAutoFollowUpPreset30") },
+                    { value: 60, label: t("settingsAutoFollowUpPreset60") },
+                    { value: 120, label: t("settingsAutoFollowUpPreset120") },
+                  ]}
+                  min={1}
+                  max={1440}
+                  onChange={(v) => onUpdate({ autoFollowUpDelayMinutes: v })}
+                />
+
+                <div>
+                  <label className="text-[10px] font-semibold text-[#2D2A26] block mb-1.5">
+                    {t("settingsAutoFollowUpMaxCount")}
+                  </label>
+                  <span className="text-[10px] text-[#A39B90] block mb-1.5">
+                    {t("settingsAutoFollowUpMaxCountHint")}
+                  </span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={2}
+                    value={settings.autoFollowUpMaxCount}
+                    onChange={(e) => onUpdate({ autoFollowUpMaxCount: Math.max(1, Math.min(2, Number(e.target.value))) })}
+                    className="field-input w-full"
+                  />
+                </div>
               </div>
             )}
           </div>
@@ -146,5 +172,55 @@ function SettingRow({
         <span className="text-[10px] text-[#A39B90] block mt-0.5">{hint}</span>
       </div>
     </label>
+  );
+}
+
+interface PresetConfig {
+  value: number;
+  label: string;
+}
+
+function MinutesPresetInput({
+  label,
+  value,
+  presets,
+  min,
+  max,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  presets: PresetConfig[];
+  min: number;
+  max: number;
+  onChange: (value: number) => void;
+}) {
+  return (
+    <div>
+      <label className="text-[10px] font-semibold text-[#2D2A26] block mb-1.5">{label}</label>
+      <div className="flex items-center gap-2 mb-2">
+        {presets.map((preset) => (
+          <button
+            key={preset.value}
+            onClick={() => onChange(preset.value)}
+            className={`px-2.5 py-1 rounded text-[10px] font-medium border cursor-pointer transition-colors ${
+              value === preset.value
+                ? "bg-[#FF7E47] text-white border-[#FF7E47]"
+                : "bg-white text-[#7A7267] border-[#EDE6DD] hover:border-[#FF7E47]/50"
+            }`}
+          >
+            {preset.label}
+          </button>
+        ))}
+      </div>
+      <input
+        type="number"
+        min={min}
+        max={max}
+        value={value}
+        onChange={(e) => onChange(Math.max(min, Math.min(max, Number(e.target.value))))}
+        className="field-input w-full"
+      />
+    </div>
   );
 }

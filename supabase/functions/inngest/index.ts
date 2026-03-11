@@ -13,7 +13,7 @@
 import { Inngest } from "https://esm.sh/inngest@3";
 import { serve } from "https://esm.sh/inngest@3/edge";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { callLLMEngine, type LLMConfig } from "../_shared/llm-engine.ts";
+import { callLLMEngine, generateFollowUpMessage, type LLMConfig } from "../_shared/llm-engine.ts";
 import {
   sendTextMessage,
   sendButtonsMessage,
@@ -64,9 +64,16 @@ interface FlowEdge {
   sourceHandle?: string | null;
 }
 
+interface FlowSettings {
+  autoFollowUpEnabled?: boolean;
+  autoFollowUpDelayMinutes?: number;
+  autoFollowUpMaxCount?: number;
+}
+
 interface FlowJSON {
   nodes: FlowNode[];
   edges: FlowEdge[];
+  settings?: FlowSettings;
 }
 
 // ── Flow Navigation Helpers ─────────────────────────────────
@@ -589,11 +596,212 @@ const processMessage = inngest.createFunction(
   },
 );
 
+// ── Delayed Job Types ────────────────────────────────────────
+
+interface DelayedJob {
+  id: string;
+  session_id: string;
+  node_id: string;
+  job_type: string;
+  created_at: string;
+}
+
+interface SessionForJob {
+  id: string;
+  workflow_id: string;
+  phone: string;
+  status: string;
+  conversation_stage: string | null;
+  follow_up_count: number;
+  last_message_at: string | null;
+  cooldown_until: string | null;
+}
+
+// ── Delayed Job Helpers ─────────────────────────────────────
+
+async function markJobStatus(jobId: string, status: string): Promise<void> {
+  await supabase
+    .from("flow_delayed_jobs")
+    .update({ status })
+    .eq("id", jobId);
+}
+
+/** Returns false if the job should be cancelled (guard failed). */
+function shouldExecuteJob(session: SessionForJob, job: DelayedJob): boolean {
+  if (session.status !== "active") return false;
+  if (session.last_message_at && new Date(session.last_message_at) > new Date(job.created_at)) return false;
+  if (session.cooldown_until && new Date(session.cooldown_until) > new Date()) return false;
+  return true;
+}
+
+/** Execute an auto-follow-up job: generate LLM message, send, and schedule next if needed. */
+async function executeAutoFollowUpJob(
+  session: SessionForJob,
+  workflow: { user_id: string; flow_json: unknown },
+  customerId: string,
+): Promise<void> {
+  if (session.conversation_stage === "closed") return;
+
+  const { data: history } = await supabase
+    .from("flow_message_log")
+    .select("direction, content")
+    .eq("session_id", session.id)
+    .order("created_at", { ascending: true })
+    .limit(20);
+
+  const conversationHistory = (history || []).map((row: { direction: string; content: string }) => ({
+    role: row.direction === "inbound" ? "user" : "assistant",
+    content: row.content,
+  }));
+
+  const followUpMsg = await generateFollowUpMessage(supabase, workflow.user_id, conversationHistory);
+
+  await sendTextMessage(customerId, session.phone, followUpMsg);
+
+  await supabase.from("flow_message_log").insert({
+    workflow_id: session.workflow_id,
+    session_id: session.id,
+    node_id: "auto_follow_up",
+    direction: "outbound",
+    message_type: "llm_response",
+    content: followUpMsg,
+  });
+
+  const newCount = (session.follow_up_count || 0) + 1;
+  await supabase
+    .from("subscriber_sessions")
+    .update({ follow_up_count: newCount, last_message_at: new Date().toISOString() })
+    .eq("id", session.id);
+
+  const flowJson = workflow.flow_json as FlowJSON;
+  const maxCount = flowJson?.settings?.autoFollowUpMaxCount ?? 1;
+  const delayMinutes = flowJson?.settings?.autoFollowUpDelayMinutes ?? 120;
+
+  if (newCount < maxCount) {
+    const executeAt = new Date(Date.now() + delayMinutes * 60 * 1000).toISOString();
+    await supabase.from("flow_delayed_jobs").insert({
+      session_id: session.id,
+      node_id: "auto_follow_up",
+      execute_at: executeAt,
+      status: "pending",
+      job_type: "auto_follow_up",
+    });
+  }
+}
+
+/** Execute a node-based delayed job (follow_up message or delay expiry). */
+async function executeNodeJob(
+  session: SessionForJob,
+  workflow: { user_id: string; flow_json: unknown },
+  customerId: string,
+  nodeId: string,
+): Promise<void> {
+  const flowJson = workflow.flow_json as FlowJSON;
+  const node = flowJson ? findNodeById(flowJson, nodeId) : null;
+
+  if (node?.type === "follow_up" && node.data.followUpMessage) {
+    await sendTextMessage(customerId, session.phone, node.data.followUpMessage);
+    await supabase.from("flow_message_log").insert({
+      workflow_id: session.workflow_id,
+      session_id: session.id,
+      node_id: node.id,
+      direction: "outbound",
+      message_type: "text",
+      content: node.data.followUpMessage,
+    });
+  } else if (node?.type === "delay") {
+    const nextNode = findNextNode(flowJson!, node.id);
+    if (nextNode) {
+      await supabase
+        .from("subscriber_sessions")
+        .update({ current_node_id: nextNode.id, status: "active", last_message_at: new Date().toISOString() })
+        .eq("id", session.id);
+    }
+  }
+}
+
+// ── Inngest Cron: Process Delayed Jobs (auto-follow-ups + node follow-ups) ──
+
+const processDelayedJobs = inngest.createFunction(
+  {
+    id: "process-delayed-jobs",
+    retries: 1,
+  },
+  { cron: "*/2 * * * *" }, // every 2 minutes
+  async ({ step }) => {
+    const jobs = await step.run("claim-jobs", async () => {
+      const { data, error } = await supabase.rpc("claim_pending_delayed_jobs", { p_limit: 10 });
+      if (error) {
+        console.error("[cron] Failed to claim jobs:", error);
+        return [];
+      }
+      return (data || []) as DelayedJob[];
+    });
+
+    if (jobs.length === 0) return { processed: 0 };
+
+    let processed = 0;
+
+    for (const job of jobs) {
+      await step.run(`process-job-${job.id}`, async () => {
+        try {
+          const { data: session } = await supabase
+            .from("subscriber_sessions")
+            .select("id, workflow_id, phone, status, conversation_stage, follow_up_count, last_message_at, cooldown_until")
+            .eq("id", job.session_id)
+            .single();
+
+          if (!session || !shouldExecuteJob(session as SessionForJob, job)) {
+            await markJobStatus(job.id, "cancelled");
+            return;
+          }
+
+          const { data: workflow } = await supabase
+            .from("workflows")
+            .select("user_id, flow_json")
+            .eq("id", session.workflow_id)
+            .single();
+
+          if (!workflow) {
+            await markJobStatus(job.id, "cancelled");
+            return;
+          }
+
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("bot_status, id")
+            .eq("id", workflow.user_id)
+            .single();
+
+          if (!profile || profile.bot_status !== "connected") {
+            await markJobStatus(job.id, "cancelled");
+            return;
+          }
+
+          if (job.job_type === "auto_follow_up") {
+            await executeAutoFollowUpJob(session as SessionForJob, workflow, profile.id);
+          } else {
+            await executeNodeJob(session as SessionForJob, workflow, profile.id, job.node_id);
+          }
+
+          await markJobStatus(job.id, "executed");
+          processed++;
+        } catch (err) {
+          console.error(`[cron] Failed to process job ${job.id}:`, err);
+          await markJobStatus(job.id, "failed");
+        }
+      });
+    }
+
+    return { processed };
+  },
+);
+
 // ── Serve Inngest functions ─────────────────────────────────
 Deno.serve(
   serve({
     client: inngest,
-    functions: [processMessage],
+    functions: [processMessage, processDelayedJobs],
     servePath: "/functions/v1/inngest",
     signingKey: Deno.env.get("INNGEST_SIGNING_KEY"),
   })

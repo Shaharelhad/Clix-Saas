@@ -51,6 +51,9 @@ export interface FlowSettings {
   cooldownEnabled: boolean;
   cooldownMinutes: number;
   deduplicateMessages: boolean;
+  autoFollowUpEnabled: boolean;
+  autoFollowUpDelayMinutes: number;
+  autoFollowUpMaxCount: number;
 }
 
 export const DEFAULT_FLOW_SETTINGS: FlowSettings = {
@@ -58,6 +61,9 @@ export const DEFAULT_FLOW_SETTINGS: FlowSettings = {
   cooldownEnabled: true,
   cooldownMinutes: 60,
   deduplicateMessages: true,
+  autoFollowUpEnabled: false,
+  autoFollowUpDelayMinutes: 120,
+  autoFollowUpMaxCount: 1,
 };
 
 export interface FlowJSON {

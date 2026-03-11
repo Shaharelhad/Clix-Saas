@@ -21,6 +21,7 @@ export interface LLMConfig {
 export interface LLMResult {
   response: string;
   model: string;
+  conversationStage?: "engaging" | "closed";
 }
 
 // ── Trigger classifier ──────────────────────────────────────
@@ -104,6 +105,7 @@ If no trigger matches: {"match":null}`;
  * @param triggerContext - Optional trigger context string (legacy, prefer workflowRecord)
  * @param useDraft - If true, prefer draft_bot_prompt over bot_prompt (for previews)
  * @param workflowRecord - Optional pre-generated workflow summary (replaces triggerContext)
+ * @param classifyStage - If true, ask the LLM to classify conversation stage (engaging/closed)
  */
 export async function callLLMEngine(
   supabase: any,
@@ -114,6 +116,7 @@ export async function callLLMEngine(
   triggerContext?: string,
   useDraft?: boolean,
   workflowRecord?: string,
+  classifyStage?: boolean,
 ): Promise<LLMResult> {
   // 1. Fetch bot prompt and scraped content
   const selectFields = useDraft
@@ -241,7 +244,12 @@ export async function callLLMEngine(
 - אל תכתוב פסקאות ארוכות, אל תעשה רשימות מפורטות
 - אל תשתמש במילים: "בוט", "מערכת", "שירות לקוחות", "אוטומטי"
 - תגיב כמו בשיחת וואטסאפ אמיתית בין שני אנשים
-- אל תשתמש באימוג'ים בשום מקרה, אלא אם הפרומפט למעלה מציין במפורש להשתמש באימוג'ים. ברירת המחדל היא ללא אימוג'ים`;
+- אל תשתמש באימוג'ים בשום מקרה, אלא אם הפרומפט למעלה מציין במפורש להשתמש באימוג'ים. ברירת המחדל היא ללא אימוג'ים` +
+    (classifyStage
+      ? `\n\nAfter your response, on a NEW line, output exactly one of these tags (the user will NOT see this):
+<!-- stage:engaging --> if the conversation is still active and the customer hasn't been fully helped yet
+<!-- stage:closed --> if the customer's needs have been fully addressed, they said goodbye, or the conversation reached a natural conclusion`
+      : "");
 
   // 7. Build messages array
   const messages: { role: string; content: string }[] = [
@@ -324,5 +332,54 @@ export async function callLLMEngine(
     usedModel = "none";
   }
 
-  return { response: botResponse, model: usedModel };
+  // Parse conversation stage tag if classifyStage was requested
+  let conversationStage: "engaging" | "closed" | undefined;
+  if (classifyStage && botResponse) {
+    const stageMatch = botResponse.match(/<!--\s*stage:(engaging|closed)\s*-->/);
+    if (stageMatch) {
+      conversationStage = stageMatch[1] as "engaging" | "closed";
+      botResponse = botResponse.replace(/\s*<!--\s*stage:(engaging|closed)\s*-->/, "").trim();
+    }
+  }
+
+  return { response: botResponse, model: usedModel, conversationStage };
+}
+
+// ── Follow-up message generator ──────────────────────────────
+
+/**
+ * Generate a contextual follow-up re-engagement message using the LLM.
+ * Called by the background job executor when a customer stops replying.
+ */
+export async function generateFollowUpMessage(
+  supabase: any,
+  userId: string,
+  conversationHistory: { role: string; content: string }[],
+  config?: Partial<LLMConfig>,
+): Promise<string> {
+  const followUpConfig: LLMConfig = {
+    ...config,
+    includeProducts: false,
+    includeRag: false,
+  };
+
+  // Prepend follow-up instructions to conversationHistory so the LLM sees them as context
+  const followUpInstruction = {
+    role: "system",
+    content: `הנחיות מיוחדות להודעת מעקב:
+- הלקוח לא הגיב כבר תקופה. שלח הודעת מעקב אחת קצרה וטבעית.
+- התייחס לנושא האחרון שדוברו עליו. אל תחזור על הודעות קודמות.
+- משפט אחד עד שניים מקסימום. חם ולא דוחף.
+- אל תגיד שאתה שולח "תזכורת" או "מעקב" — פשוט תמשיך את השיחה בטבעיות.`,
+  };
+
+  const result = await callLLMEngine(
+    supabase,
+    userId,
+    "[SYSTEM: הלקוח הפסיק להגיב. צור הודעת מעקב קצרה וטבעית כדי להחזיר אותו לשיחה]",
+    [...conversationHistory, followUpInstruction],
+    followUpConfig,
+  );
+
+  return result.response;
 }
