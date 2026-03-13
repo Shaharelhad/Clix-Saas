@@ -9,5 +9,6 @@ import dashboard from "./dashboard";
 import faq from "./faq";
 import flow from "./flow";
 import rag from "./rag";
+import support from "./support";
 
-export default { landing, common, createBot, auth, pending, admin, sidebar, dashboard, faq, flow, rag };
+export default { landing, common, createBot, auth, pending, admin, sidebar, dashboard, faq, flow, rag, support };

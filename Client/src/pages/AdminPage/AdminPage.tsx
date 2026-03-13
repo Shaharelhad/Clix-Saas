@@ -5,6 +5,7 @@ import {
   Users,
   UserRoundSearch,
   ClipboardList,
+  Ticket,
   LogOut,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
@@ -15,6 +16,7 @@ const navItems = [
   { to: "/admin/approvals", icon: Users, labelKey: "navApprovals" },
   { to: "/admin/users", icon: UserRoundSearch, labelKey: "navUsers" },
   { to: "/admin/form-builder", icon: ClipboardList, labelKey: "navFormBuilder" },
+  { to: "/admin/tickets", icon: Ticket, labelKey: "navTickets" },
 ];
 
 export default function AdminPage() {

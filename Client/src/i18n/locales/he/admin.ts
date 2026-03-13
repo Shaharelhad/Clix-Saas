@@ -11,17 +11,16 @@ const admin = {
   dashboardSubtitle: "הנה מה שקורה ב-CLIX",
   statTotalUsers: "סה\"כ משתמשים",
   statPendingApprovals: "ממתינים לאישור",
-  statConnectedBots: "בוטים מחוברים",
+  statOpenTickets: "פניות פתוחות",
   statActiveWorkflows: "תהליכים פעילים",
-  statFormSubmissions: "הגשות טפסים",
   chartRegistrations: "הרשמות משתמשים",
   chartRegistrationsSub: "הרשמות חדשות בחודשים האחרונים",
   chartUserStatus: "משתמשים לפי סטטוס",
   chartUserStatusSub: "התפלגות אישורים",
   chartBotStatus: "סטטוס בוטים",
   chartBotStatusSub: "התפלגות בין משתמשים",
-  chartFormSubmissions: "הגשות טפסים",
-  chartFormSubmissionsSub: "הגשות לאורך זמן",
+  chartTickets: "פניות תמיכה",
+  chartTicketsSub: "פניות שנשלחו לאורך זמן",
 
   // Approvals page
   approvalsTitle: "משתמשים ממתינים לאישור",
@@ -87,6 +86,23 @@ const admin = {
   fieldTypeFile: "העלאת קובץ",
   fieldTypeNumber: "מספר",
   fieldTypeToggle: "מתג",
+
+  // Tickets
+  navTickets: "פניות",
+  ticketsTitle: "פניות תמיכה",
+  ticketsSubtitle: "נהל והגב לפניות תמיכה של משתמשים",
+  ticketsEmpty: "אין פניות עדיין",
+  ticketFrom: "מאת",
+  ticketReplyPlaceholder: "הקלד תגובה...",
+  ticketReply: "שלח תגובה",
+  ticketReplied: "התגובה נשלחה",
+  ticketStatusUpdated: "הסטטוס עודכן",
+  ticketSelectPrompt: "בחר פנייה לצפייה בפרטים",
+  ticketFilterAll: "הכל",
+  ticketFilterSubmitted: "נשלח",
+  ticketFilterInProgress: "בטיפול",
+  ticketFilterResolved: "טופל",
+  ticketFilterClosed: "סגור",
 };
 
 export default admin;
