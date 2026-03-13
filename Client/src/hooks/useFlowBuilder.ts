@@ -11,7 +11,7 @@ import {
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/services/supabase";
 import { useAuth } from "@/hooks/useAuth";
-import type { FlowNode, FlowEdge, FlowJSON, FlowNodeData, FlowSettings, Workflow } from "@/types/flow";
+import type { FlowNode, FlowEdge, FlowJSON, FlowNodeData, FlowSettings, Workflow, ButtonItem } from "@/types/flow";
 import { NODE_DEFAULTS, DEFAULT_FLOW_SETTINGS } from "@/types/flow";
 import { FLOW_TEMPLATES } from "@/data/flow-templates";
 
@@ -22,6 +22,7 @@ function describeNodeType(type: string): string {
     image: "שולח תמונה",
     buttons: "תפריט כפתורים",
     delay: "ממתין",
+    open_bot: "מעביר לשיחת AI חופשית",
   };
   return map[type] || type;
 }
@@ -80,6 +81,75 @@ function generateWorkflowRecord(nodes: FlowNode[], edges: FlowEdge[]): string {
   });
 
   return `הבוט מטפל בתהליכים הבאים:\n${lines.join("\n")}\nכשאין התאמה לתהליך — ענה באופן טבעי כבעל העסק, והצע ללקוח תהליכים רלוונטיים כשמתאים.`;
+}
+
+// ── Open Bot sync helper ────────────────────────────────────────
+function syncOpenBotNodes(
+  parentNodeId: string,
+  newButtons: ButtonItem[],
+  currentNodes: FlowNode[],
+  currentEdges: FlowEdge[],
+): { nodes: FlowNode[]; edges: FlowEdge[] } {
+  let nodes = [...currentNodes];
+  let edges = [...currentEdges];
+  const parentNode = nodes.find((n) => n.id === parentNodeId);
+  if (!parentNode) return { nodes, edges };
+
+  for (let i = 0; i < newButtons.length; i++) {
+    const btn = newButtons[i];
+    const handleId = `btn-${btn.id}`;
+    const existingEdge = edges.find((e) => e.source === parentNodeId && e.sourceHandle === handleId);
+    const targetNode = existingEdge ? nodes.find((n) => n.id === existingEdge.target) : null;
+    const hasOpenBotNode = targetNode?.data.type === "open_bot";
+
+    if (btn.openBot && !hasOpenBotNode) {
+      // Remove any existing edge from this handle
+      edges = edges.filter((e) => !(e.source === parentNodeId && e.sourceHandle === handleId));
+      // Create open_bot node
+      const newNodeId = `open_bot-${Date.now()}-${i}`;
+      const offset = (i - (newButtons.length - 1) / 2) * 180;
+      const newNode: FlowNode = {
+        id: newNodeId,
+        type: "open_bot",
+        position: {
+          x: parentNode.position.x + offset,
+          y: parentNode.position.y + 200,
+        },
+        data: { type: "open_bot", linkedButtonId: btn.id, linkedNodeId: parentNodeId },
+      };
+      nodes.push(newNode);
+      edges.push({
+        id: `e-${handleId}-${newNodeId}`,
+        source: parentNodeId,
+        target: newNodeId,
+        sourceHandle: handleId,
+        type: "smoothstep",
+        animated: true,
+      });
+    } else if (!btn.openBot && hasOpenBotNode && existingEdge) {
+      // Remove the open_bot node and its edge
+      nodes = nodes.filter((n) => n.id !== existingEdge.target);
+      edges = edges.filter((e) => e.target !== existingEdge.target && e.source !== existingEdge.target);
+    }
+  }
+
+  // Clean up open_bot nodes for buttons that were removed
+  const btnIds = new Set(newButtons.map((b) => b.id));
+  const orphanEdges = edges.filter(
+    (e) =>
+      e.source === parentNodeId &&
+      e.sourceHandle?.startsWith("btn-") &&
+      !btnIds.has(e.sourceHandle.slice(4)),
+  );
+  for (const oe of orphanEdges) {
+    const targetIsOpenBot = nodes.find((n) => n.id === oe.target)?.data.type === "open_bot";
+    if (targetIsOpenBot) {
+      nodes = nodes.filter((n) => n.id !== oe.target);
+      edges = edges.filter((e) => e.target !== oe.target && e.source !== oe.target);
+    }
+  }
+
+  return { nodes, edges };
 }
 
 // ── Types ──────────────────────────────────────────────────────
@@ -148,6 +218,10 @@ export function useFlowBuilder(): UseFlowBuilderReturn {
   // Auto-save refs
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const lastSavedJsonRef = useRef<string>("");
+
+  // Ref for edges (used by sync logic that needs both nodes + edges atomically)
+  const edgesRef = useRef(edges);
+  edgesRef.current = edges;
 
   // Lock state (published = locked)
   const isLocked = workflowStatus === "active";
@@ -459,11 +533,14 @@ export function useFlowBuilder(): UseFlowBuilderReturn {
   const onConnect: OnConnect = useCallback(
     (connection: Connection) => {
       if (isLocked) { notifyLocked(); return; }
+      // Block manual connections to open_bot nodes (auto-managed only)
+      const targetNode = nodes.find((n) => n.id === connection.target);
+      if (targetNode?.data.type === "open_bot") return;
       setEdges((eds) =>
         addEdge({ ...connection, type: "smoothstep", animated: true }, eds)
       );
     },
-    [isLocked, notifyLocked, setEdges]
+    [isLocked, notifyLocked, setEdges, nodes]
   );
 
   // ── Guarded workflow name setter ─────────────────────────────
@@ -495,20 +572,63 @@ export function useFlowBuilder(): UseFlowBuilderReturn {
   const updateNodeData = useCallback(
     (nodeId: string, data: Partial<FlowNodeData>) => {
       if (isLocked) { notifyLocked(); return; }
-      setNodes((nds) =>
-        nds.map((n) =>
+
+      let pendingEdges: FlowEdge[] | null = null;
+
+      setNodes((nds) => {
+        const updated = nds.map((n) =>
           n.id === nodeId ? { ...n, data: { ...n.data, ...data } } : n
-        )
-      );
+        );
+
+        // Sync open_bot nodes when buttons change
+        if (data.buttons) {
+          const targetNode = updated.find((n) => n.id === nodeId);
+          if (targetNode?.data.type === "buttons") {
+            const result = syncOpenBotNodes(nodeId, data.buttons!, updated, edgesRef.current);
+            pendingEdges = result.edges;
+            return result.nodes;
+          }
+        }
+
+        return updated;
+      });
+
+      // Defer edge update to next frame so xyflow can find handle DOM positions
+      if (pendingEdges) {
+        const edges = pendingEdges;
+        setTimeout(() => setEdges(edges), 0);
+      }
     },
-    [isLocked, notifyLocked, setNodes]
+    [isLocked, notifyLocked, setNodes, setEdges]
   );
 
   // ── Delete node ──────────────────────────────────────────────
   const deleteNode = useCallback(
     (nodeId: string) => {
       if (isLocked) { notifyLocked(); return; }
-      setNodes((nds) => nds.filter((n) => n.id !== nodeId));
+
+      setNodes((nds) => {
+        const deletedNode = nds.find((n) => n.id === nodeId);
+
+        // Reverse-sync: if deleting an open_bot node, unset openBot on the source button
+        if (deletedNode?.data.type === "open_bot") {
+          const incomingEdge = edgesRef.current.find(
+            (e) => e.target === nodeId && e.sourceHandle?.startsWith("btn-"),
+          );
+          if (incomingEdge) {
+            const btnId = incomingEdge.sourceHandle!.slice(4);
+            return nds
+              .filter((n) => n.id !== nodeId)
+              .map((n) =>
+                n.id === incomingEdge.source && n.data.type === "buttons" && n.data.buttons
+                  ? { ...n, data: { ...n.data, buttons: n.data.buttons.map((b) => b.id === btnId ? { ...b, openBot: false } : b) } }
+                  : n,
+              );
+          }
+        }
+
+        return nds.filter((n) => n.id !== nodeId);
+      });
       setEdges((eds) => eds.filter((e) => e.source !== nodeId && e.target !== nodeId));
       if (selectedNodeId === nodeId) setSelectedNodeId(null);
     },
@@ -519,9 +639,28 @@ export function useFlowBuilder(): UseFlowBuilderReturn {
   const deleteEdge = useCallback(
     (edgeId: string) => {
       if (isLocked) { notifyLocked(); return; }
+
+      const edge = edgesRef.current.find((e) => e.id === edgeId);
+
+      // If edge targets an open_bot node, also delete that node + unset button flag
+      if (edge?.sourceHandle?.startsWith("btn-")) {
+        setNodes((nds) => {
+          const targetNode = nds.find((n) => n.id === edge.target);
+          if (targetNode?.data.type !== "open_bot") return nds;
+          const btnId = edge.sourceHandle!.slice(4);
+          return nds
+            .filter((n) => n.id !== edge.target)
+            .map((n) =>
+              n.id === edge.source && n.data.type === "buttons" && n.data.buttons
+                ? { ...n, data: { ...n.data, buttons: n.data.buttons.map((b) => b.id === btnId ? { ...b, openBot: false } : b) } }
+                : n,
+            );
+        });
+      }
+
       setEdges((eds) => eds.filter((e) => e.id !== edgeId));
     },
-    [isLocked, notifyLocked, setEdges]
+    [isLocked, notifyLocked, setEdges, setNodes]
   );
 
   // ── Update flow settings ────────────────────────────────────

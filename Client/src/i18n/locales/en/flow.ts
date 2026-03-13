@@ -128,6 +128,12 @@ const flow = {
   confirmDelete: "Delete",
   cannotDeleteActive: "Unpublish before deleting",
 
+  // Open Bot
+  nodeOpenBot: "AI Bot",
+  openBotDesc: "Free AI conversation",
+  openBotToggle: "Open Bot",
+  openBotInfo: "When a customer clicks this button, they exit the flow and enter a free AI conversation using your business context.",
+
   // Misc
   deleteNode: "Delete Node",
   noNodeSelected: "Select a node to edit its properties",

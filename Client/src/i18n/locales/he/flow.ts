@@ -128,6 +128,12 @@ const flow = {
   confirmDelete: "מחק",
   cannotDeleteActive: "בטל פרסום לפני מחיקה",
 
+  // Open Bot
+  nodeOpenBot: "בוט AI",
+  openBotDesc: "שיחת AI חופשית",
+  openBotToggle: "בוט פתוח",
+  openBotInfo: "כשלקוח לוחץ על הכפתור הזה, הוא יוצא מהתהליך ונכנס לשיחת AI חופשית על בסיס המידע העסקי שלך.",
+
   // Misc
   deleteNode: "מחק צומת",
   noNodeSelected: "בחר צומת כדי לערוך את המאפיינים שלו",

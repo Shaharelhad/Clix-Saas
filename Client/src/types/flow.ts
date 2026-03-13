@@ -7,11 +7,13 @@ export type FlowNodeType =
   | "text"
   | "image"
   | "buttons"
-  | "delay";
+  | "delay"
+  | "open_bot";
 
 export interface ButtonItem {
   id: string;
   label: string;
+  openBot?: boolean;
 }
 
 export interface FlowNodeData extends Record<string, unknown> {
@@ -29,6 +31,9 @@ export interface FlowNodeData extends Record<string, unknown> {
   buttons?: ButtonItem[];
   // delay
   delayMinutes?: number;
+  // open_bot (auto-created by button toggle)
+  linkedButtonId?: string;
+  linkedNodeId?: string;
 }
 
 // XYFlow typed node / edge
@@ -78,6 +83,7 @@ export const NODE_COLORS: Record<FlowNodeType, string> = {
   image: "#a855f7",
   buttons: "#f59e0b",
   delay: "#6b7280",
+  open_bot: "#8B5CF6",
 };
 
 // Default labels for each node type
@@ -87,4 +93,5 @@ export const NODE_DEFAULTS: Record<FlowNodeType, Partial<FlowNodeData>> = {
   image: { type: "image", message: "", imageUrl: "" },
   buttons: { type: "buttons", message: "", buttons: [] },
   delay: { type: "delay", delayMinutes: 5 },
+  open_bot: { type: "open_bot" },
 };

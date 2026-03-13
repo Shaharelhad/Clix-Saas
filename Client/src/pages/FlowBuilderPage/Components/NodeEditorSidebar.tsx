@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { X, Plus, Trash2, Upload, Loader2 } from "lucide-react";
+import { X, Plus, Trash2, Upload, Loader2, Bot } from "lucide-react";
 import type { FlowNode, FlowNodeData, ButtonItem } from "@/types/flow";
 import { supabase } from "@/services/supabase";
 import { useAuthStore } from "@/store/auth.store";
@@ -110,6 +110,17 @@ export default function NodeEditorSidebar({ node, onUpdate, onClose, isLocked }:
           />
         )}
 
+        {/* Open Bot info (read-only) */}
+        {data.type === "open_bot" && (
+          <div className="bg-violet-50 border border-violet-200 rounded-lg p-3">
+            <div className="flex items-center gap-2 mb-2">
+              <Bot className="w-4 h-4 text-violet-600" />
+              <span className="text-xs font-bold text-violet-700">{t("nodeOpenBot")}</span>
+            </div>
+            <p className="text-[11px] text-violet-600 leading-relaxed">{t("openBotInfo")}</p>
+          </div>
+        )}
+
         {/* Delay minutes */}
         {data.type === "delay" && (
           <Field label={t("delayMinutes")} hint={t("delayMinutesHint")}>
@@ -177,6 +188,10 @@ function ButtonsEditor({ buttons, onChange }: { buttons: ButtonItem[]; onChange:
     onChange(buttons.map((b) => (b.id === id ? { ...b, label } : b)));
   };
 
+  const toggleOpenBot = (id: string) => {
+    onChange(buttons.map((b) => (b.id === id ? { ...b, openBot: !b.openBot } : b)));
+  };
+
   return (
     <div>
       <label className="text-xs font-semibold text-[#2D2A26] block mb-2">{t("buttons")}</label>
@@ -191,6 +206,17 @@ function ButtonsEditor({ buttons, onChange }: { buttons: ButtonItem[]; onChange:
               className="field-input flex-1"
               dir="rtl"
             />
+            <button
+              onClick={() => toggleOpenBot(btn.id)}
+              className={`p-1.5 rounded cursor-pointer transition-colors ${
+                btn.openBot
+                  ? "bg-violet-100 text-violet-600"
+                  : "text-[#A39B90] hover:bg-violet-50 hover:text-violet-500"
+              }`}
+              title={t("openBotToggle")}
+            >
+              <Bot className="w-3 h-3" />
+            </button>
             <button
               onClick={() => removeButton(btn.id)}
               className="p-1.5 rounded hover:bg-red-50 text-[#A39B90] hover:text-red-500 cursor-pointer"

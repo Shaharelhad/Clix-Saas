@@ -19,6 +19,7 @@ import TextNode from "./nodes/TextNode";
 import ImageNode from "./nodes/ImageNode";
 import ButtonsNode from "./nodes/ButtonsNode";
 import DelayNode from "./nodes/DelayNode";
+import OpenBotNode from "./nodes/OpenBotNode";
 
 const nodeTypes: NodeTypes = {
   start: StartNode,
@@ -26,6 +27,7 @@ const nodeTypes: NodeTypes = {
   image: ImageNode,
   buttons: ButtonsNode,
   delay: DelayNode,
+  open_bot: OpenBotNode,
 };
 
 const edgeTypes: EdgeTypes = {
