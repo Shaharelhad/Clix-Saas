@@ -28,6 +28,16 @@ export default function FlowSettingsModal({ settings, onUpdate, onClose }: FlowS
 
         {/* Settings */}
         <div className="p-5 space-y-5">
+          {/* Strict Mode */}
+          <div className="rounded-lg bg-[#FFF5F0]/60 border border-[#FF7E47]/20 p-3">
+            <SettingRow
+              label={t("settingsStrictMode")}
+              hint={t("settingsStrictModeHint")}
+              checked={settings.strictMode}
+              onChange={(v) => onUpdate({ strictMode: v })}
+            />
+          </div>
+
           {/* Ignore Group Chats */}
           <SettingRow
             label={t("settingsIgnoreGroups")}

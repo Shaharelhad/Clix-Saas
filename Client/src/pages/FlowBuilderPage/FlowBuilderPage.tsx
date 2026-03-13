@@ -9,7 +9,8 @@ import FlowToolbar from "./Components/FlowToolbar";
 import FlowSettingsModal from "./Components/FlowSettingsModal";
 import NodePalette from "./Components/NodePalette";
 import NodeEditorSidebar from "./Components/NodeEditorSidebar";
-import FlowPreviewSimulator from "./Components/FlowPreviewSimulator";
+import FlowHelpAssistant from "./Components/FlowHelpAssistant";
+import TemplatePickerModal from "./Components/TemplatePickerModal";
 
 function FlowBuilderContent() {
   const fb = useFlowBuilder();
@@ -34,13 +35,18 @@ function FlowBuilderContent() {
     };
   }, [fb]);
 
-  // Loading or auto-creating
-  if (fb.isLoadingList || (!fb.activeWorkflowId && fb.workflows.length === 0)) {
+  // Loading
+  if (fb.isLoadingList) {
     return (
       <div className="h-[calc(100vh-3.5rem)] flex items-center justify-center">
         <Loader2 className="w-8 h-8 text-[#FF7E47] animate-spin" />
       </div>
     );
+  }
+
+  // No workflows — show template picker
+  if (fb.showTemplatePicker) {
+    return <TemplatePickerModal onSelect={fb.createFromTemplate} />;
   }
 
   return (
@@ -54,6 +60,11 @@ function FlowBuilderContent() {
         onOpenSettings={() => setShowSettings(true)}
         saveStatus={fb.saveStatus}
         isLocked={fb.isLocked}
+        workflows={fb.workflows}
+        activeWorkflowId={fb.activeWorkflowId}
+        onSwitchWorkflow={fb.switchWorkflow}
+        onDeleteWorkflow={fb.deleteWorkflow}
+        onNewFlow={fb.openTemplatePicker}
       />
 
       {/* Main 3-panel layout */}
@@ -84,8 +95,8 @@ function FlowBuilderContent() {
         <NodePalette isLocked={fb.isLocked} onLockedDrag={fb.notifyLocked} />
       </div>
 
-      {/* Preview simulator */}
-      <FlowPreviewSimulator workflowId={fb.activeWorkflowId} />
+      {/* Help assistant */}
+      <FlowHelpAssistant />
 
       {/* Settings modal */}
       {showSettings && (
@@ -93,6 +104,14 @@ function FlowBuilderContent() {
           settings={fb.flowSettings}
           onUpdate={fb.updateFlowSettings}
           onClose={() => setShowSettings(false)}
+        />
+      )}
+
+      {/* Template picker modal (for creating new flows) */}
+      {fb.showTemplatePickerModal && (
+        <TemplatePickerModal
+          onSelect={fb.createFromTemplate}
+          onClose={fb.closeTemplatePicker}
         />
       )}
 
