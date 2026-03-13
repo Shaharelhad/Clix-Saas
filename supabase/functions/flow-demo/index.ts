@@ -38,6 +38,7 @@ interface FlowEdge {
 interface FlowJSON {
   nodes: FlowNode[];
   edges: FlowEdge[];
+  settings?: { strictMode?: boolean; [key: string]: unknown };
 }
 
 interface DemoResponse {
@@ -62,6 +63,10 @@ function extractTriggers(flow: FlowJSON): TriggerInfo[] {
 
 function findStartNodeById(flow: FlowJSON, nodeId: string): FlowNode | undefined {
   return flow.nodes.find((n) => n.id === nodeId && n.type === "start");
+}
+
+function findCatchAllStart(flow: FlowJSON): FlowNode | undefined {
+  return flow.nodes.find((n) => n.type === "start" && !n.data.triggerText?.trim());
 }
 
 function findNodeById(flow: FlowJSON, id: string): FlowNode | undefined {
@@ -304,8 +309,26 @@ Deno.serve(async (req) => {
 
     const responses: DemoResponse[] = [];
 
+    const strictMode = flow.settings?.strictMode ?? false;
+
+    // Helper: strict mode nudge response (no AI)
+    function strictNudgeResponse(nudgeText: string, stayOnNode?: string | null) {
+      const nodeId = stayOnNode !== undefined ? stayOnNode : currentNodeId;
+      return new Response(
+        JSON.stringify({
+          responses: [{ type: "text", content: nudgeText }],
+          conversation_id: convId,
+          session_state: { current_node_id: nodeId, variables, status: nodeId ? "active" : "completed" },
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // Helper: call LLM fallback, save conversation, return response
     async function llmFallbackResponse(stayOnNode?: string | null) {
+      if (strictMode) {
+        return strictNudgeResponse("אני יכול לעזור רק דרך התהליך. שלח הודעה כדי להתחיל.", stayOnNode);
+      }
       const botResponse = await callLLMFallback(user_id, message, convId, workflowRecord);
       await supabase.from("demo_conversations").insert({
         user_id,
@@ -333,8 +356,15 @@ Deno.serve(async (req) => {
         variables = {};
         sessionStatus = "active";
       } else {
-        // No trigger match — LLM fallback
-        return llmFallbackResponse(null);
+        // No specific trigger match — check for catch-all start node (empty trigger)
+        const catchAll = findCatchAllStart(flow);
+        if (catchAll) {
+          currentNodeId = catchAll.id;
+          variables = {};
+          sessionStatus = "active";
+        } else {
+          return llmFallbackResponse(null);
+        }
       }
     } else {
       // Active session — check if message matches a trigger (restart flow)
@@ -366,6 +396,7 @@ Deno.serve(async (req) => {
       const matched = matchButton(buttons, message);
       if (matched) {
         let nextNode = findNextNode(flow, currentNode.id, `btn-${matched.id}`);
+        if (!nextNode) nextNode = findNextNode(flow, currentNode.id); // fallback: default edge
         if (nextNode?.type === "follow_up") {
           nextNode = findNextNode(flow, nextNode.id);
         }
@@ -395,7 +426,10 @@ Deno.serve(async (req) => {
           const nextNode = findNextNode(flow, currentNode.id);
           nextNodeId = nextNode?.id || null;
         } else {
-          // No match — LLM fallback, stay on same node
+          // No match — stay on same node
+          if (strictMode) {
+            return strictNudgeResponse(`לא הבנתי. ${currentNode.data.message || "אנא נסה שוב."}`, currentNodeId);
+          }
           return llmFallbackResponse(currentNodeId);
         }
       } else {
@@ -415,9 +449,16 @@ Deno.serve(async (req) => {
           const nextNode = findNextNode(flow, currentNode.id);
           nextNodeId = nextNode?.id || null;
         } else {
-          // Message does NOT match the trigger — fall back to LLM
+          // Message does NOT match the trigger
+          if (strictMode) {
+            return strictNudgeResponse("אני יכול לעזור רק דרך התהליך. שלח הודעה כדי להתחיל.", currentNodeId);
+          }
           return llmFallbackResponse(currentNodeId);
         }
+      } else {
+        // Catch-all start node (empty trigger) — auto-advance
+        const nextNode = findNextNode(flow, currentNode.id);
+        nextNodeId = nextNode?.id || null;
       }
     } else {
       const nextNode = findNextNode(flow, currentNode.id);
