@@ -50,6 +50,7 @@ export default function DemoChatSection({ resetKey = 0, workflowId }: DemoChatSe
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [sessionState, setSessionState] = useState<Record<string, unknown> | null>(null);
   const [isSending, setIsSending] = useState(false);
+  const [clickedMessageIds, setClickedMessageIds] = useState<Set<string>>(new Set());
 
   /* ── Reset when edit is applied ── */
   useEffect(() => {
@@ -65,6 +66,7 @@ export default function DemoChatSection({ resetKey = 0, workflowId }: DemoChatSe
       setConversationId(null);
       setSessionState(null);
       setInput("");
+      setClickedMessageIds(new Set());
     }
   }, [resetKey, t]);
 
@@ -96,7 +98,7 @@ export default function DemoChatSection({ resetKey = 0, workflowId }: DemoChatSe
       if (result.error) throw new Error(result.error);
 
       const data = result.data as {
-        responses?: { type: string; content: string }[];
+        responses?: { type: string; content: string; imageUrl?: string; buttons?: { id: string; label: string }[] }[];
         response?: string;
         conversation_id?: string;
         session_state?: Record<string, unknown>;
@@ -112,6 +114,8 @@ export default function DemoChatSection({ resetKey = 0, workflowId }: DemoChatSe
           role: "bot" as const,
           text: r.content || "...",
           time: nowStamp(),
+          ...(r.imageUrl ? { imageUrl: r.imageUrl } : {}),
+          ...(r.buttons?.length ? { buttons: r.buttons } : {}),
         }));
         setMessages((prev) => [...prev, ...botMessages]);
       } else if (data?.response) {
@@ -136,6 +140,73 @@ export default function DemoChatSection({ resetKey = 0, workflowId }: DemoChatSe
     }
   }, [input, isSending, user?.id, workflowId, conversationId, sessionState]);
 
+  /* ── Button click in chat ── */
+  const handleButtonClick = useCallback(async (label: string) => {
+    if (isSending || !workflowId) return;
+
+    // Find the message with these buttons and mark it clicked
+    setMessages((prev) => {
+      const lastBtnMsg = [...prev].reverse().find((m) => m.buttons?.some((b) => b.label === label));
+      if (lastBtnMsg) setClickedMessageIds((s) => new Set(s).add(lastBtnMsg.id));
+      return [
+        ...prev,
+        { id: `user-${Date.now()}`, role: "user" as const, text: label, time: nowStamp() },
+      ];
+    });
+    setIsSending(true);
+
+    try {
+      const result = await callFlowDemo({
+        user_id: user?.id ?? "",
+        workflow_id: workflowId,
+        message: label,
+        ...(conversationId ? { conversation_id: conversationId } : {}),
+        ...(sessionState ? { session_state: sessionState } : {}),
+      });
+
+      if (result.error) throw new Error(result.error);
+
+      const data = result.data as {
+        responses?: { type: string; content: string; imageUrl?: string; buttons?: { id: string; label: string }[] }[];
+        response?: string;
+        conversation_id?: string;
+        session_state?: Record<string, unknown>;
+      } | null;
+
+      if (data?.conversation_id) setConversationId(data.conversation_id);
+      if (data?.session_state) setSessionState(data.session_state);
+
+      if (data?.responses && Array.isArray(data.responses) && data.responses.length > 0) {
+        const botMessages: ChatMessage[] = data.responses.map((r, i) => ({
+          id: `bot-${Date.now()}-${i}`,
+          role: "bot" as const,
+          text: r.content || "...",
+          time: nowStamp(),
+          ...(r.imageUrl ? { imageUrl: r.imageUrl } : {}),
+          ...(r.buttons?.length ? { buttons: r.buttons } : {}),
+        }));
+        setMessages((prev) => [...prev, ...botMessages]);
+      } else if (data?.response) {
+        setMessages((prev) => [
+          ...prev,
+          { id: `bot-${Date.now()}`, role: "bot", text: data.response!, time: nowStamp() },
+        ]);
+      }
+    } catch (err) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `bot-err-${Date.now()}`,
+          role: "bot",
+          text: err instanceof Error ? err.message : "Something went wrong.",
+          time: nowStamp(),
+        },
+      ]);
+    } finally {
+      setIsSending(false);
+    }
+  }, [isSending, user?.id, workflowId, conversationId, sessionState]);
+
   /* ── New conversation ── */
   const handleNewConversation = () => {
     setMessages([
@@ -149,6 +220,7 @@ export default function DemoChatSection({ resetKey = 0, workflowId }: DemoChatSe
     setConversationId(null);
     setSessionState(null);
     setInput("");
+    setClickedMessageIds(new Set());
   };
 
   /* ═══════════════════════ RENDER ═══════════════════════════ */
@@ -167,6 +239,8 @@ export default function DemoChatSection({ resetKey = 0, workflowId }: DemoChatSe
         isSending={isSending || !workflowId}
         placeholder={t("demoChatPlaceholder")}
         variant="demo"
+        onButtonClick={handleButtonClick}
+        clickedMessageIds={clickedMessageIds}
         headerAction={
           <motion.button
             whileHover={{ scale: 1.08, rotate: -15 }}
