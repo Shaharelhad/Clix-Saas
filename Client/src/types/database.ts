@@ -496,6 +496,7 @@ export type Database = {
       profiles: {
         Row: {
           active_flow_id: string | null
+          blocked_numbers: Json | null
           bot_status: string
           created_at: string
           credits_balance: number
@@ -517,6 +518,7 @@ export type Database = {
         }
         Insert: {
           active_flow_id?: string | null
+          blocked_numbers?: Json | null
           bot_status?: string
           created_at?: string
           credits_balance?: number
@@ -538,6 +540,7 @@ export type Database = {
         }
         Update: {
           active_flow_id?: string | null
+          blocked_numbers?: Json | null
           bot_status?: string
           created_at?: string
           credits_balance?: number

@@ -8,10 +8,12 @@ import {
   Pencil,
   GitBranch,
   BookOpen,
+  Headphones,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/services/supabase";
 import RagUploadModal from "@/components/RagUploadModal";
+import SupportTicketModal from "@/components/SupportTicketModal";
 import { cn } from "@/lib/utils";
 
 const navItems = [
@@ -25,6 +27,7 @@ export default function UserLayout() {
   const { signOut, user } = useAuth();
   const navigate = useNavigate();
   const [ragModalOpen, setRagModalOpen] = useState(false);
+  const [supportModalOpen, setSupportModalOpen] = useState(false);
 
   const { data: ragStatus } = useQuery({
     queryKey: ["rag-status", user?.id],
@@ -103,6 +106,14 @@ export default function UserLayout() {
                 <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-white" />
               )}
             </button>
+            <button
+              onClick={() => setSupportModalOpen(true)}
+              className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-[#7A7267] hover:text-[#2D2A26] hover:bg-[#EDE6DD]/40 transition-all duration-200 cursor-pointer"
+              title={t("support")}
+            >
+              <Headphones className="w-4 h-4 shrink-0" />
+              <span className="hidden sm:inline">{t("support")}</span>
+            </button>
             {user && (
               <div className="hidden sm:block text-end">
                 <p className="text-xs font-semibold text-[#2D2A26]">{user.full_name}</p>
@@ -126,6 +137,13 @@ export default function UserLayout() {
       </main>
 
       <RagUploadModal isOpen={ragModalOpen} onClose={() => setRagModalOpen(false)} />
+      {user?.id && (
+        <SupportTicketModal
+          open={supportModalOpen}
+          onClose={() => setSupportModalOpen(false)}
+          userId={user.id}
+        />
+      )}
     </div>
   );
 }

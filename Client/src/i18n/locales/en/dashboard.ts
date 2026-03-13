@@ -91,6 +91,21 @@ const dashboard = {
   categoryOther: "Additional Info",
   cancelChanges: "Cancel",
   categorySaved: "Saved!",
+
+  // Blocked Numbers
+  blockedNumbers: "Blocked Numbers",
+  blockedNumbersTitle: "Blocked Numbers",
+  blockedNumbersDesc: "These numbers will be ignored by your bot.",
+  blockedNumbersEmpty: "No blocked numbers yet",
+  blockedNumbersEmptyDesc: "Numbers you block won't receive bot responses.",
+  blockedNumbersAdd: "Add",
+  blockedNumbersPlaceholder: "+972... or 05...",
+  blockedNumbersRemove: "Remove",
+  blockedNumbersInvalid: "Enter a valid phone number (min 7 digits)",
+  blockedNumbersDuplicate: "This number is already blocked",
+  blockedNumbersAdded: "Number blocked",
+  blockedNumbersRemoved: "Number unblocked",
+  blockedNumbersError: "Failed to update. Please try again.",
 };
 
 export default dashboard;

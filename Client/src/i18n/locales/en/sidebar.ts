@@ -7,6 +7,7 @@ const sidebar = {
   connect: "Connect",
   flowBuilder: "Flow Builder",
   knowledgeBase: "Knowledge Base",
+  support: "Support",
   logout: "Logout",
 };
 

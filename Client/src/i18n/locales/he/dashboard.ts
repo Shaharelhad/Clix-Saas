@@ -90,6 +90,21 @@ const dashboard = {
   categoryOther: "מידע נוסף",
   cancelChanges: "ביטול",
   categorySaved: "נשמר!",
+
+  // Blocked Numbers
+  blockedNumbers: "מספרים חסומים",
+  blockedNumbersTitle: "מספרים חסומים",
+  blockedNumbersDesc: "מספרים אלו יתעלמו על ידי הבוט שלך.",
+  blockedNumbersEmpty: "אין מספרים חסומים עדיין",
+  blockedNumbersEmptyDesc: "מספרים שתחסמו לא יקבלו תגובות מהבוט.",
+  blockedNumbersAdd: "הוסף",
+  blockedNumbersPlaceholder: "...972+ או ...05",
+  blockedNumbersRemove: "הסר",
+  blockedNumbersInvalid: "הכנס מספר טלפון תקין (לפחות 7 ספרות)",
+  blockedNumbersDuplicate: "מספר זה כבר חסום",
+  blockedNumbersAdded: "המספר נחסם",
+  blockedNumbersRemoved: "המספר הוסר מהחסימה",
+  blockedNumbersError: "העדכון נכשל. נסה שוב.",
 };
 
 export default dashboard;
