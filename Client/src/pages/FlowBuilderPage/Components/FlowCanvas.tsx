@@ -18,20 +18,14 @@ import StartNode from "./nodes/StartNode";
 import TextNode from "./nodes/TextNode";
 import ImageNode from "./nodes/ImageNode";
 import ButtonsNode from "./nodes/ButtonsNode";
-import CollectInputNode from "./nodes/CollectInputNode";
 import DelayNode from "./nodes/DelayNode";
-import FollowUpNode from "./nodes/FollowUpNode";
-import ConditionNode from "./nodes/ConditionNode";
 
 const nodeTypes: NodeTypes = {
   start: StartNode,
   text: TextNode,
   image: ImageNode,
   buttons: ButtonsNode,
-  collect_input: CollectInputNode,
   delay: DelayNode,
-  follow_up: FollowUpNode,
-  condition: ConditionNode,
 };
 
 const edgeTypes: EdgeTypes = {
