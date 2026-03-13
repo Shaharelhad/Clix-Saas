@@ -442,6 +442,11 @@ async function executeNode(
     return { nextNodeId: next?.id || null, waitForInput: false };
   }
 
+  // Open Bot — terminate flow, enter free AI conversation
+  if (node.type === "open_bot") {
+    return { nextNodeId: null, waitForInput: false };
+  }
+
   if (node.type === "text") {
     const msg = resolveVariables(node.data.message || "", variables);
     await sendTextMessage(customerId, phone, msg);
@@ -476,7 +481,8 @@ async function executeNode(
     const msg = resolveVariables(node.data.message || "", variables);
     const buttons = node.data.buttons || [];
     await sendButtonsMessage(customerId, phone, msg, buttons);
-    await logMessage(msg, "buttons");
+    const buttonLabels = buttons.map((b) => b.label).join(", ");
+    await logMessage(`${msg}\n[${buttonLabels}]`, "buttons");
     // Wait for user to click a button
     return { nextNodeId: node.id, waitForInput: true };
   }
@@ -620,11 +626,11 @@ Deno.serve(async (req) => {
     }
 
     // Find the user (bot owner) by customerId (= Supabase user UUID)
-    let profile: { id: string; active_flow_id: string | null; bot_status: string } | null = null;
+    let profile: { id: string; active_flow_id: string | null; bot_status: string; blocked_numbers: unknown } | null = null;
 
     const { data } = await supabase
       .from("profiles")
-      .select("id, active_flow_id, bot_status")
+      .select("id, active_flow_id, bot_status, blocked_numbers")
       .eq("id", customerId)
       .single();
     profile = data;
@@ -642,6 +648,18 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ ok: true, skipped: "bot_not_active" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // Guard: blocked numbers
+    const blockedNumbers = Array.isArray(profile.blocked_numbers) ? profile.blocked_numbers as string[] : [];
+    if (blockedNumbers.length > 0) {
+      const normalizedPhone = phone.startsWith("+") ? phone : "+" + phone;
+      if (blockedNumbers.includes(phone) || blockedNumbers.includes(normalizedPhone)) {
+        console.log("[flow] Blocked number, skipping:", phone);
+        return new Response(JSON.stringify({ ok: true, skipped: "blocked_number" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
     let activeFlowId = profile.active_flow_id;
@@ -1156,6 +1174,11 @@ Deno.serve(async (req) => {
           maxSteps--;
           const node = findNodeById(flow, nextNodeId);
           if (!node) break;
+          // Open Bot node — stay on this node, LLM will handle it
+          if (node.type === "open_bot") {
+            nextNodeId = node.id;
+            break;
+          }
           // Legacy ai_agent nodes — skip through to next
           if (node.type === "ai_agent") {
             const next = findNextNode(flow, node.id);
@@ -1172,6 +1195,7 @@ Deno.serve(async (req) => {
           if (!nextNodeId) break;
         }
 
+        const restartLandedNode = nextNodeId ? findNodeById(flow, nextNodeId) : null;
         const restartStatus = nextNodeId ? "active" : "completed";
         console.log("[flow] Trigger restart: updating session to:", nextNodeId, restartStatus);
         await updateSessionDirect(session.id, {
@@ -1180,6 +1204,11 @@ Deno.serve(async (req) => {
           status: restartStatus,
           last_message_at: new Date().toISOString(),
         });
+
+        // If trigger restart landed on open_bot, enter free AI conversation
+        if (restartLandedNode?.type === "open_bot") {
+          await callOpenLLM(profile.id, userMessage, session.id, workflow.id, customerId, phone, workflowRecord);
+        }
 
         return new Response(
           JSON.stringify({ ok: true, current_node: nextNodeId, status: restartStatus }),
@@ -1197,6 +1226,20 @@ Deno.serve(async (req) => {
       });
       return new Response(
         JSON.stringify({ ok: true, action: "llm_response", current_node: currentNode.id }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Open Bot node — free AI conversation (bypass strict mode)
+    if (currentNode.type === "open_bot") {
+      await callOpenLLM(profile.id, userMessage, session.id, workflow.id, customerId, phone, workflowRecord);
+      await updateSessionDirect(session.id, {
+        current_node_id: currentNode.id,
+        status: "active",
+        last_message_at: new Date().toISOString(),
+      });
+      return new Response(
+        JSON.stringify({ ok: true, action: "open_bot_llm", current_node: currentNode.id }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -1339,6 +1382,12 @@ Deno.serve(async (req) => {
       if (!node) { console.log("[flow] Chain: node not found:", nextNodeId); break; }
       console.log("[flow] Chain: executing node:", node.id, node.type);
 
+      // Open Bot node — stay on this node, LLM will handle it
+      if (node.type === "open_bot") {
+        nextNodeId = node.id;
+        break;
+      }
+
       // Legacy ai_agent nodes — skip through to next
       if (node.type === "ai_agent") {
         const next = findNextNode(flow, node.id);
@@ -1386,6 +1435,22 @@ Deno.serve(async (req) => {
         // Flow completed
         break;
       }
+    }
+
+    // If open_bot node was reached, enter free AI conversation
+    const landedNode = nextNodeId ? findNodeById(flow, nextNodeId) : null;
+    if (landedNode?.type === "open_bot") {
+      await updateSessionDirect(session.id, {
+        current_node_id: nextNodeId,
+        variables: updatedVariables,
+        status: "active",
+        last_message_at: new Date().toISOString(),
+      });
+      await callOpenLLM(profile.id, userMessage, session.id, workflow.id, customerId, phone, workflowRecord);
+      return new Response(
+        JSON.stringify({ ok: true, action: "open_bot_llm", current_node: nextNodeId }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     // Final session update (handles flow completion and non-waitForInput cases)

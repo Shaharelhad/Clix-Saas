@@ -158,6 +158,11 @@ function executeNodeDemo(
     return { nextNodeId: next?.id || null, waitForInput: false };
   }
 
+  // Open Bot — terminate flow, enter free AI conversation
+  if (node.type === "open_bot") {
+    return { nextNodeId: null, waitForInput: false };
+  }
+
   if (node.type === "text") {
     const msg = resolveVariables(node.data.message || "", variables);
     responses.push({ type: "text", content: msg });
@@ -388,6 +393,23 @@ Deno.serve(async (req) => {
       return llmFallbackResponse(currentNode.id);
     }
 
+    // Open Bot node — free AI conversation (bypass strict mode)
+    if (currentNode.type === "open_bot") {
+      const botResponse = await callLLMFallback(user_id, message, convId, workflowRecord);
+      await supabase.from("demo_conversations").insert({
+        user_id, conversation_id: convId,
+        user_message: message, bot_response: botResponse,
+      });
+      return new Response(
+        JSON.stringify({
+          response: botResponse,
+          conversation_id: convId,
+          session_state: { current_node_id: currentNode.id, variables, status: "active" },
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     let nextNodeId: string | null = null;
 
     // Handle user input for waiting nodes
@@ -472,6 +494,12 @@ Deno.serve(async (req) => {
       const node = findNodeById(flow, nextNodeId);
       if (!node) break;
 
+      // Open Bot node — stay on this node, LLM will handle it
+      if (node.type === "open_bot") {
+        nextNodeId = node.id;
+        break;
+      }
+
       // Legacy ai_agent nodes — skip through to next
       if (node.type === "ai_agent") {
         const next = findNextNode(flow, node.id);
@@ -489,6 +517,37 @@ Deno.serve(async (req) => {
       if (!nextNodeId) break;
     }
 
+    // If open_bot node was reached, enter free AI conversation (bypass strict mode)
+    const finalNode = nextNodeId ? findNodeById(flow, nextNodeId) : null;
+    if (finalNode?.type === "open_bot") {
+      // Save any flow responses accumulated before open_bot as context
+      if (responses.length > 0) {
+        const flowText = responses.map((r) => {
+          if (r.buttons?.length) {
+            return `${r.content}\n[${r.buttons.map((b) => b.label).join(", ")}]`;
+          }
+          return r.content;
+        }).join("\n");
+        await supabase.from("demo_conversations").insert({
+          user_id, conversation_id: convId,
+          user_message: message, bot_response: flowText,
+        });
+      }
+      const botResponse = await callLLMFallback(user_id, message, convId, workflowRecord);
+      await supabase.from("demo_conversations").insert({
+        user_id, conversation_id: convId,
+        user_message: message, bot_response: botResponse,
+      });
+      return new Response(
+        JSON.stringify({
+          response: botResponse,
+          conversation_id: convId,
+          session_state: { current_node_id: nextNodeId, variables, status: "active" },
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // If flow executed but produced no responses, fallback to LLM
     if (responses.length === 0) {
       return llmFallbackResponse(null);
@@ -499,7 +558,12 @@ Deno.serve(async (req) => {
 
     // Save conversation turn
     if (responses.length > 0) {
-      const botText = responses.map((r) => r.content).join("\n");
+      const botText = responses.map((r) => {
+        if (r.buttons?.length) {
+          return `${r.content}\n[${r.buttons.map((b) => b.label).join(", ")}]`;
+        }
+        return r.content;
+      }).join("\n");
       await supabase.from("demo_conversations").insert({
         user_id,
         conversation_id: convId,
