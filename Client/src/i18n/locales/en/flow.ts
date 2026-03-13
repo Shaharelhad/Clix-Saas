@@ -32,19 +32,13 @@ const flow = {
   nodeText: "Text Message",
   nodeImage: "Image",
   nodeButtons: "Buttons",
-  nodeCollectInput: "Collect Input",
   nodeDelay: "Delay",
-  nodeFollowUp: "Follow Up",
-  nodeCondition: "Condition",
   // Node descriptions (palette)
   nodeStartDesc: "Receives incoming messages",
   nodeTextDesc: "Send a text message",
   nodeImageDesc: "Send an image with caption",
   nodeButtonsDesc: "Show interactive buttons",
-  nodeCollectInputDesc: "Ask and save user input",
   nodeDelayDesc: "Wait before continuing",
-  nodeFollowUpDesc: "Send a scheduled follow-up",
-  nodeConditionDesc: "Branch based on a condition",
   // Editor fields
   triggerText: "Keyword Filter",
   triggerTextHint: "Optional keyword to filter messages (leave empty for all)",
@@ -60,31 +54,21 @@ const flow = {
   expectedReplyHint: "Exact or similar text to match",
   continueAuto: "Continue on any reply",
   continueAutoHint: "Any message from the customer will continue the flow",
-  variableName: "Variable Name",
-  variableNameHint: "Name to store the user's answer",
   delayMinutes: "Delay (minutes)",
   delayMinutesHint: "How long to wait (1-1440)",
-  followUpMessage: "Follow-up Message",
-  followUpMessageHint: "Message to send after the delay",
   buttons: "Buttons",
   addButton: "Add Button",
   buttonLabel: "Button Label",
-  maxButtons: "Maximum 3 buttons",
-  conditionVariable: "Variable",
-  conditionOperator: "Operator",
-  conditionValue: "Value",
-  operatorEquals: "Equals",
-  operatorContains: "Contains",
-  operatorNotEmpty: "Not Empty",
+  maxButtons: "Maximum 10 buttons",
 
-  // Preview simulator
-  previewTitle: "Flow Preview",
-  previewStatus: "Simulating",
-  previewPlaceholder: "Type a message...",
-  previewGreeting: "Send a message to test your bot.",
-  previewReset: "Reset",
-  previewOpen: "Test Flow",
-  previewClose: "Close Preview",
+  // Help assistant
+  helpTitle: "Flow Builder Assistant",
+  helpStatus: "Ready to help",
+  helpPlaceholder: "Ask about the flow builder...",
+  helpGreeting: "Hi! 👋 I'm here to help you with the flow builder. Ask me about nodes, connections, publishing, settings, or anything else.",
+  helpReset: "Reset chat",
+  helpOpen: "Help",
+  helpClose: "Close help",
 
   // Canvas
   canvasEmpty: "Drag nodes from the panel to start building your flow",
@@ -120,6 +104,29 @@ const flow = {
   // Auto-save & lock
   autoSaved: "Auto-saved",
   lockedBanner: "Unpublish the workflow to edit",
+
+  // Templates
+  templatePickerTitle: "Choose a Template",
+  templatePickerSubtitle: "Start with a ready-made template or create a blank flow",
+  templateBlank: "Blank Flow",
+  templateBlankDesc: "Start from scratch with a single start node",
+  templateLeadCollection: "Lead Collection",
+  templateLeadCollectionDesc: "Collect name, phone, and email from customers",
+  templateAppointment: "Appointment Booking",
+  templateAppointmentDesc: "Let customers book appointments",
+  templateProductInquiry: "Product Inquiry",
+  templateProductInquiryDesc: "Answer product questions and collect details",
+  templateSteps: "{{count}} steps",
+
+  // Strict Mode
+  settingsStrictMode: "Strict Mode",
+  settingsStrictModeHint: "Bot follows only the workflow steps — no AI freestyle responses",
+
+  // Multi-workflow
+  switchFlow: "Switch Flow",
+  maxFlowsReached: "Maximum flows reached (5)",
+  confirmDelete: "Delete",
+  cannotDeleteActive: "Unpublish before deleting",
 
   // Misc
   deleteNode: "Delete Node",

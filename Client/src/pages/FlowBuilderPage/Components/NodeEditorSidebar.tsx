@@ -55,7 +55,7 @@ export default function NodeEditorSidebar({ node, onUpdate, onClose, isLocked }:
         )}
 
         {/* Text / Image / Buttons / Collect Input — message field */}
-        {["text", "image", "buttons", "collect_input"].includes(data.type) && (
+        {["text", "image", "buttons"].includes(data.type) && (
           <Field label={t("message")} hint={t("messageHint")}>
             <textarea
               value={data.message ?? ""}
@@ -110,81 +110,20 @@ export default function NodeEditorSidebar({ node, onUpdate, onClose, isLocked }:
           />
         )}
 
-        {/* Variable name */}
-        {data.type === "collect_input" && (
-          <Field label={t("variableName")} hint={t("variableNameHint")}>
-            <input
-              type="text"
-              value={data.variableName ?? ""}
-              onChange={(e) => update({ variableName: e.target.value })}
-              className="field-input"
-              dir="ltr"
-            />
-          </Field>
-        )}
-
         {/* Delay minutes */}
-        {(data.type === "delay" || data.type === "follow_up") && (
+        {data.type === "delay" && (
           <Field label={t("delayMinutes")} hint={t("delayMinutesHint")}>
             <input
               type="number"
               min={1}
-              max={data.type === "follow_up" ? 10080 : 1440}
-              value={data.delayMinutes ?? (data.type === "follow_up" ? 30 : 5)}
+              max={1440}
+              value={data.delayMinutes ?? 5}
               onChange={(e) => update({ delayMinutes: Number(e.target.value) })}
               className="field-input"
             />
           </Field>
         )}
 
-        {/* Follow-up message */}
-        {data.type === "follow_up" && (
-          <Field label={t("followUpMessage")} hint={t("followUpMessageHint")}>
-            <textarea
-              value={data.followUpMessage ?? ""}
-              onChange={(e) => update({ followUpMessage: e.target.value })}
-              className="field-input min-h-[80px] resize-y"
-              dir="rtl"
-            />
-          </Field>
-        )}
-
-        {/* Condition */}
-        {data.type === "condition" && (
-          <>
-            <Field label={t("conditionVariable")}>
-              <input
-                type="text"
-                value={data.variable ?? ""}
-                onChange={(e) => update({ variable: e.target.value })}
-                className="field-input"
-                dir="ltr"
-              />
-            </Field>
-            <Field label={t("conditionOperator")}>
-              <select
-                value={data.operator ?? "equals"}
-                onChange={(e) => update({ operator: e.target.value as FlowNodeData["operator"] })}
-                className="field-input"
-              >
-                <option value="equals">{t("operatorEquals")}</option>
-                <option value="contains">{t("operatorContains")}</option>
-                <option value="not_empty">{t("operatorNotEmpty")}</option>
-              </select>
-            </Field>
-            {data.operator !== "not_empty" && (
-              <Field label={t("conditionValue")}>
-                <input
-                  type="text"
-                  value={data.value ?? ""}
-                  onChange={(e) => update({ value: e.target.value })}
-                  className="field-input"
-                  dir="rtl"
-                />
-              </Field>
-            )}
-          </>
-        )}
       </div>
       </fieldset>
 
@@ -226,7 +165,7 @@ function ButtonsEditor({ buttons, onChange }: { buttons: ButtonItem[]; onChange:
   const { t } = useTranslation("flow");
 
   const addButton = () => {
-    if (buttons.length >= 3) return;
+    if (buttons.length >= 10) return;
     onChange([...buttons, { id: `btn-${Date.now()}`, label: "" }]);
   };
 
@@ -241,7 +180,7 @@ function ButtonsEditor({ buttons, onChange }: { buttons: ButtonItem[]; onChange:
   return (
     <div>
       <label className="text-xs font-semibold text-[#2D2A26] block mb-2">{t("buttons")}</label>
-      <div className="space-y-2">
+      <div className="space-y-2 max-h-[280px] overflow-y-auto">
         {buttons.map((btn) => (
           <div key={btn.id} className="flex items-center gap-1.5">
             <input
@@ -261,7 +200,7 @@ function ButtonsEditor({ buttons, onChange }: { buttons: ButtonItem[]; onChange:
           </div>
         ))}
       </div>
-      {buttons.length < 3 ? (
+      {buttons.length < 10 ? (
         <button
           onClick={addButton}
           className="flex items-center gap-1 mt-2 text-xs text-[#FF7E47] hover:text-[#E86B38] cursor-pointer"

@@ -13,6 +13,7 @@ import { supabase } from "@/services/supabase";
 import { useAuth } from "@/hooks/useAuth";
 import type { FlowNode, FlowEdge, FlowJSON, FlowNodeData, FlowSettings, Workflow } from "@/types/flow";
 import { NODE_DEFAULTS, DEFAULT_FLOW_SETTINGS } from "@/types/flow";
+import { FLOW_TEMPLATES } from "@/data/flow-templates";
 
 // ── Generate workflow_record on publish ───────────────────────
 function describeNodeType(type: string): string {
@@ -20,10 +21,7 @@ function describeNodeType(type: string): string {
     text: "שולח הודעת טקסט",
     image: "שולח תמונה",
     buttons: "תפריט כפתורים",
-    collect_input: "אוסף קלט",
     delay: "ממתין",
-    follow_up: "הודעת מעקב",
-    condition: "תנאי",
   };
   return map[type] || type;
 }
@@ -54,8 +52,6 @@ function describeFlowChain(
     } else if (nd.type === "buttons" && nd.buttons?.length) {
       const labels = nd.buttons.map((b) => b.label).join(", ");
       parts.push(`${typeDesc} (${labels})`);
-    } else if (nd.type === "collect_input" && nd.variableName) {
-      parts.push(`${typeDesc} (${nd.variableName})`);
     } else if (nd.type === "delay" && nd.delayMinutes) {
       parts.push(`${typeDesc} ${nd.delayMinutes} דקות`);
     } else {
@@ -123,6 +119,15 @@ interface UseFlowBuilderReturn {
   isLocked: boolean;
   showLockedBanner: boolean;
   notifyLocked: () => void;
+  // Template picker
+  showTemplatePicker: boolean;
+  createFromTemplate: (templateId: string) => void;
+  // Multi-workflow
+  switchWorkflow: (id: string) => void;
+  deleteWorkflow: (id: string) => void;
+  showTemplatePickerModal: boolean;
+  openTemplatePicker: () => void;
+  closeTemplatePicker: () => void;
 }
 
 // ── Hook ───────────────────────────────────────────────────────
@@ -216,16 +221,79 @@ export function useFlowBuilder(): UseFlowBuilderReturn {
     });
   }, [loadedWorkflow, setNodes, setEdges]);
 
-  // Auto-select first workflow, or auto-create if none exist
+  // Auto-select first workflow (no longer auto-creates — template picker handles that)
   useEffect(() => {
     if (!activeWorkflowId && workflows.length > 0) {
       setActiveWorkflowId(workflows[0].id);
     }
-    if (!isLoadingList && workflows.length === 0 && user?.id && !createMutation.isPending) {
-      createMutation.mutate();
-    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [workflows, activeWorkflowId, isLoadingList, user?.id]);
+  }, [workflows, activeWorkflowId]);
+
+  // Template picker state
+  const showTemplatePicker = !isLoadingList && workflows.length === 0 && !!user?.id;
+  const [showTemplatePickerModal, setShowTemplatePickerModal] = useState(false);
+
+  const openTemplatePicker = useCallback(() => setShowTemplatePickerModal(true), []);
+  const closeTemplatePicker = useCallback(() => setShowTemplatePickerModal(false), []);
+
+  const createFromTemplate = useCallback(
+    (templateId: string) => {
+      const template = FLOW_TEMPLATES.find((t) => t.id === templateId);
+      if (!template) return;
+      createMutation.mutate({
+        flowJson: template.flowJson,
+        name: templateId === "blank" ? "תהליך חדש" : template.nameKey,
+      });
+      setShowTemplatePickerModal(false);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+
+  // ── Switch workflow ──────────────────────────────────────────
+  const switchWorkflow = useCallback(
+    (id: string) => {
+      if (id === activeWorkflowId) return;
+      clearTimeout(autoSaveTimerRef.current);
+      setSelectedNodeId(null);
+      setActiveWorkflowId(id);
+    },
+    [activeWorkflowId],
+  );
+
+  // ── Delete workflow ──────────────────────────────────────────
+  const deleteMutation = useMutation({
+    mutationFn: async (workflowId: string) => {
+      if (!user?.id) throw new Error("Not authenticated");
+      const target = workflows.find((w) => w.id === workflowId);
+      if (target?.status === "active") {
+        await supabase.from("profiles").update({ active_flow_id: null }).eq("id", user.id);
+      }
+      // Clean up related records
+      await supabase.from("flow_delayed_jobs").delete().eq("workflow_id", workflowId);
+      await supabase.from("flow_message_log").delete().eq("workflow_id", workflowId);
+      await supabase.from("subscriber_sessions").delete().eq("workflow_id", workflowId);
+      const { error } = await supabase.from("workflows").delete().eq("id", workflowId);
+      if (error) throw error;
+      return workflowId;
+    },
+    onSuccess: (deletedId) => {
+      queryClient.invalidateQueries({ queryKey: ["workflows", user?.id] });
+      if (activeWorkflowId === deletedId) {
+        const remaining = workflows.filter((w) => w.id !== deletedId);
+        setActiveWorkflowId(remaining.length > 0 ? remaining[0].id : null);
+      }
+    },
+  });
+
+  const deleteWorkflow = useCallback(
+    (id: string) => {
+      clearTimeout(autoSaveTimerRef.current);
+      deleteMutation.mutate(id);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
 
   // ── Save mutation ────────────────────────────────────────────
   const saveMutation = useMutation({
@@ -274,25 +342,27 @@ export function useFlowBuilder(): UseFlowBuilderReturn {
 
   // ── Create workflow ──────────────────────────────────────────
   const createMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (opts?: { flowJson?: FlowJSON; name?: string }) => {
       if (!user?.id) throw new Error("Not authenticated");
+      const flowJson = opts?.flowJson ?? {
+        nodes: [
+          {
+            id: "start-default",
+            type: "start",
+            position: { x: 400, y: 50 },
+            data: { type: "start", triggerText: "" },
+          },
+        ],
+        edges: [],
+        settings: { ...DEFAULT_FLOW_SETTINGS },
+      };
       const { data, error } = await supabase
         .from("workflows")
         .insert({
           user_id: user.id,
-          name: "תהליך חדש",
-          flow_json: {
-            nodes: [
-              {
-                id: "start-default",
-                type: "start",
-                position: { x: 400, y: 50 },
-                data: { type: "start", triggerText: "" },
-              },
-            ],
-            edges: [],
-            settings: { ...DEFAULT_FLOW_SETTINGS },
-          },
+          name: opts?.name ?? "תהליך חדש",
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          flow_json: flowJson as any,
           status: "draft",
         })
         .select()
@@ -314,6 +384,14 @@ export function useFlowBuilder(): UseFlowBuilderReturn {
 
       // If publishing, save flow_json + workflow_record so the latest changes go live
       if (newStatus === "active") {
+        // Auto-pause any other active workflow first
+        await supabase
+          .from("workflows")
+          .update({ status: "paused" })
+          .eq("user_id", user.id)
+          .eq("status", "active")
+          .neq("id", activeWorkflowId!);
+
         const flowJson: FlowJSON = { nodes, edges, settings: flowSettings };
         const workflowRecord = generateWorkflowRecord(nodes, edges);
         const { error: saveErr } = await supabase
@@ -488,5 +566,12 @@ export function useFlowBuilder(): UseFlowBuilderReturn {
     isLocked,
     showLockedBanner,
     notifyLocked,
+    showTemplatePicker,
+    createFromTemplate,
+    switchWorkflow,
+    deleteWorkflow,
+    showTemplatePickerModal,
+    openTemplatePicker,
+    closeTemplatePicker,
   };
 }

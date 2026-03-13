@@ -5,10 +5,7 @@ import {
   MessageSquare,
   Image,
   SquareMousePointer,
-  TextCursorInput,
   Clock,
-  Bell,
-  GitBranch,
 } from "lucide-react";
 import { NODE_COLORS, type FlowNodeType } from "@/types/flow";
 
@@ -17,10 +14,7 @@ const PALETTE_ITEMS: { type: FlowNodeType; icon: typeof MessageSquareText; label
   { type: "text", icon: MessageSquare, labelKey: "nodeText", descKey: "nodeTextDesc" },
   { type: "image", icon: Image, labelKey: "nodeImage", descKey: "nodeImageDesc" },
   { type: "buttons", icon: SquareMousePointer, labelKey: "nodeButtons", descKey: "nodeButtonsDesc" },
-  { type: "collect_input", icon: TextCursorInput, labelKey: "nodeCollectInput", descKey: "nodeCollectInputDesc" },
   { type: "delay", icon: Clock, labelKey: "nodeDelay", descKey: "nodeDelayDesc" },
-  { type: "follow_up", icon: Bell, labelKey: "nodeFollowUp", descKey: "nodeFollowUpDesc" },
-  { type: "condition", icon: GitBranch, labelKey: "nodeCondition", descKey: "nodeConditionDesc" },
 ];
 
 interface NodePaletteProps {

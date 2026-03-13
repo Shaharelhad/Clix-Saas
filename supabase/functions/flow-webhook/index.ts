@@ -76,6 +76,7 @@ interface FlowSettings {
   autoFollowUpMaxCount?: number;
   sessionResetEnabled?: boolean;
   sessionResetMinutes?: number;
+  strictMode?: boolean;
 }
 
 interface FlowJSON {
@@ -95,6 +96,7 @@ function getFlowSettings(flow: FlowJSON) {
     autoFollowUpMaxCount: flow.settings?.autoFollowUpMaxCount ?? 1,
     sessionResetEnabled: flow.settings?.sessionResetEnabled ?? false,
     sessionResetMinutes: flow.settings?.sessionResetMinutes ?? 1440,
+    strictMode: flow.settings?.strictMode ?? false,
   };
 }
 
@@ -110,6 +112,10 @@ function extractTriggers(flow: FlowJSON): TriggerInfo[] {
 // ── Find start node by ID ──────────────────────────────────
 function findStartNodeById(flow: FlowJSON, nodeId: string): FlowNode | undefined {
   return flow.nodes.find((n) => n.id === nodeId && n.type === "start");
+}
+
+function findCatchAllStart(flow: FlowJSON): FlowNode | undefined {
+  return flow.nodes.find((n) => n.type === "start" && !n.data.triggerText?.trim());
 }
 
 function findNodeById(flow: FlowJSON, id: string): FlowNode | undefined {
@@ -833,7 +839,8 @@ Deno.serve(async (req) => {
 
     if (!session) {
       const matchedNodeId0 = await classifyTrigger(triggers, userMessage);
-      const triggerStart = matchedNodeId0 ? findStartNodeById(flow, matchedNodeId0) : undefined;
+      let triggerStart = matchedNodeId0 ? findStartNodeById(flow, matchedNodeId0) : undefined;
+      if (!triggerStart) triggerStart = findCatchAllStart(flow);
       if (triggerStart) {
         // Trigger matched — start the flow
         const { data: newSession, error: insertErr } = await supabase
@@ -856,7 +863,17 @@ Deno.serve(async (req) => {
         }
         session = newSession;
       } else {
-        // No trigger match — use open LLM conversation
+        // No trigger match
+        if (settings.strictMode) {
+          // Strict mode: no AI fallback — nudge user
+          const nudge = "אני יכול לעזור רק דרך התהליך. שלח הודעה כדי להתחיל.";
+          await sendTextMessage(customerId, phone, nudge);
+          return new Response(JSON.stringify({ ok: true, action: "strict_nudge" }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        // Open LLM conversation
         const { data: newSession, error: llmInsertErr } = await supabase
           .from("subscriber_sessions")
           .insert({
@@ -994,6 +1011,18 @@ Deno.serve(async (req) => {
 
     // Helper: reactivate session and fall back to open LLM conversation
     async function reactivateAndFallbackToLLM(): Promise<Response> {
+      // Strict mode: no AI fallback — nudge user to start the flow
+      if (settings.strictMode) {
+        const nudge = "אני יכול לעזור רק דרך התהליך. שלח הודעה כדי להתחיל.";
+        await sendTextMessage(customerId, phone, nudge);
+        await supabase.from("flow_message_log").insert({
+          workflow_id: workflow.id, session_id: session!.id,
+          direction: "outbound", message_type: "text", content: nudge,
+        });
+        return new Response(JSON.stringify({ ok: true, action: "strict_nudge" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
       await supabase
         .from("subscriber_sessions")
         .update({ status: "active", last_message_at: new Date().toISOString() })
@@ -1025,7 +1054,8 @@ Deno.serve(async (req) => {
     // If session completed and message matches a trigger, restart the flow
     if (session.status === "completed") {
       const matchedNodeId1 = await classifyTrigger(triggers, userMessage);
-      const triggerStartNode = matchedNodeId1 ? findStartNodeById(flow, matchedNodeId1) : undefined;
+      let triggerStartNode = matchedNodeId1 ? findStartNodeById(flow, matchedNodeId1) : undefined;
+      if (!triggerStartNode) triggerStartNode = findCatchAllStart(flow);
       if (triggerStartNode) {
         // Atomic lock: only one concurrent request can restart the session.
         // The WHERE status='completed' ensures only the first request wins.
@@ -1059,7 +1089,8 @@ Deno.serve(async (req) => {
     // If no current node, try trigger match or fall back to LLM
     if (!currentNodeId) {
       const matchedNodeId2 = await classifyTrigger(triggers, userMessage);
-      const startNode = matchedNodeId2 ? findStartNodeById(flow, matchedNodeId2) : undefined;
+      let startNode = matchedNodeId2 ? findStartNodeById(flow, matchedNodeId2) : undefined;
+      if (!startNode) startNode = findCatchAllStart(flow);
       if (startNode) {
         currentNodeId = startNode.id;
       } else {
@@ -1176,19 +1207,29 @@ Deno.serve(async (req) => {
       const matched = matchButton(buttons, userMessage, buttonClickId);
       if (matched) {
         let nextNode = findNextNode(flow, currentNode.id, `btn-${matched.id}`);
+        if (!nextNode) nextNode = findNextNode(flow, currentNode.id); // fallback: default edge
         // If button leads to a follow_up, skip through to its next node
         if (nextNode?.type === "follow_up") {
           nextNode = findNextNode(flow, nextNode.id);
         }
         nextNodeId = nextNode?.id || null;
       } else {
-        // Non-button text — reply via LLM, stay on buttons node
-        await callOpenLLM(profile.id, userMessage, session.id, workflow.id, customerId, phone, workflowRecord);
+        // Non-button text — stay on buttons node
+        if (settings.strictMode) {
+          const nudge = "אנא בחר אחת מהאפשרויות:";
+          await sendTextMessage(customerId, phone, nudge);
+          await supabase.from("flow_message_log").insert({
+            workflow_id: workflow.id, session_id: session.id,
+            direction: "outbound", message_type: "text", content: nudge,
+          });
+        } else {
+          await callOpenLLM(profile.id, userMessage, session.id, workflow.id, customerId, phone, workflowRecord);
+        }
         await supabase
           .from("subscriber_sessions")
           .update({ last_message_at: new Date().toISOString() })
           .eq("id", session.id);
-        return new Response(JSON.stringify({ ok: true, action: "llm_response" }), {
+        return new Response(JSON.stringify({ ok: true, action: settings.strictMode ? "strict_nudge" : "llm_response" }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
@@ -1212,13 +1253,22 @@ Deno.serve(async (req) => {
           console.log("[flow] expectedReply matched, nextNode:", nextNode?.id || "null", "edges from node:", flow.edges.filter(e => e.source === currentNode.id));
           nextNodeId = nextNode?.id || null;
         } else {
-          // No match — open LLM conversation (stay on same node for flow)
-          await callOpenLLM(profile.id, userMessage, session.id, workflow.id, customerId, phone, workflowRecord);
+          // No match — stay on same node for flow
+          if (settings.strictMode) {
+            const nudge = `לא הבנתי. ${currentNode.data.message || "אנא נסה שוב."}`;
+            await sendTextMessage(customerId, phone, nudge);
+            await supabase.from("flow_message_log").insert({
+              workflow_id: workflow.id, session_id: session.id,
+              direction: "outbound", message_type: "text", content: nudge,
+            });
+          } else {
+            await callOpenLLM(profile.id, userMessage, session.id, workflow.id, customerId, phone, workflowRecord);
+          }
           await supabase
             .from("subscriber_sessions")
             .update({ last_message_at: new Date().toISOString() })
             .eq("id", session.id);
-          return new Response(JSON.stringify({ ok: true, action: "llm_response" }), {
+          return new Response(JSON.stringify({ ok: true, action: settings.strictMode ? "strict_nudge" : "llm_response" }), {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
         }
@@ -1250,16 +1300,29 @@ Deno.serve(async (req) => {
           const nextNode = findNextNode(flow, currentNode.id);
           nextNodeId = nextNode?.id || null;
         } else {
-          // Message does NOT match the trigger — fall back to LLM
-          await callOpenLLM(profile.id, userMessage, session.id, workflow.id, customerId, phone, workflowRecord);
+          // Message does NOT match the trigger
+          if (settings.strictMode) {
+            const nudge = "אני יכול לעזור רק דרך התהליך. שלח הודעה כדי להתחיל.";
+            await sendTextMessage(customerId, phone, nudge);
+            await supabase.from("flow_message_log").insert({
+              workflow_id: workflow.id, session_id: session.id,
+              direction: "outbound", message_type: "text", content: nudge,
+            });
+          } else {
+            await callOpenLLM(profile.id, userMessage, session.id, workflow.id, customerId, phone, workflowRecord);
+          }
           await supabase
             .from("subscriber_sessions")
             .update({ last_message_at: new Date().toISOString() })
             .eq("id", session.id);
-          return new Response(JSON.stringify({ ok: true, action: "llm_response" }), {
+          return new Response(JSON.stringify({ ok: true, action: settings.strictMode ? "strict_nudge" : "llm_response" }), {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
         }
+      } else {
+        // Catch-all start node (empty trigger) — auto-advance
+        const nextNode = findNextNode(flow, currentNode.id);
+        nextNodeId = nextNode?.id || null;
       }
     } else {
       // Other node types — find next in chain

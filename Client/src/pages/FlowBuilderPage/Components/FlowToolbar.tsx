@@ -1,7 +1,9 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { Loader2, Check, Upload, CircleStop, Settings } from "lucide-react";
+import { Loader2, Check, Upload, CircleStop, Settings, ChevronDown } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
+import type { Workflow } from "@/types/flow";
+import FlowListDropdown from "./FlowListDropdown";
 
 interface FlowToolbarProps {
   workflowName: string;
@@ -11,6 +13,12 @@ interface FlowToolbarProps {
   onOpenSettings: () => void;
   saveStatus: "idle" | "saving" | "saved" | "error";
   isLocked: boolean;
+  // Multi-workflow
+  workflows: Workflow[];
+  activeWorkflowId: string | null;
+  onSwitchWorkflow: (id: string) => void;
+  onDeleteWorkflow: (id: string) => void;
+  onNewFlow: () => void;
 }
 
 export default function FlowToolbar({
@@ -21,9 +29,16 @@ export default function FlowToolbar({
   onOpenSettings,
   saveStatus,
   isLocked,
+  workflows,
+  activeWorkflowId,
+  onSwitchWorkflow,
+  onDeleteWorkflow,
+  onNewFlow,
 }: FlowToolbarProps) {
   const { t } = useTranslation("flow");
   const [showConfirm, setShowConfirm] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const dropdownTriggerRef = useRef<HTMLButtonElement>(null);
 
   const isPublishing = workflowStatus !== "active";
 
@@ -32,19 +47,40 @@ export default function FlowToolbar({
       <div className="flex items-center justify-between px-4 py-2 bg-white border-b border-[#EDE6DD]/60 shrink-0">
         {/* Left: name + status */}
         <div className="flex items-center gap-3">
-          {/* Editable name */}
-          <input
-            type="text"
-            value={workflowName}
-            onChange={(e) => onNameChange(e.target.value)}
-            readOnly={isLocked}
-            className={`text-sm font-bold text-[#2D2A26] bg-transparent border-b border-transparent ${
-              isLocked
-                ? "cursor-default opacity-60"
-                : "hover:border-[#EDE6DD] focus:border-[#FF7E47]"
-            } outline-none px-1 py-0.5 transition-colors`}
-            dir="rtl"
-          />
+          {/* Editable name + dropdown trigger */}
+          <div className="relative flex items-center gap-1">
+            <input
+              type="text"
+              value={workflowName}
+              onChange={(e) => onNameChange(e.target.value)}
+              readOnly={isLocked}
+              className={`text-sm font-bold text-[#2D2A26] bg-transparent border-b border-transparent ${
+                isLocked
+                  ? "cursor-default opacity-60"
+                  : "hover:border-[#EDE6DD] focus:border-[#FF7E47]"
+              } outline-none px-1 py-0.5 transition-colors`}
+              dir="rtl"
+            />
+            <button
+              ref={dropdownTriggerRef}
+              onClick={() => setShowDropdown((v) => !v)}
+              className="flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-[#EDE6DD]/40 cursor-pointer"
+            >
+              <span className="text-[11px] text-[#A39B90]">{t("switchFlow")}</span>
+              <ChevronDown className={`w-3.5 h-3.5 text-[#A39B90] transition-transform ${showDropdown ? "rotate-180" : ""}`} />
+            </button>
+            {showDropdown && (
+              <FlowListDropdown
+                workflows={workflows}
+                activeWorkflowId={activeWorkflowId}
+                onSwitch={onSwitchWorkflow}
+                onDelete={onDeleteWorkflow}
+                onNewFlow={onNewFlow}
+                onClose={() => setShowDropdown(false)}
+                triggerRef={dropdownTriggerRef}
+              />
+            )}
+          </div>
 
           {/* Status badge */}
           <span

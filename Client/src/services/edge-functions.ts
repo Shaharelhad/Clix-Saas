@@ -86,3 +86,7 @@ export function callRagUpload(data: Record<string, unknown>) {
 export function callRagDelete(data: Record<string, unknown>) {
   return callEdgeFn("VITE_EDGE_FN_RAG_DELETE", data);
 }
+
+export function callFlowAssistant(data: Record<string, unknown>) {
+  return callEdgeFn("VITE_EDGE_FN_FLOW_ASSISTANT", data);
+}

@@ -1,9 +1,8 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { Bot, RotateCcw, X, MessageCircle } from "lucide-react";
+import { Bot, RotateCcw, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useAuth } from "@/hooks/useAuth";
-import { callFlowDemo } from "@/services/edge-functions";
+import { callFlowAssistant } from "@/services/edge-functions";
 import ChatPanel, { type ChatMessage } from "@/pages/CreateBotPage/Sections/ChatPanel";
 
 function nowStamp() {
@@ -14,26 +13,25 @@ function nowStamp() {
   });
 }
 
-interface FlowPreviewSimulatorProps {
-  workflowId: string | null;
+interface HistoryEntry {
+  role: "user" | "assistant";
+  content: string;
 }
 
-export default function FlowPreviewSimulator({ workflowId }: FlowPreviewSimulatorProps) {
+export default function FlowHelpAssistant() {
   const { t } = useTranslation("flow");
-  const { user } = useAuth();
 
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>(() => [
-    { id: "greeting", role: "bot", text: t("previewGreeting"), time: nowStamp() },
+    { id: "greeting", role: "bot", text: t("helpGreeting"), time: nowStamp() },
   ]);
   const [input, setInput] = useState("");
-  const [conversationId, setConversationId] = useState<string | null>(null);
-  const [sessionState, setSessionState] = useState<Record<string, unknown> | null>(null);
   const [isSending, setIsSending] = useState(false);
+  const historyRef = useRef<HistoryEntry[]>([]);
 
   const handleSend = useCallback(async () => {
     const text = input.trim();
-    if (!text || isSending || !workflowId) return;
+    if (!text || isSending) return;
 
     setMessages((prev) => [
       ...prev,
@@ -42,44 +40,27 @@ export default function FlowPreviewSimulator({ workflowId }: FlowPreviewSimulato
     setInput("");
     setIsSending(true);
 
+    // Add to history
+    historyRef.current = [...historyRef.current, { role: "user" as const, content: text }].slice(-10);
+
     try {
-      const result = await callFlowDemo({
-        user_id: user?.id ?? "",
-        workflow_id: workflowId,
+      const result = await callFlowAssistant({
         message: text,
-        ...(conversationId ? { conversation_id: conversationId } : {}),
-        ...(sessionState ? { session_state: sessionState } : {}),
+        history: historyRef.current,
       });
 
       if (result.error) throw new Error(result.error);
 
-      const data = result.data as {
-        responses?: { type: string; content: string; imageUrl?: string; buttons?: { id: string; label: string }[] }[];
-        response?: string;
-        conversation_id?: string;
-        flow_completed?: boolean;
-        session_state?: Record<string, unknown>;
-      } | null;
+      const data = result.data as { response?: string } | null;
+      const reply = data?.response || "...";
 
-      if (data?.conversation_id) setConversationId(data.conversation_id);
-      if (data?.session_state) setSessionState(data.session_state);
+      // Add assistant reply to history
+      historyRef.current = [...historyRef.current, { role: "assistant" as const, content: reply }].slice(-10);
 
-      // Handle array responses (flow-demo format)
-      if (data?.responses && Array.isArray(data.responses) && data.responses.length > 0) {
-        const botMessages: ChatMessage[] = data.responses.map((r, i) => ({
-          id: `bot-${Date.now()}-${i}`,
-          role: "bot" as const,
-          text: r.content || "...",
-          time: nowStamp(),
-        }));
-        setMessages((prev) => [...prev, ...botMessages]);
-      } else if (data?.response) {
-        // Fallback to single response format
-        setMessages((prev) => [
-          ...prev,
-          { id: `bot-${Date.now()}`, role: "bot", text: data.response!, time: nowStamp() },
-        ]);
-      }
+      setMessages((prev) => [
+        ...prev,
+        { id: `bot-${Date.now()}`, role: "bot", text: reply, time: nowStamp() },
+      ]);
     } catch (err) {
       setMessages((prev) => [
         ...prev,
@@ -93,14 +74,13 @@ export default function FlowPreviewSimulator({ workflowId }: FlowPreviewSimulato
     } finally {
       setIsSending(false);
     }
-  }, [input, isSending, user?.id, workflowId, conversationId, sessionState]);
+  }, [input, isSending]);
 
   const handleReset = () => {
     setMessages([
-      { id: "greeting", role: "bot", text: t("previewGreeting"), time: nowStamp() },
+      { id: "greeting", role: "bot", text: t("helpGreeting"), time: nowStamp() },
     ]);
-    setConversationId(null);
-    setSessionState(null);
+    historyRef.current = [];
     setInput("");
   };
 
@@ -116,13 +96,13 @@ export default function FlowPreviewSimulator({ workflowId }: FlowPreviewSimulato
             onClick={() => setIsOpen(true)}
             className="fixed bottom-6 left-6 z-40 flex items-center gap-2 px-4 py-2.5 rounded-full bg-[#FF7E47] text-white shadow-lg hover:bg-[#E86B38] transition-colors cursor-pointer"
           >
-            <MessageCircle className="w-4 h-4" />
-            <span className="text-sm font-medium">{t("previewOpen")}</span>
+            <Bot className="w-4 h-4" />
+            <span className="text-sm font-medium">{t("helpOpen")}</span>
           </motion.button>
         )}
       </AnimatePresence>
 
-      {/* Preview panel */}
+      {/* Help panel */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
@@ -133,30 +113,30 @@ export default function FlowPreviewSimulator({ workflowId }: FlowPreviewSimulato
             className="fixed bottom-6 left-6 z-40 w-[360px] h-[500px] flex flex-col shadow-2xl rounded-2xl overflow-hidden border border-[#EDE6DD]/60"
           >
             <ChatPanel
-              title={t("previewTitle")}
+              title={t("helpTitle")}
               icon={<Bot className="w-4 h-4 text-[#FF7E47]" />}
-              statusText={t("previewStatus")}
+              statusText={t("helpStatus")}
               statusColor="emerald"
               messages={messages}
               input={input}
               onInputChange={setInput}
               onSend={handleSend}
               isSending={isSending}
-              placeholder={t("previewPlaceholder")}
+              placeholder={t("helpPlaceholder")}
               variant="demo"
               headerAction={
                 <div className="flex items-center gap-1">
                   <button
                     onClick={handleReset}
                     className="p-1.5 rounded-xl hover:bg-[#FAF7F3] transition-colors cursor-pointer"
-                    title={t("previewReset")}
+                    title={t("helpReset")}
                   >
                     <RotateCcw className="w-3.5 h-3.5 text-[#A39B90] hover:text-[#FF7E47]" />
                   </button>
                   <button
                     onClick={() => setIsOpen(false)}
                     className="p-1.5 rounded-xl hover:bg-[#FAF7F3] transition-colors cursor-pointer"
-                    title={t("previewClose")}
+                    title={t("helpClose")}
                   >
                     <X className="w-3.5 h-3.5 text-[#A39B90] hover:text-[#FF7E47]" />
                   </button>

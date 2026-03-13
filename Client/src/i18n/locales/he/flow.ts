@@ -32,19 +32,13 @@ const flow = {
   nodeText: "הודעת טקסט",
   nodeImage: "תמונה",
   nodeButtons: "כפתורים",
-  nodeCollectInput: "קלט מהמשתמש",
   nodeDelay: "השהייה",
-  nodeFollowUp: "מעקב",
-  nodeCondition: "תנאי",
   // Node descriptions (palette)
   nodeStartDesc: "מקבל הודעות נכנסות",
   nodeTextDesc: "שלח הודעת טקסט",
   nodeImageDesc: "שלח תמונה עם כיתוב",
   nodeButtonsDesc: "הצג כפתורים אינטראקטיביים",
-  nodeCollectInputDesc: "שאל ושמור תשובת משתמש",
   nodeDelayDesc: "המתן לפני המשך",
-  nodeFollowUpDesc: "שלח הודעת מעקב מתוזמנת",
-  nodeConditionDesc: "הסתעף על בסיס תנאי",
   // Editor fields
   triggerText: "מסנן מילים",
   triggerTextHint: "מילת מפתח אופציונלית לסינון (השאר ריק לכולן)",
@@ -60,31 +54,21 @@ const flow = {
   expectedReplyHint: "טקסט מדויק או דומה להתאמה",
   continueAuto: "המשך בכל תשובה",
   continueAutoHint: "כל הודעה מהלקוח תמשיך את התהליך",
-  variableName: "שם משתנה",
-  variableNameHint: "השם לשמירת תשובת המשתמש",
   delayMinutes: "השהייה (דקות)",
   delayMinutesHint: "כמה זמן להמתין (1-1440)",
-  followUpMessage: "הודעת מעקב",
-  followUpMessageHint: "ההודעה לשליחה אחרי ההשהייה",
   buttons: "כפתורים",
   addButton: "הוסף כפתור",
   buttonLabel: "תווית כפתור",
-  maxButtons: "מקסימום 3 כפתורים",
-  conditionVariable: "משתנה",
-  conditionOperator: "אופרטור",
-  conditionValue: "ערך",
-  operatorEquals: "שווה",
-  operatorContains: "מכיל",
-  operatorNotEmpty: "לא ריק",
+  maxButtons: "מקסימום 10 כפתורים",
 
-  // Preview simulator
-  previewTitle: "תצוגת תהליך",
-  previewStatus: "סימולציה",
-  previewPlaceholder: "הקלד הודעה...",
-  previewGreeting: "שלח הודעה כדי לבדוק את הבוט שלך.",
-  previewReset: "אפס",
-  previewOpen: "בדוק תהליך",
-  previewClose: "סגור תצוגה",
+  // Help assistant
+  helpTitle: "עוזר בונה תהליכים",
+  helpStatus: "מוכן לעזור",
+  helpPlaceholder: "שאל שאלה על בונה התהליכים...",
+  helpGreeting: "היי! 👋 אני כאן לעזור לך עם בונה התהליכים. שאל אותי על צמתים, חיבורים, פרסום, הגדרות, או כל דבר אחר.",
+  helpReset: "אפס שיחה",
+  helpOpen: "עזרה",
+  helpClose: "סגור עזרה",
 
   // Canvas
   canvasEmpty: "גרור צמתים מהפאנל כדי להתחיל לבנות את התהליך",
@@ -120,6 +104,29 @@ const flow = {
   // Auto-save & lock
   autoSaved: "נשמר אוטומטית",
   lockedBanner: "בטל פרסום התהליך כדי לערוך",
+
+  // Templates
+  templatePickerTitle: "בחר תבנית",
+  templatePickerSubtitle: "התחל עם תבנית מוכנה או צור תהליך ריק",
+  templateBlank: "תהליך ריק",
+  templateBlankDesc: "התחל מאפס עם צומת התחלה אחד",
+  templateLeadCollection: "איסוף לידים",
+  templateLeadCollectionDesc: "אסוף שם, טלפון ומייל מלקוחות",
+  templateAppointment: "קביעת תור",
+  templateAppointmentDesc: "אפשר ללקוחות לקבוע תורים",
+  templateProductInquiry: "בירור מוצר",
+  templateProductInquiryDesc: "ענה על שאלות לגבי מוצרים ואסוף פרטים",
+  templateSteps: "{{count}} שלבים",
+
+  // Strict Mode
+  settingsStrictMode: "מצב קפדני",
+  settingsStrictModeHint: "הבוט עוקב רק אחרי שלבי התהליך — ללא תשובות AI חופשיות",
+
+  // Multi-workflow
+  switchFlow: "החלף תהליך",
+  maxFlowsReached: "הגעת למקסימום תהליכים (5)",
+  confirmDelete: "מחק",
+  cannotDeleteActive: "בטל פרסום לפני מחיקה",
 
   // Misc
   deleteNode: "מחק צומת",
