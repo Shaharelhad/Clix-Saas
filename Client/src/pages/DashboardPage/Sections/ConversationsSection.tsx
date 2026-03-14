@@ -87,6 +87,11 @@ function MessageBubble({ msg }: { msg: Message }) {
             : "bg-[#2D2A26] text-white rounded-ee-sm"
         }`}
       >
+        {(msg.message_type === "buttons" || msg.message_type === "image") && (
+          <span className={`text-[10px] font-semibold uppercase tracking-wide ${isInbound ? "text-[#B8AFA4]" : "text-white/60"} block mb-1`}>
+            [{msg.message_type === "buttons" ? "BUTTONS SENT" : "IMAGE SENT"}]
+          </span>
+        )}
         <p className="text-[13px] leading-relaxed whitespace-pre-wrap">
           {msg.content ?? ""}
         </p>
@@ -153,9 +158,9 @@ export default function ConversationsSection() {
         .from("flow_message_log")
         .select("id, direction, content, message_type, created_at")
         .eq("session_id", effectiveSelectedId)
-        .order("created_at", { ascending: true })
+        .order("created_at", { ascending: false })
         .limit(100);
-      return (data ?? []) as Message[];
+      return ((data ?? []) as Message[]).reverse();
     },
     enabled: !!effectiveSelectedId,
     refetchInterval: 5_000,

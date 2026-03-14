@@ -1,29 +1,32 @@
 import type { DragEvent } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  Play,
+  MessageSquareText,
   MessageSquare,
   Image,
   SquareMousePointer,
-  TextCursorInput,
   Clock,
-  Bell,
-  GitBranch,
+  TextCursorInput,
+  Globe,
 } from "lucide-react";
 import { NODE_COLORS, type FlowNodeType } from "@/types/flow";
 
-const PALETTE_ITEMS: { type: FlowNodeType; icon: typeof Play; labelKey: string; descKey: string }[] = [
-  { type: "start", icon: Play, labelKey: "nodeStart", descKey: "nodeStartDesc" },
+const PALETTE_ITEMS: { type: FlowNodeType; icon: typeof MessageSquareText; labelKey: string; descKey: string }[] = [
+  { type: "start", icon: MessageSquareText, labelKey: "nodeStart", descKey: "nodeStartDesc" },
   { type: "text", icon: MessageSquare, labelKey: "nodeText", descKey: "nodeTextDesc" },
   { type: "image", icon: Image, labelKey: "nodeImage", descKey: "nodeImageDesc" },
   { type: "buttons", icon: SquareMousePointer, labelKey: "nodeButtons", descKey: "nodeButtonsDesc" },
-  { type: "collect_input", icon: TextCursorInput, labelKey: "nodeCollectInput", descKey: "nodeCollectInputDesc" },
   { type: "delay", icon: Clock, labelKey: "nodeDelay", descKey: "nodeDelayDesc" },
-  { type: "follow_up", icon: Bell, labelKey: "nodeFollowUp", descKey: "nodeFollowUpDesc" },
-  { type: "condition", icon: GitBranch, labelKey: "nodeCondition", descKey: "nodeConditionDesc" },
+  { type: "collect_input", icon: TextCursorInput, labelKey: "nodeCollectInput", descKey: "nodeCollectInputDesc" },
+  { type: "api_call", icon: Globe, labelKey: "nodeApiCall", descKey: "nodeApiCallDesc" },
 ];
 
-export default function NodePalette() {
+interface NodePaletteProps {
+  isLocked: boolean;
+  onLockedDrag: () => void;
+}
+
+export default function NodePalette({ isLocked, onLockedDrag }: NodePaletteProps) {
   const { t } = useTranslation("flow");
 
   const onDragStart = (e: DragEvent, type: FlowNodeType) => {
@@ -43,9 +46,14 @@ export default function NodePalette() {
           return (
             <div
               key={item.type}
-              draggable
-              onDragStart={(e) => onDragStart(e, item.type)}
-              className="flex items-center gap-2.5 p-2.5 rounded-lg border border-[#EDE6DD]/60 hover:border-[#FF7E47]/30 hover:bg-[#FFF5F0]/50 cursor-grab active:cursor-grabbing transition-all"
+              draggable={!isLocked}
+              onDragStart={isLocked ? undefined : (e) => onDragStart(e, item.type)}
+              onClick={isLocked ? onLockedDrag : undefined}
+              className={`flex items-center gap-2.5 p-2.5 rounded-lg border border-[#EDE6DD]/60 transition-all ${
+                isLocked
+                  ? "opacity-50 cursor-not-allowed"
+                  : "hover:border-[#FF7E47]/30 hover:bg-[#FFF5F0]/50 cursor-grab active:cursor-grabbing"
+              }`}
             >
               <div
                 className="w-7 h-7 rounded-md flex items-center justify-center shrink-0"

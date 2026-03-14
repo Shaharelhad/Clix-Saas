@@ -12,6 +12,7 @@ interface FlowNodeWrapperProps {
   onDelete?: () => void;
   sourceHandles?: { id: string; label: string }[];
   hideTarget?: boolean;
+  width?: number;
 }
 
 export default function FlowNodeWrapper({
@@ -23,15 +24,16 @@ export default function FlowNodeWrapper({
   onDelete,
   sourceHandles,
   hideTarget,
+  width,
 }: FlowNodeWrapperProps) {
   const color = NODE_COLORS[type];
 
   return (
     <div
-      className={`bg-white rounded-xl shadow-md border-2 min-w-[180px] max-w-[240px] transition-shadow ${
-        selected ? "shadow-lg ring-2 ring-[#FF7E47]/40" : ""
-      }`}
-      style={{ borderColor: selected ? "#FF7E47" : `${color}40` }}
+      className={`relative overflow-visible bg-white rounded-xl shadow-md border-2 min-w-[180px] transition-shadow ${
+        width ? "" : "max-w-[240px] "
+      }${selected ? "shadow-lg ring-2 ring-[#FF7E47]/40" : ""}`}
+      style={{ borderColor: selected ? "#FF7E47" : `${color}40`, ...(width ? { width } : {}) }}
     >
       {/* Target handle */}
       {!hideTarget && (

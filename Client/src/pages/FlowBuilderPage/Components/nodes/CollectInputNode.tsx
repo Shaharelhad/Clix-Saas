@@ -18,11 +18,14 @@ function CollectInputNode({ data, selected, id }: NodeProps<FlowNode>) {
         document.dispatchEvent(new CustomEvent("flow:delete-node", { detail: id }));
       }}
     >
-      <p className="truncate">{data.message || t("messageHint")}</p>
+      <p className="truncate">{data.message || t("collectInputMessageHint")}</p>
       {data.variableName && (
-        <span className="text-[10px] text-cyan-600 mt-1 block">
+        <span className="text-[10px] text-cyan-500 mt-1 block">
           {`{{${data.variableName}}}`}
         </span>
+      )}
+      {data.expectedAnswer && (
+        <span className="text-[10px] text-orange-500 mt-1 block">{t("expectedAnswer")}</span>
       )}
     </FlowNodeWrapper>
   );

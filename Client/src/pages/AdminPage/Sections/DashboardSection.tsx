@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Users,
   UserCheck,
-  Wifi,
+  Ticket,
   GitBranch,
   Loader2,
   Check,
@@ -89,11 +89,11 @@ export default function DashboardSection() {
     },
   });
 
-  const { data: formResponses, isLoading: formLoading } = useQuery({
-    queryKey: ["admin", "form-responses"],
+  const { data: ticketDates, isLoading: ticketsLoading } = useQuery({
+    queryKey: ["admin", "ticket-dates"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("form_responses")
+        .from("support_tickets")
         .select("created_at");
       if (error) throw error;
       return data ?? [];
@@ -121,11 +121,9 @@ export default function DashboardSection() {
     },
   });
 
-  const isLoading = countsLoading || profilesLoading || formLoading;
+  const isLoading = countsLoading || profilesLoading || ticketsLoading;
 
   const totalUsers = profiles?.length ?? 0;
-  const connectedBots =
-    profiles?.filter((p) => p.bot_status === "connected").length ?? 0;
   const activeWorkflows =
     profiles?.filter(
       (p) => p.bot_status === "connected" || p.bot_status === "created"
@@ -140,9 +138,9 @@ export default function DashboardSection() {
     [profiles]
   );
 
-  const formTrend = useMemo(
-    () => groupByMonth((formResponses ?? []) as { created_at: string }[]),
-    [formResponses]
+  const ticketTrend = useMemo(
+    () => groupByMonth((ticketDates ?? []) as { created_at: string }[]),
+    [ticketDates]
   );
 
   const statusData = useMemo(() => {
@@ -193,13 +191,13 @@ export default function DashboardSection() {
       link: "/admin/approvals",
     },
     {
-      key: "connectedBots",
-      label: t("statConnectedBots"),
-      value: connectedBots,
-      icon: Wifi,
-      color: "text-emerald-600",
-      bgColor: "bg-emerald-50",
-      link: "/admin/users",
+      key: "openTickets",
+      label: t("statOpenTickets"),
+      value: counts?.open_tickets ?? 0,
+      icon: Ticket,
+      color: "text-purple-600",
+      bgColor: "bg-purple-50",
+      link: "/admin/tickets",
     },
     {
       key: "activeWorkflows",
@@ -584,23 +582,23 @@ export default function DashboardSection() {
               </div>
             </div>
 
-            {/* Form Submissions */}
+            {/* Support Tickets */}
             <div className={cn(card, "px-5 py-4 flex flex-col min-h-0")}>
               <p className="text-sm font-semibold text-[#111111]">
-                {t("chartFormSubmissions")}
+                {t("chartTickets")}
               </p>
               <p className="text-[11px] text-[#999999] mb-2">
-                {t("chartFormSubmissionsSub")}
+                {t("chartTicketsSub")}
               </p>
               <div className="flex-1 min-h-0">
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart
-                    data={formTrend}
+                    data={ticketTrend}
                     margin={{ top: 5, right: 5, bottom: 0, left: -5 }}
                   >
                     <defs>
                       <linearGradient
-                        id="formFill"
+                        id="ticketFill"
                         x1="0"
                         y1="0"
                         x2="0"
@@ -608,13 +606,13 @@ export default function DashboardSection() {
                       >
                         <stop
                           offset="0%"
-                          stopColor="#111111"
-                          stopOpacity={0.08}
+                          stopColor="#7C3AED"
+                          stopOpacity={0.15}
                         />
                         <stop
                           offset="100%"
-                          stopColor="#111111"
-                          stopOpacity={0.01}
+                          stopColor="#7C3AED"
+                          stopOpacity={0.02}
                         />
                       </linearGradient>
                     </defs>
@@ -640,9 +638,9 @@ export default function DashboardSection() {
                     <Area
                       type="monotone"
                       dataKey="count"
-                      stroke="#111111"
+                      stroke="#7C3AED"
                       strokeWidth={2}
-                      fill="url(#formFill)"
+                      fill="url(#ticketFill)"
                       animationDuration={800}
                     />
                   </AreaChart>

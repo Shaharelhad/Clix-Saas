@@ -39,8 +39,9 @@ Only `Client/` has a package.json. Run `npm install` from there.
 ### Backend (Supabase — no local server)
 - **Auth:** Supabase Auth with `handle_new_user()` trigger → auto-creates `profiles` row
 - **Database:** 20 tables in Supabase PostgreSQL (see `clix-backend-reference.md` for schema)
-- **Edge Functions:** 9 deployed at `https://gctijcljpjtmpyuzaohm.supabase.co/functions/v1/`
-  - form-submission, form-update, bot-demo, bot-edit, wclixapi-connect, flow-webhook, flow-demo, scrape-trigger, scrape-status
+- **Edge Functions:** 10 at `https://gctijcljpjtmpyuzaohm.supabase.co/functions/v1/`
+  - form-submission, form-update, bot-demo, bot-edit, wclixapi-connect, flow-webhook, flow-demo, scrape-trigger, scrape-status, inngest
+  - **Shared modules:** `_shared/llm-engine.ts` (single LLM calling logic + `classifyTrigger()` semantic trigger matcher), `_shared/wa-messaging.ts` (WhatsApp via WClixAPI), `_shared/cors.ts`
 - **RPC Functions:** 19 PostgreSQL functions (admin operations, profile, product search, draft/publish bot, etc.)
 
 ### Environment Variables
@@ -59,7 +60,7 @@ Only `Client/` has a package.json. Run `npm install` from there.
 - Auth: use `useAuth()` hook from `@/hooks/useAuth.ts` for all auth operations
 - State: Zustand for client state (`src/store/`), React Query for server state
 - Database types: import from `@/types/database` (e.g., `Tables<"profiles">`, `TablesInsert<"form_responses">`)
-- External operations (Supabase, APIs, third-party services): always read `Client/.env` first to get credentials/URLs before asking the user for access details
+- External operations (Supabase, APIs, third-party services): always read `Client/.env` first to get credentials/URLs before asking the user for access details (includes `SUPABASE_ACCESS_TOKEN` for CLI deploys)
 
 ### Page Structure (`src/pages/`)
 - **Naming:** pages are `{Name}Page.tsx`, sections are `{Name}Section.tsx`
@@ -89,7 +90,7 @@ Only `Client/` has a package.json. Run `npm install` from there.
 - **Draft/Publish system:** `form_responses.draft_bot_prompt` column separates preview from live bot. Edits go to draft, published on WhatsApp connect or via "Publish Changes" button in dashboard
 
 ### Frontend Pages Built
-- **HomePage** — full landing page with 7 sections (Hero, ProductPreview, Features, Pricing, FAQ, CTA, Footer)
+- **HomePage** — full landing page with 6 sections (Hero, ProductPreview, Features, FAQ, CTA, Footer)
 - **AuthPage** — login, signup, forgot-password modes (wired to Supabase Auth)
 - **PendingPage** — approval waiting screen with 30s auto-refresh (wired to `get_my_profile` RPC)
 - **CreateBotPage** — multi-step 3-section wizard: FormSection (`callFormSubmission()` + `callScrapeStatus()`), PreviewSection (`callBotDemo()` + `callBotEditRequest()`), ConnectSection (`callWClixAPIConnect()`). All wired to backend.
@@ -97,7 +98,8 @@ Only `Client/` has a package.json. Run `npm install` from there.
   - Approvals — approve/reject users (wired to RPCs)
   - Users — list + search + filter (wired to RPCs)
   - FormBuilder — drag-drop field editor (wired to 7 RPCs)
-- **FlowBuilderPage** — visual @xyflow/react flow editor at `/dashboard/flow-builder`. 3-panel layout (editor sidebar, canvas, node palette) + toolbar + preview simulator. 8 node types (start, text, image, buttons, collect_input, delay, follow_up, condition). `useFlowBuilder` hook with React Query, auto-save (3s debounce), workflow CRUD. Preview wired to `callFlowDemo()`. All 7 edge functions now wired.
+- **FlowBuilderPage** — visual @xyflow/react flow editor at `/dashboard/flow-builder`. 3-panel layout (editor sidebar, canvas, node palette) + toolbar + preview simulator. 8 node types (start, text, image, buttons, collect_input, delay, follow_up, condition). 1 workflow per account (auto-created). Default template: single Start node. LLM works implicitly behind the scenes — no AI Agent node. **Smart triggers:** LLM-based semantic matching via `classifyTrigger()` in `_shared/llm-engine.ts` (e.g., "hi" matches a "hello" trigger). **workflow_record:** auto-generated Hebrew summary of flow paths, stored in `workflows.workflow_record` on publish, passed to LLM as context for fallback responses. Legacy ai_agent nodes are auto-stripped on load (frontend) and treated as pass-through (backend). Dashboard demo chat unified with flow preview (both use `callFlowDemo()`).
+- **Auto-Follow-Up System** — LLM-generated re-engagement messages when customers stop replying during active funnels. Configurable delay (15-1440 min) and max count (1-2) in FlowSettingsModal. Stage classification via hidden `<!-- stage:engaging/closed -->` LLM tags. Background job executor via Inngest cron (`process-delayed-jobs`, every 2 min). Also fixes existing broken `delay` and `follow_up` node executors. DB: `subscriber_sessions.conversation_stage`, `subscriber_sessions.follow_up_count`, `flow_delayed_jobs.job_type`, `claim_pending_delayed_jobs` RPC.
 - **AdminGuard** — route protection for admin pages
 - **i18n** — 15 namespaces (including `flow`), Hebrew + English, RTL support via i18next
 
@@ -110,19 +112,18 @@ See [`.claude/migration-status.md`](.claude/migration-status.md) for the full ga
 
 ## Implementation Workflow
 
-**When implementing features (especially multiple in one prompt), follow this strict loop:**
+**For every feature (especially when multiple features are requested in one prompt), follow this strict loop per feature:**
 
-1. Implement feature 1
-2. Test feature 1 (`npm run build` from `Client/`, or `npm run dev` and verify behavior)
-   - If broken → fix and re-test until working
-   - If good → proceed
-3. Implement feature 2
-4. Test feature 2 (same verification)
-   - If broken → fix and re-test until working
-   - If good → proceed
-5. Continue for all features, then done
+### Per-Feature Loop
 
-**Never batch-implement multiple features without testing each one individually first.**
+1. **Implement** the feature
+2. **Build check** — run `npm run build` from `Client/`
+   - If fails → fix and re-run build until it passes
+3. **Feature complete** → proceed to next feature
+
+**Do NOT automatically run code-simplifier, browser-tester, or /simplify agents after each feature.** Only run them when the user explicitly asks for it.
+
+**Never batch-implement multiple features. Each feature must pass the build before starting the next.**
 
 ## Maintenance Rule
 

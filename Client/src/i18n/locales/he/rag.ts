@@ -1,0 +1,31 @@
+const rag = {
+  knowledgeBase: "בסיס ידע",
+  uploadTitle: "העלאת מסמך ידע",
+  uploadDesc:
+    "העלה קובץ PDF או TXT כדי להעשיר את הבוט שלך במידע נוסף. הבוט ישתמש במידע הזה כשיענה ללקוחות.",
+  dragDrop: "גרור קובץ לכאן או לחץ לבחירה",
+  supportedFormats: "PDF או TXT, עד 10MB",
+  extractingText: "מחלץ טקסט...",
+  uploadingFile: "מעלה קובץ...",
+  processingFile: "מעבד ויוצר אינדקס...",
+  currentDocument: "מסמך נוכחי",
+  fileName: "שם קובץ",
+  fileSize: "גודל",
+  chunks: "קטעים",
+  uploadDate: "תאריך העלאה",
+  replaceFile: "החלף קובץ",
+  removeFile: "הסר קובץ",
+  removeConfirm: "האם אתה בטוח? כל המידע מהמסמך יימחק.",
+  statusReady: "מוכן",
+  statusProcessing: "מעבד...",
+  statusError: "שגיאה",
+  errorFileType: "סוג קובץ לא נתמך. העלה PDF או TXT בלבד.",
+  errorFileSize: "הקובץ גדול מדי. מקסימום 10MB.",
+  errorEmptyText: "לא נמצא טקסט בקובץ. נסה קובץ אחר.",
+  errorUpload: "ההעלאה נכשלה. נסה שוב.",
+  errorProcessing: "העיבוד נכשל. נסה שוב.",
+  errorDelete: "המחיקה נכשלה. נסה שוב.",
+  retry: "נסה שוב",
+};
+
+export default rag;

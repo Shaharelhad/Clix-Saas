@@ -130,6 +130,7 @@ export type Database = {
           created_at: string
           execute_at: string
           id: string
+          job_type: string
           node_id: string
           session_id: string
           status: string
@@ -138,6 +139,7 @@ export type Database = {
           created_at?: string
           execute_at: string
           id?: string
+          job_type?: string
           node_id: string
           session_id: string
           status?: string
@@ -146,6 +148,7 @@ export type Database = {
           created_at?: string
           execute_at?: string
           id?: string
+          job_type?: string
           node_id?: string
           session_id?: string
           status?: string
@@ -493,6 +496,7 @@ export type Database = {
       profiles: {
         Row: {
           active_flow_id: string | null
+          blocked_numbers: Json | null
           bot_status: string
           created_at: string
           credits_balance: number
@@ -514,6 +518,7 @@ export type Database = {
         }
         Insert: {
           active_flow_id?: string | null
+          blocked_numbers?: Json | null
           bot_status?: string
           created_at?: string
           credits_balance?: number
@@ -535,6 +540,7 @@ export type Database = {
         }
         Update: {
           active_flow_id?: string | null
+          blocked_numbers?: Json | null
           bot_status?: string
           created_at?: string
           credits_balance?: number
@@ -696,8 +702,11 @@ export type Database = {
       }
       subscriber_sessions: {
         Row: {
+          conversation_stage: string
+          cooldown_until: string | null
           created_at: string
           current_node_id: string | null
+          follow_up_count: number
           id: string
           last_message_at: string | null
           phone: string
@@ -706,8 +715,11 @@ export type Database = {
           workflow_id: string
         }
         Insert: {
+          conversation_stage?: string
+          cooldown_until?: string | null
           created_at?: string
           current_node_id?: string | null
+          follow_up_count?: number
           id?: string
           last_message_at?: string | null
           phone: string
@@ -716,8 +728,11 @@ export type Database = {
           workflow_id: string
         }
         Update: {
+          conversation_stage?: string
+          cooldown_until?: string | null
           created_at?: string
           current_node_id?: string | null
+          follow_up_count?: number
           id?: string
           last_message_at?: string | null
           phone?: string
@@ -808,6 +823,104 @@ export type Database = {
           },
         ]
       }
+      user_documents: {
+        Row: {
+          id: string
+          user_id: string
+          file_name: string
+          file_size: number
+          file_type: string
+          storage_path: string
+          chunk_count: number
+          status: string
+          error_message: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          file_name: string
+          file_size: number
+          file_type: string
+          storage_path: string
+          chunk_count?: number
+          status?: string
+          error_message?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          file_name?: string
+          file_size?: number
+          file_type?: string
+          storage_path?: string
+          chunk_count?: number
+          status?: string
+          error_message?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_documents_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      document_chunks: {
+        Row: {
+          id: string
+          user_id: string
+          document_id: string
+          chunk_index: number
+          content: string
+          token_count: number | null
+          embedding: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          document_id: string
+          chunk_index: number
+          content: string
+          token_count?: number | null
+          embedding?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          document_id?: string
+          chunk_index?: number
+          content?: string
+          token_count?: number | null
+          embedding?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_chunks_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_chunks_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "user_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workflows: {
         Row: {
           created_at: string
@@ -817,6 +930,7 @@ export type Database = {
           status: string
           updated_at: string
           user_id: string
+          workflow_record: string | null
         }
         Insert: {
           created_at?: string
@@ -826,6 +940,7 @@ export type Database = {
           status?: string
           updated_at?: string
           user_id: string
+          workflow_record?: string | null
         }
         Update: {
           created_at?: string
@@ -835,6 +950,7 @@ export type Database = {
           status?: string
           updated_at?: string
           user_id?: string
+          workflow_record?: string | null
         }
         Relationships: [
           {
@@ -851,6 +967,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      claim_pending_delayed_jobs: {
+        Args: { p_limit?: number }
+        Returns: {
+          created_at: string
+          execute_at: string
+          id: string
+          job_type: string
+          node_id: string
+          session_id: string
+          status: string
+        }[]
+      }
       admin_add_form_field: {
         Args: {
           p_allow_other?: boolean
@@ -1051,6 +1179,20 @@ export type Database = {
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
+      match_document_chunks: {
+        Args: {
+          p_user_id: string
+          p_embedding: string
+          p_match_count?: number
+          p_match_threshold?: number
+        }
+        Returns: {
+          id: string
+          content: string
+          chunk_index: number
+          similarity: number
+        }[]
+      }
     }
     Enums: {
       subscription_tier: "basic" | "pro" | "premium"

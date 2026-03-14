@@ -9,6 +9,8 @@ export interface ChatMessage {
   role: "bot" | "user";
   text: string;
   time: string;
+  imageUrl?: string;
+  buttons?: { id: string; label: string }[];
 }
 
 interface ChatPanelProps {
@@ -25,6 +27,8 @@ interface ChatPanelProps {
   headerAction?: ReactNode;
   variant?: "demo" | "edit";
   className?: string;
+  onButtonClick?: (label: string) => void;
+  clickedMessageIds?: Set<string>;
 }
 
 /* ─────────────────────── Animation config ──────────────────── */
@@ -59,9 +63,13 @@ function TypingIndicator({ variant = "demo" }: { variant?: "demo" | "edit" }) {
 function ChatBubble({
   msg,
   variant = "demo",
+  onButtonClick,
+  buttonsDisabled,
 }: {
   msg: ChatMessage;
   variant?: "demo" | "edit";
+  onButtonClick?: (label: string) => void;
+  buttonsDisabled?: boolean;
 }) {
   const isBot = msg.role === "bot";
 
@@ -83,9 +91,38 @@ function ChatBubble({
       className={`max-w-[82%] ${isBot ? "self-start" : "self-end"}`}
     >
       <div
-        className={`${isBot ? botBg : userBg} rounded-2xl ${isBot ? "rounded-ss-sm" : "rounded-ee-sm"} px-4 py-3 shadow-sm`}
+        className={`${isBot ? botBg : userBg} rounded-2xl ${isBot ? "rounded-ss-sm" : "rounded-ee-sm"} px-4 py-3 shadow-sm overflow-hidden`}
       >
-        <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.text}</p>
+        {/* Image */}
+        {msg.imageUrl && (
+          <img
+            src={msg.imageUrl}
+            alt=""
+            className="rounded-lg max-h-[180px] w-full object-cover mb-2 -mx-4 -mt-3 px-0"
+            style={{ width: "calc(100% + 2rem)", maxWidth: "calc(100% + 2rem)", marginLeft: "-1rem", marginRight: "-1rem", marginTop: "-0.75rem" }}
+          />
+        )}
+        {/* Text */}
+        {msg.text && <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.text}</p>}
+        {/* Buttons */}
+        {msg.buttons && msg.buttons.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mt-2.5">
+            {msg.buttons.map((btn) => (
+              <button
+                key={btn.id}
+                onClick={() => onButtonClick?.(btn.label)}
+                disabled={buttonsDisabled}
+                className={`text-xs px-3 py-1.5 rounded-full border transition-all cursor-pointer ${
+                  buttonsDisabled
+                    ? "bg-amber-50/50 border-amber-200/50 text-amber-400 cursor-default"
+                    : "bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100 hover:border-amber-300 active:scale-95"
+                }`}
+              >
+                {btn.label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
       <span
         className={`text-[10px] text-[#B8AFA4] mt-1 block px-1 ${isBot ? "text-start" : "text-end"}`}
@@ -112,6 +149,8 @@ const ChatPanel = ({
   headerAction,
   variant = "demo",
   className = "",
+  onButtonClick,
+  clickedMessageIds,
 }: ChatPanelProps) => {
   const chatEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -196,7 +235,13 @@ const ChatPanel = ({
         }}
       >
         {messages.map((msg) => (
-          <ChatBubble key={msg.id} msg={msg} variant={variant} />
+          <ChatBubble
+            key={msg.id}
+            msg={msg}
+            variant={variant}
+            onButtonClick={onButtonClick}
+            buttonsDisabled={clickedMessageIds?.has(msg.id)}
+          />
         ))}
 
         {isSending && (

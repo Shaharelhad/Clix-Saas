@@ -43,7 +43,7 @@ const dashboard = {
   demoChatTitle: "בדוק את הבוט שלך",
   demoChatStatus: "מקוון",
   demoChatPlaceholder: "הקלד הודעה לבדיקה...",
-  demoChatGreeting: "היי! אני הבוט שלך. שלח לי הודעה כדי לבדוק איך אני מגיב.",
+  demoChatGreeting: "היי! שלח לי הודעה כדי לבדוק את הבוט שלך.",
   newConversation: "שיחה חדשה",
 
   // Edit Bot Section
@@ -55,16 +55,7 @@ const dashboard = {
   editBotSuccess: "השינויים הוחלו בהצלחה!",
   editBotError: "משהו השתבש. נסה שוב.",
 
-  // Draft / Publish
-  publishChanges: "פרסם שינויים",
-  discardDraft: "בטל טיוטה",
-  unpublishedChanges: "יש שינויים שלא פורסמו",
-  publishSuccess: "השינויים פורסמו בהצלחה!",
-  publishError: "פרסום נכשל. נסה שוב.",
-  discardSuccess: "הטיוטה בוטלה.",
-  discardError: "ביטול נכשל. נסה שוב.",
-  draftIndicator: "טיוטה",
-  draftSaved: "טיוטה נשמרה",
+  changesSaved: "השינויים נשמרו",
 
   // Business Content Section
   businessContentTitle: "תוכן עסקי",
@@ -76,7 +67,7 @@ const dashboard = {
   websiteUrl: "כתובת אתר",
   additionalInfo: "מידע נוסף",
   saveChanges: "שמור שינויים",
-  saving: "שומר...",
+  saving: "שומר, זה עשוי לקחת כמה שניות...",
   savedSuccessfully: "נשמר בהצלחה!",
   saveError: "שמירה נכשלה. נסה שוב.",
   updatingBot: "מעדכן את הבוט שלך...",
@@ -89,6 +80,56 @@ const dashboard = {
   productsFound: "מוצרים נמצאו",
   noFormData: "לא נמצא תוכן עסקי. צרו את הבוט שלכם תחילה.",
   goToCreateBot: "צור בוט",
+
+  // Business Content Categories
+  categoryAbout: "אודות העסק",
+  categoryAudience: "קהל יעד וסגנון",
+  categoryRules: "כללים וגבולות",
+  categoryCommunication: "תקשורת",
+  categoryMedia: "מדיה וקישורים",
+  categoryOther: "מידע נוסף",
+  cancelChanges: "ביטול",
+  categorySaved: "נשמר!",
+
+  // Blocked Numbers
+  blockedNumbers: "מספרים חסומים",
+  blockedNumbersTitle: "מספרים חסומים",
+  blockedNumbersDesc: "מספרים אלו יתעלמו על ידי הבוט שלך.",
+  blockedNumbersEmpty: "אין מספרים חסומים עדיין",
+  blockedNumbersEmptyDesc: "מספרים שתחסמו לא יקבלו תגובות מהבוט.",
+  blockedNumbersAdd: "הוסף",
+  blockedNumbersPlaceholder: "...972+ או ...05",
+  blockedNumbersRemove: "הסר",
+  blockedNumbersInvalid: "הכנס מספר טלפון תקין (לפחות 7 ספרות)",
+  blockedNumbersDuplicate: "מספר זה כבר חסום",
+  blockedNumbersAdded: "המספר נחסם",
+  blockedNumbersRemoved: "המספר הוסר מהחסימה",
+  blockedNumbersError: "העדכון נכשל. נסה שוב.",
+
+  // Integrations
+  integrationsTitle: "אינטגרציות",
+  integrationsSubtitle: "חבר שירותים חיצוניים לשימוש בתהליכים שלך",
+  addIntegration: "הוסף אינטגרציה",
+  editIntegration: "ערוך",
+  deleteIntegration: "מחק",
+  deleteIntegrationConfirm: "להסיר אינטגרציה זו? תהליכים שמשתמשים בה יפסיקו לעבוד.",
+  integrationActive: "פעיל",
+  integrationInactive: "לא פעיל",
+  integrationTypeCloudbeds: "Cloudbeds",
+  integrationTypeCustomApi: "API מותאם",
+  integrationApiKey: "מפתח API",
+  integrationClientId: "מזהה לקוח",
+  integrationClientSecret: "סוד לקוח",
+  integrationBaseUrl: "כתובת בסיס",
+  integrationAuthType: "סוג אימות",
+  integrationAuthValue: "ערך אימות",
+  integrationName: "שם",
+  integrationSaved: "האינטגרציה נשמרה",
+  integrationDeleted: "האינטגרציה הוסרה",
+  integrationError: "השמירה נכשלה. נסה שוב.",
+  integrationsEmpty: "אין אינטגרציות עדיין",
+  integrationsEmptyDesc: "הוסף חיבור API לשימוש בבונה התהליכים.",
+  selectType: "בחר סוג",
 };
 
 export default dashboard;

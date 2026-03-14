@@ -1,18 +1,23 @@
-import { corsHeaders } from "../_shared/cors.ts";
+import { getCorsHeaders } from "../_shared/cors.ts";
+import { getAuthenticatedUserId } from "../_shared/auth.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 Deno.serve(async (req) => {
+  const cors = getCorsHeaders(req);
+
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response("ok", { headers: cors });
   }
 
   try {
-    const { user_id, edit_request, conversation_id } = await req.json();
+    const body = await req.json();
+    const user_id = await getAuthenticatedUserId(req);
+    const { edit_request, conversation_id } = body;
 
-    if (!user_id || !edit_request) {
+    if (!edit_request) {
       return new Response(
-        JSON.stringify({ error: "user_id and edit_request are required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        JSON.stringify({ error: "edit_request is required" }),
+        { status: 400, headers: { ...cors, "Content-Type": "application/json" } },
       );
     }
 
@@ -38,7 +43,7 @@ Deno.serve(async (req) => {
           proposed_changes: "לא נמצא בוט קיים למשתמש. יש למלא קודם את הטופס.",
           conversation_id: convId,
         }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        { headers: { ...cors, "Content-Type": "application/json" } },
       );
     }
 
@@ -128,16 +133,18 @@ Deno.serve(async (req) => {
     // 6. Return the summary to the user
     return new Response(
       JSON.stringify({
-        proposed_changes: summary + "\n\nהשינויים נשמרו כטיוטה! נסה את הדמו כדי לראות את התוצאה, ולחץ 'פרסם שינויים' כדי להחיל על הבוט הרשמי.",
+        proposed_changes: summary + "\n\nהשינויים נשמרו בהצלחה ✅",
         conversation_id: convId,
       }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      { headers: { ...cors, "Content-Type": "application/json" } },
     );
   } catch (err) {
     console.error("bot-edit error:", err);
+    const message = err instanceof Error ? err.message : "Unknown error";
+    const status = message.includes("Authorization") || message.includes("token") ? 401 : 500;
     return new Response(
-      JSON.stringify({ error: err.message }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      JSON.stringify({ error: message }),
+      { status, headers: { ...cors, "Content-Type": "application/json" } },
     );
   }
 });

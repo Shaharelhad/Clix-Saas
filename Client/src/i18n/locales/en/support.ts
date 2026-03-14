@@ -1,0 +1,25 @@
+const support = {
+  title: "Customer Support",
+  subtitle: "Need help? Submit a ticket and we'll get back to you.",
+  subjectLabel: "Subject",
+  subjectPlaceholder: "Brief description of your issue...",
+  messageLabel: "Message",
+  messagePlaceholder: "Describe your issue in detail...",
+  submit: "Submit Ticket",
+  submitting: "Submitting...",
+  success: "Ticket submitted successfully!",
+  error: "Failed to submit. Please try again.",
+  yourTickets: "Your Tickets",
+  noTickets: "No tickets yet",
+  noTicketsDesc: "Submit a ticket if you need help.",
+  statusOpen: "Submitted",
+  statusInProgress: "In Progress",
+  statusResolved: "Resolved",
+  statusClosed: "Closed",
+  support: "Support",
+  back: "Back",
+  yourMessage: "Your message",
+  adminReply: "Admin reply",
+};
+
+export default support;

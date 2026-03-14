@@ -1,35 +1,41 @@
-import { useCallback, useRef, type DragEvent } from "react";
+import { useCallback, useMemo, useRef, type DragEvent } from "react";
 import {
   ReactFlow,
   Background,
   Controls,
   MiniMap,
   type NodeTypes,
+  type EdgeTypes,
   useReactFlow,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { useTranslation } from "react-i18next";
 import type { FlowNode, FlowEdge, FlowNodeData, FlowNodeType } from "@/types/flow";
 import type { OnNodesChange, OnEdgesChange, OnConnect } from "@xyflow/react";
+import DeletableEdge from "./edges/DeletableEdge";
 
 import StartNode from "./nodes/StartNode";
 import TextNode from "./nodes/TextNode";
 import ImageNode from "./nodes/ImageNode";
 import ButtonsNode from "./nodes/ButtonsNode";
-import CollectInputNode from "./nodes/CollectInputNode";
 import DelayNode from "./nodes/DelayNode";
-import FollowUpNode from "./nodes/FollowUpNode";
-import ConditionNode from "./nodes/ConditionNode";
+import OpenBotNode from "./nodes/OpenBotNode";
+import CollectInputNode from "./nodes/CollectInputNode";
+import ApiCallNode from "./nodes/ApiCallNode";
 
 const nodeTypes: NodeTypes = {
   start: StartNode,
   text: TextNode,
   image: ImageNode,
   buttons: ButtonsNode,
-  collect_input: CollectInputNode,
   delay: DelayNode,
-  follow_up: FollowUpNode,
-  condition: ConditionNode,
+  open_bot: OpenBotNode,
+  collect_input: CollectInputNode,
+  api_call: ApiCallNode,
+};
+
+const edgeTypes: EdgeTypes = {
+  smoothstep: DeletableEdge,
 };
 
 interface FlowCanvasProps {
@@ -41,6 +47,8 @@ interface FlowCanvasProps {
   onNodeClick: (id: string) => void;
   onAddNode: (type: FlowNodeData["type"], position: { x: number; y: number }) => void;
   onPaneClick: () => void;
+  isLocked: boolean;
+  onLockedClick: () => void;
 }
 
 export default function FlowCanvas({
@@ -52,10 +60,18 @@ export default function FlowCanvas({
   onNodeClick,
   onAddNode,
   onPaneClick,
+  isLocked,
+  onLockedClick,
 }: FlowCanvasProps) {
   const { t } = useTranslation("flow");
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const { screenToFlowPosition } = useReactFlow();
+
+  // Inject isLocked into edge data so custom edge can read it
+  const edgesWithData = useMemo(
+    () => edges.map((e) => ({ ...e, data: { ...e.data, isLocked } })),
+    [edges, isLocked],
+  );
 
   const onDragOver = useCallback((e: DragEvent) => {
     e.preventDefault();
@@ -78,18 +94,24 @@ export default function FlowCanvas({
     <div ref={reactFlowWrapper} className="flex-1 h-full">
       <ReactFlow
         nodes={nodes}
-        edges={edges}
+        edges={edgesWithData}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         onNodeClick={(_, node) => onNodeClick(node.id)}
-        onPaneClick={onPaneClick}
-        onDragOver={onDragOver}
-        onDrop={onDrop}
+        onPaneClick={() => {
+          if (isLocked) onLockedClick();
+          onPaneClick();
+        }}
+        onDragOver={isLocked ? undefined : onDragOver}
+        onDrop={isLocked ? undefined : onDrop}
         nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
         defaultEdgeOptions={{ type: "smoothstep", animated: true }}
         fitView
-        deleteKeyCode="Delete"
+        nodesDraggable={!isLocked}
+        nodesConnectable={!isLocked}
+        deleteKeyCode={isLocked ? null : "Delete"}
         className="bg-[#F7F9FB]"
       >
         <Background color="#ddd" gap={20} />

@@ -1,0 +1,25 @@
+const support = {
+  title: "שירות לקוחות",
+  subtitle: "צריכים עזרה? שלחו פנייה ונחזור אליכם.",
+  subjectLabel: "נושא",
+  subjectPlaceholder: "תיאור קצר של הבעיה...",
+  messageLabel: "הודעה",
+  messagePlaceholder: "תארו את הבעיה בפירוט...",
+  submit: "שלח פנייה",
+  submitting: "שולח...",
+  success: "הפנייה נשלחה בהצלחה!",
+  error: "השליחה נכשלה. נסו שוב.",
+  yourTickets: "הפניות שלך",
+  noTickets: "אין פניות עדיין",
+  noTicketsDesc: "שלחו פנייה אם אתם צריכים עזרה.",
+  statusOpen: "נשלח",
+  statusInProgress: "בטיפול",
+  statusResolved: "טופל",
+  statusClosed: "סגור",
+  support: "תמיכה",
+  back: "חזרה",
+  yourMessage: "ההודעה שלך",
+  adminReply: "תגובת מנהל",
+};
+
+export default support;

@@ -3,7 +3,7 @@ import { Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
 export default function AdminGuard({ children }: { children: React.ReactNode }) {
-  const { isLoading, isAuthenticated, isAdmin } = useAuth();
+  const { isLoading, isAuthenticated, isAdmin, hasCompletedOnboarding } = useAuth();
 
   if (isLoading) {
     return (
@@ -14,7 +14,7 @@ export default function AdminGuard({ children }: { children: React.ReactNode }) 
   }
 
   if (!isAuthenticated) return <Navigate to="/auth" replace />;
-  if (!isAdmin) return <Navigate to="/create-bot" replace />;
+  if (!isAdmin) return <Navigate to={hasCompletedOnboarding ? "/dashboard" : "/create-bot"} replace />;
 
   return <>{children}</>;
 }

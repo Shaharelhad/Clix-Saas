@@ -1,10 +1,12 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Trash2, Loader2, HelpCircle, Check, AlertCircle, Sparkles } from "lucide-react";
+import { Plus, Trash2, Loader2, HelpCircle, Sparkles } from "lucide-react";
 import { supabase } from "@/services/supabase";
 import { useAuth } from "@/hooks/useAuth";
+import { useAutoPublish } from "@/hooks/useAutoPublish";
+import FeedbackBanner from "@/components/FeedbackBanner";
+import { EASE, stagger, fadeUp } from "@/lib/animations";
 
 interface FaqDraftEntry {
   id: string;
@@ -14,22 +16,10 @@ interface FaqDraftEntry {
   sort_order: number;
 }
 
-const EASE = [0.22, 1, 0.36, 1] as const;
-
-const stagger = {
-  hidden: {},
-  show: { transition: { staggerChildren: 0.08, delayChildren: 0.06 } },
-};
-
-const fadeUp = {
-  hidden: { opacity: 0, y: 14 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.45, ease: EASE } },
-};
-
 export default function FaqSection() {
   const { t } = useTranslation("faq");
   const { user } = useAuth();
-  const queryClient = useQueryClient();
+  const { autoPublish } = useAutoPublish();
 
   const [entries, setEntries] = useState<FaqDraftEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,41 +32,48 @@ export default function FaqSection() {
   useEffect(() => {
     if (!user?.id) return;
     (async () => {
-      // Check for draft first
-      const { data: formRow } = await supabase
-        .from("form_responses")
-        .select("draft_faq_entries")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .single();
+      try {
+        // Check for draft first
+        const { data: formRow, error: draftErr } = await supabase
+          .from("form_responses")
+          .select("draft_faq_entries")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .single();
 
-      if (formRow?.draft_faq_entries) {
-        const draft = formRow.draft_faq_entries as unknown as FaqDraftEntry[];
-        setEntries(draft);
+        if (!draftErr && formRow?.draft_faq_entries) {
+          const draft = formRow.draft_faq_entries as unknown as FaqDraftEntry[];
+          setEntries(draft);
+          setLoading(false);
+          return;
+        }
+
+        // No draft — load from live faq_entries
+        const { data, error: listErr } = await supabase
+          .from("faq_entries")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("sort_order", { ascending: true });
+
+        if (listErr) throw listErr;
+
+        setEntries(
+          (data ?? []).map((e) => ({
+            id: e.id,
+            question: e.question ?? "",
+            answer: e.answer ?? "",
+            is_active: e.is_active ?? true,
+            sort_order: e.sort_order ?? 0,
+          })),
+        );
+      } catch {
+        setError(t("loadError"));
+      } finally {
         setLoading(false);
-        return;
       }
-
-      // No draft — load from live faq_entries
-      const { data } = await supabase
-        .from("faq_entries")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("sort_order", { ascending: true });
-
-      setEntries(
-        (data ?? []).map((e) => ({
-          id: e.id,
-          question: e.question ?? "",
-          answer: e.answer ?? "",
-          is_active: e.is_active ?? true,
-          sort_order: e.sort_order ?? 0,
-        })),
-      );
-      setLoading(false);
     })();
-  }, [user?.id]);
+  }, [user?.id, t]);
 
   const updateField = (id: string, field: "question" | "answer", value: string) => {
     setEntries((prev) => prev.map((e) => (e.id !== id ? e : { ...e, [field]: value })));
@@ -128,9 +125,9 @@ export default function FaqSection() {
 
       if (updateErr) throw updateErr;
 
+      await autoPublish();
       setDirty(false);
       setSaved(true);
-      queryClient.invalidateQueries({ queryKey: ["draft-status"] });
       setTimeout(() => setSaved(false), 3000);
     } catch {
       setError(t("saveError"));
@@ -152,16 +149,8 @@ export default function FaqSection() {
       variants={stagger}
       initial="hidden"
       animate="show"
-      className="p-5 sm:p-8 max-w-4xl mx-auto"
+      className="flex flex-col"
     >
-      {/* Header */}
-      <motion.div variants={fadeUp} className="mb-6">
-        <h1 className="text-2xl sm:text-3xl font-bold text-[#2D2A26] tracking-tight">
-          {t("title")}
-        </h1>
-        <p className="text-sm text-[#7A7267] mt-1">{t("subtitle")}</p>
-      </motion.div>
-
       {/* Table */}
       <motion.div
         variants={fadeUp}
@@ -258,26 +247,12 @@ export default function FaqSection() {
 
       {/* Error */}
       {error && (
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex items-center gap-3 bg-red-50 border border-red-200 text-red-700 rounded-xl px-5 py-3.5 text-sm mt-6"
-        >
-          <AlertCircle className="w-4.5 h-4.5 flex-shrink-0" />
-          {error}
-        </motion.div>
+        <FeedbackBanner variant="error" message={error} className="mt-6" />
       )}
 
       {/* Success feedback */}
       {saved && (
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex items-center gap-3 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl px-5 py-3.5 text-sm mt-6"
-        >
-          <Check className="w-4.5 h-4.5 flex-shrink-0" />
-          {t("draftSaved")}
-        </motion.div>
+        <FeedbackBanner variant="success" message={t("changesSaved")} className="mt-6" />
       )}
 
       {/* Save Draft Button */}
@@ -301,7 +276,7 @@ export default function FaqSection() {
               </>
             ) : (
               <>
-                {t("saveDraft")}
+                {t("saveChanges")}
                 <Sparkles className="w-4.5 h-4.5 transition-transform group-hover:rotate-12" />
               </>
             )}

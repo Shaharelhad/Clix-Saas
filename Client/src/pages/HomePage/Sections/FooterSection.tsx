@@ -4,37 +4,37 @@ const FooterSection = () => {
   const { t } = useTranslation("landing");
 
   return (
-    <footer className="border-t border-white/[0.08] pt-16 pb-8 px-6">
-      <div className="max-w-5xl mx-auto">
+    <footer className="relative bg-[#1A1510] pt-16 pb-8 px-6 overflow-hidden">
+      {/* Top divider */}
+      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#FF6B2C]/20 to-transparent" />
+
+      <div className="max-w-5xl mx-auto relative z-10">
         {/* Footer columns */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-8 mb-12">
           {/* Brand column */}
           <div className="col-span-2 sm:col-span-1">
-            <div className="flex items-center gap-2 mb-4" dir="ltr">
-              <img src="/clix-logo.svg" alt="CLIX" className="h-8" />
-              <span className="text-white font-bold text-lg">CLIX</span>
+            <div className="glass-card-dark p-4 rounded-xl inline-block mb-4">
+              <div className="flex items-center gap-2" dir="ltr">
+                <img src="/clix-logo.svg" alt="CLIX" className="h-8" />
+                <span className="text-[#FDF8F2] font-bold text-lg">CLIX</span>
+              </div>
             </div>
-            <p className="text-white/40 text-sm leading-relaxed">
+            <p className="text-[#FDF8F2]/35 text-sm leading-relaxed">
               {t("footerDesc")}
             </p>
           </div>
 
           {/* Product column */}
           <div>
-            <h4 className="text-white font-bold text-sm mb-4">{t("footerProduct")}</h4>
+            <h4 className="text-[#FDF8F2] font-bold text-sm mb-4">{t("footerProduct")}</h4>
             <ul className="space-y-2.5">
               <li>
-                <span className="text-white/40 text-sm hover:text-white/60 transition-colors cursor-pointer">
+                <span className="text-[#FDF8F2]/40 text-sm hover:text-[#FF6B2C] transition-colors duration-300 cursor-pointer">
                   {t("footerFeatures")}
                 </span>
               </li>
               <li>
-                <span className="text-white/40 text-sm hover:text-white/60 transition-colors cursor-pointer">
-                  {t("footerPricing")}
-                </span>
-              </li>
-              <li>
-                <span className="text-white/40 text-sm hover:text-white/60 transition-colors cursor-pointer">
+                <span className="text-[#FDF8F2]/40 text-sm hover:text-[#FF6B2C] transition-colors duration-300 cursor-pointer">
                   {t("footerFaq")}
                 </span>
               </li>
@@ -43,15 +43,15 @@ const FooterSection = () => {
 
           {/* Company column */}
           <div>
-            <h4 className="text-white font-bold text-sm mb-4">{t("footerCompany")}</h4>
+            <h4 className="text-[#FDF8F2] font-bold text-sm mb-4">{t("footerCompany")}</h4>
             <ul className="space-y-2.5">
               <li>
-                <span className="text-white/40 text-sm hover:text-white/60 transition-colors cursor-pointer">
+                <span className="text-[#FDF8F2]/40 text-sm hover:text-[#FF6B2C] transition-colors duration-300 cursor-pointer">
                   {t("footerAbout")}
                 </span>
               </li>
               <li>
-                <span className="text-white/40 text-sm hover:text-white/60 transition-colors cursor-pointer">
+                <span className="text-[#FDF8F2]/40 text-sm hover:text-[#FF6B2C] transition-colors duration-300 cursor-pointer">
                   {t("footerContact")}
                 </span>
               </li>
@@ -60,15 +60,15 @@ const FooterSection = () => {
 
           {/* Legal column */}
           <div>
-            <h4 className="text-white font-bold text-sm mb-4">{t("footerLegal")}</h4>
+            <h4 className="text-[#FDF8F2] font-bold text-sm mb-4">{t("footerLegal")}</h4>
             <ul className="space-y-2.5">
               <li>
-                <span className="text-white/40 text-sm hover:text-white/60 transition-colors cursor-pointer">
+                <span className="text-[#FDF8F2]/40 text-sm hover:text-[#FF6B2C] transition-colors duration-300 cursor-pointer">
                   {t("footerPrivacy")}
                 </span>
               </li>
               <li>
-                <span className="text-white/40 text-sm hover:text-white/60 transition-colors cursor-pointer">
+                <span className="text-[#FDF8F2]/40 text-sm hover:text-[#FF6B2C] transition-colors duration-300 cursor-pointer">
                   {t("footerTerms")}
                 </span>
               </li>
@@ -77,11 +77,11 @@ const FooterSection = () => {
         </div>
 
         {/* Divider */}
-        <div className="h-px bg-white/[0.08] mb-6" />
+        <div className="h-px bg-gradient-to-r from-transparent via-[#FF6B2C]/10 to-transparent mb-6" />
 
         {/* Bottom bar */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p className="text-white/30 text-sm">
+          <p className="text-[#FDF8F2]/25 text-sm">
             &copy; {new Date().getFullYear()} CLIX. {t("allRightsReserved")}
           </p>
         </div>

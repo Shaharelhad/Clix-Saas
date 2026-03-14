@@ -8,6 +8,7 @@ import FlowNodeWrapper from "../FlowNodeWrapper";
 function ButtonsNode({ data, selected, id }: NodeProps<FlowNode>) {
   const { t } = useTranslation("flow");
   const buttons = data.buttons ?? [];
+  const nodeWidth = buttons.length > 3 ? Math.max(240, buttons.length * 40 + 60) : undefined;
 
   return (
     <FlowNodeWrapper
@@ -19,6 +20,7 @@ function ButtonsNode({ data, selected, id }: NodeProps<FlowNode>) {
         document.dispatchEvent(new CustomEvent("flow:delete-node", { detail: id }));
       }}
       sourceHandles={buttons.map((b) => ({ id: `btn-${b.id}`, label: b.label }))}
+      width={nodeWidth}
     >
       <p className="truncate">{data.message || t("messageHint")}</p>
       {buttons.length > 0 && (

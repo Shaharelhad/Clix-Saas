@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { motion } from "framer-motion";
 import { Bot, RotateCcw } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { callBotDemo } from "@/services/edge-functions";
+import { callFlowDemo } from "@/services/edge-functions";
 import ChatPanel, {
   type ChatMessage,
 } from "@/pages/CreateBotPage/Sections/ChatPanel";
@@ -31,9 +31,10 @@ function nowStamp() {
 
 interface DemoChatSectionProps {
   resetKey?: number;
+  workflowId?: string | null;
 }
 
-export default function DemoChatSection({ resetKey = 0 }: DemoChatSectionProps) {
+export default function DemoChatSection({ resetKey = 0, workflowId }: DemoChatSectionProps) {
   const { t } = useTranslation("dashboard");
   const { user } = useAuth();
 
@@ -47,7 +48,9 @@ export default function DemoChatSection({ resetKey = 0 }: DemoChatSectionProps) 
   ]);
   const [input, setInput] = useState("");
   const [conversationId, setConversationId] = useState<string | null>(null);
+  const [sessionState, setSessionState] = useState<Record<string, unknown> | null>(null);
   const [isSending, setIsSending] = useState(false);
+  const [clickedMessageIds, setClickedMessageIds] = useState<Set<string>>(new Set());
 
   /* ── Reset when edit is applied ── */
   useEffect(() => {
@@ -61,14 +64,16 @@ export default function DemoChatSection({ resetKey = 0 }: DemoChatSectionProps) 
         },
       ]);
       setConversationId(null);
+      setSessionState(null);
       setInput("");
+      setClickedMessageIds(new Set());
     }
   }, [resetKey, t]);
 
   /* ── Send message ── */
   const handleSend = useCallback(async () => {
     const text = input.trim();
-    if (!text || isSending) return;
+    if (!text || isSending || !workflowId) return;
 
     const userMsg: ChatMessage = {
       id: `user-${Date.now()}`,
@@ -82,31 +87,43 @@ export default function DemoChatSection({ resetKey = 0 }: DemoChatSectionProps) 
     setIsSending(true);
 
     try {
-      const result = await callBotDemo({
+      const result = await callFlowDemo({
         user_id: user?.id ?? "",
+        workflow_id: workflowId,
         message: text,
         ...(conversationId ? { conversation_id: conversationId } : {}),
+        ...(sessionState ? { session_state: sessionState } : {}),
       });
 
       if (result.error) throw new Error(result.error);
 
       const data = result.data as {
+        responses?: { type: string; content: string; imageUrl?: string; buttons?: { id: string; label: string }[] }[];
         response?: string;
         conversation_id?: string;
+        session_state?: Record<string, unknown>;
       } | null;
 
-      if (data?.conversation_id) {
-        setConversationId(data.conversation_id);
+      if (data?.conversation_id) setConversationId(data.conversation_id);
+      if (data?.session_state) setSessionState(data.session_state);
+
+      // Handle array responses (flow-demo format)
+      if (data?.responses && Array.isArray(data.responses) && data.responses.length > 0) {
+        const botMessages: ChatMessage[] = data.responses.map((r, i) => ({
+          id: `bot-${Date.now()}-${i}`,
+          role: "bot" as const,
+          text: r.content || "...",
+          time: nowStamp(),
+          ...(r.imageUrl ? { imageUrl: r.imageUrl } : {}),
+          ...(r.buttons?.length ? { buttons: r.buttons } : {}),
+        }));
+        setMessages((prev) => [...prev, ...botMessages]);
+      } else if (data?.response) {
+        setMessages((prev) => [
+          ...prev,
+          { id: `bot-${Date.now()}`, role: "bot", text: data.response!, time: nowStamp() },
+        ]);
       }
-
-      const botMsg: ChatMessage = {
-        id: `bot-${Date.now()}`,
-        role: "bot",
-        text: data?.response ?? "...",
-        time: nowStamp(),
-      };
-
-      setMessages((prev) => [...prev, botMsg]);
     } catch (err) {
       const botMsg: ChatMessage = {
         id: `bot-err-${Date.now()}`,
@@ -121,7 +138,74 @@ export default function DemoChatSection({ resetKey = 0 }: DemoChatSectionProps) 
     } finally {
       setIsSending(false);
     }
-  }, [input, isSending, user?.id, conversationId]);
+  }, [input, isSending, user?.id, workflowId, conversationId, sessionState]);
+
+  /* ── Button click in chat ── */
+  const handleButtonClick = useCallback(async (label: string) => {
+    if (isSending || !workflowId) return;
+
+    // Find the message with these buttons and mark it clicked
+    setMessages((prev) => {
+      const lastBtnMsg = [...prev].reverse().find((m) => m.buttons?.some((b) => b.label === label));
+      if (lastBtnMsg) setClickedMessageIds((s) => new Set(s).add(lastBtnMsg.id));
+      return [
+        ...prev,
+        { id: `user-${Date.now()}`, role: "user" as const, text: label, time: nowStamp() },
+      ];
+    });
+    setIsSending(true);
+
+    try {
+      const result = await callFlowDemo({
+        user_id: user?.id ?? "",
+        workflow_id: workflowId,
+        message: label,
+        ...(conversationId ? { conversation_id: conversationId } : {}),
+        ...(sessionState ? { session_state: sessionState } : {}),
+      });
+
+      if (result.error) throw new Error(result.error);
+
+      const data = result.data as {
+        responses?: { type: string; content: string; imageUrl?: string; buttons?: { id: string; label: string }[] }[];
+        response?: string;
+        conversation_id?: string;
+        session_state?: Record<string, unknown>;
+      } | null;
+
+      if (data?.conversation_id) setConversationId(data.conversation_id);
+      if (data?.session_state) setSessionState(data.session_state);
+
+      if (data?.responses && Array.isArray(data.responses) && data.responses.length > 0) {
+        const botMessages: ChatMessage[] = data.responses.map((r, i) => ({
+          id: `bot-${Date.now()}-${i}`,
+          role: "bot" as const,
+          text: r.content || "...",
+          time: nowStamp(),
+          ...(r.imageUrl ? { imageUrl: r.imageUrl } : {}),
+          ...(r.buttons?.length ? { buttons: r.buttons } : {}),
+        }));
+        setMessages((prev) => [...prev, ...botMessages]);
+      } else if (data?.response) {
+        setMessages((prev) => [
+          ...prev,
+          { id: `bot-${Date.now()}`, role: "bot", text: data.response!, time: nowStamp() },
+        ]);
+      }
+    } catch (err) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `bot-err-${Date.now()}`,
+          role: "bot",
+          text: err instanceof Error ? err.message : "Something went wrong.",
+          time: nowStamp(),
+        },
+      ]);
+    } finally {
+      setIsSending(false);
+    }
+  }, [isSending, user?.id, workflowId, conversationId, sessionState]);
 
   /* ── New conversation ── */
   const handleNewConversation = () => {
@@ -134,7 +218,9 @@ export default function DemoChatSection({ resetKey = 0 }: DemoChatSectionProps) 
       },
     ]);
     setConversationId(null);
+    setSessionState(null);
     setInput("");
+    setClickedMessageIds(new Set());
   };
 
   /* ═══════════════════════ RENDER ═══════════════════════════ */
@@ -150,9 +236,11 @@ export default function DemoChatSection({ resetKey = 0 }: DemoChatSectionProps) 
         input={input}
         onInputChange={setInput}
         onSend={handleSend}
-        isSending={isSending}
+        isSending={isSending || !workflowId}
         placeholder={t("demoChatPlaceholder")}
         variant="demo"
+        onButtonClick={handleButtonClick}
+        clickedMessageIds={clickedMessageIds}
         headerAction={
           <motion.button
             whileHover={{ scale: 1.08, rotate: -15 }}

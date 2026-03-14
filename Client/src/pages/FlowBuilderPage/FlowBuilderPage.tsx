@@ -1,48 +1,41 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { ReactFlowProvider } from "@xyflow/react";
+import { Loader2, Lock } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
-import { GitBranch, Plus, Loader2 } from "lucide-react";
 import { useFlowBuilder } from "@/hooks/useFlowBuilder";
 import FlowCanvas from "./Components/FlowCanvas";
 import FlowToolbar from "./Components/FlowToolbar";
+import FlowSettingsModal from "./Components/FlowSettingsModal";
+import FlowIntegrationsModal from "./Components/FlowIntegrationsModal";
 import NodePalette from "./Components/NodePalette";
 import NodeEditorSidebar from "./Components/NodeEditorSidebar";
-import FlowPreviewSimulator from "./Components/FlowPreviewSimulator";
+import FlowHelpAssistant from "./Components/FlowHelpAssistant";
+import TemplatePickerModal from "./Components/TemplatePickerModal";
 
 function FlowBuilderContent() {
-  const { t } = useTranslation("flow");
   const fb = useFlowBuilder();
+  const { t } = useTranslation("flow");
+  const [showSettings, setShowSettings] = useState(false);
+  const [showIntegrations, setShowIntegrations] = useState(false);
 
-  // Listen for node delete events from node components
+  // Listen for node/edge delete events from custom components
   useEffect(() => {
-    const handler = (e: Event) => {
+    const onDeleteNode = (e: Event) => {
       const nodeId = (e as CustomEvent).detail;
       if (nodeId) fb.deleteNode(nodeId);
     };
-    document.addEventListener("flow:delete-node", handler);
-    return () => document.removeEventListener("flow:delete-node", handler);
+    const onDeleteEdge = (e: Event) => {
+      const edgeId = (e as CustomEvent).detail;
+      if (edgeId) fb.deleteEdge(edgeId);
+    };
+    document.addEventListener("flow:delete-node", onDeleteNode);
+    document.addEventListener("flow:delete-edge", onDeleteEdge);
+    return () => {
+      document.removeEventListener("flow:delete-node", onDeleteNode);
+      document.removeEventListener("flow:delete-edge", onDeleteEdge);
+    };
   }, [fb]);
-
-  // No workflows — show create prompt
-  if (!fb.isLoadingList && fb.workflows.length === 0) {
-    return (
-      <div className="h-[calc(100vh-3.5rem)] flex flex-col items-center justify-center gap-4">
-        <div className="w-16 h-16 rounded-2xl bg-[#FF7E47]/10 flex items-center justify-center">
-          <GitBranch className="w-8 h-8 text-[#FF7E47]" />
-        </div>
-        <h2 className="text-xl font-bold text-[#2D2A26]">{t("createFirst")}</h2>
-        <p className="text-sm text-[#7A7267] max-w-sm text-center">{t("createFirstDesc")}</p>
-        <button
-          onClick={fb.createWorkflow}
-          disabled={fb.isCreating}
-          className="flex items-center gap-2 px-6 py-3 rounded-xl bg-[#FF7E47] text-white font-medium hover:bg-[#E86B38] transition-colors cursor-pointer disabled:opacity-50"
-        >
-          {fb.isCreating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-          {t("newFlow")}
-        </button>
-      </div>
-    );
-  }
 
   // Loading
   if (fb.isLoadingList) {
@@ -53,6 +46,11 @@ function FlowBuilderContent() {
     );
   }
 
+  // No workflows — show template picker
+  if (fb.showTemplatePicker) {
+    return <TemplatePickerModal onSelect={fb.createFromTemplate} />;
+  }
+
   return (
     <div className="h-[calc(100vh-3.5rem)] flex flex-col">
       {/* Toolbar */}
@@ -60,15 +58,16 @@ function FlowBuilderContent() {
         workflowName={fb.workflowName}
         workflowStatus={fb.workflowStatus}
         onNameChange={fb.setWorkflowName}
-        onSave={fb.save}
         onToggleStatus={fb.toggleStatus}
-        onDelete={fb.deleteWorkflow}
-        onCreate={fb.createWorkflow}
+        onOpenSettings={() => setShowSettings(true)}
+        onOpenIntegrations={() => setShowIntegrations(true)}
         saveStatus={fb.saveStatus}
+        isLocked={fb.isLocked}
         workflows={fb.workflows}
         activeWorkflowId={fb.activeWorkflowId}
-        onSelectWorkflow={fb.selectWorkflow}
-        isCreating={fb.isCreating}
+        onSwitchWorkflow={fb.switchWorkflow}
+        onDeleteWorkflow={fb.deleteWorkflow}
+        onNewFlow={fb.openTemplatePicker}
       />
 
       {/* Main 3-panel layout */}
@@ -78,6 +77,7 @@ function FlowBuilderContent() {
           node={fb.selectedNode}
           onUpdate={fb.updateNodeData}
           onClose={() => fb.setSelectedNodeId(null)}
+          isLocked={fb.isLocked}
         />
 
         {/* Canvas (center) */}
@@ -90,14 +90,54 @@ function FlowBuilderContent() {
           onNodeClick={(id) => fb.setSelectedNodeId(id)}
           onAddNode={fb.addNode}
           onPaneClick={() => fb.setSelectedNodeId(null)}
+          isLocked={fb.isLocked}
+          onLockedClick={fb.notifyLocked}
         />
 
         {/* Node palette (left in RTL = visually right) */}
-        <NodePalette />
+        <NodePalette isLocked={fb.isLocked} onLockedDrag={fb.notifyLocked} />
       </div>
 
-      {/* Preview simulator */}
-      <FlowPreviewSimulator workflowId={fb.activeWorkflowId} />
+      {/* Help assistant */}
+      <FlowHelpAssistant />
+
+      {/* Settings modal */}
+      {showSettings && (
+        <FlowSettingsModal
+          settings={fb.flowSettings}
+          onUpdate={fb.updateFlowSettings}
+          onClose={() => setShowSettings(false)}
+        />
+      )}
+
+      {/* Integrations modal */}
+      {showIntegrations && (
+        <FlowIntegrationsModal onClose={() => setShowIntegrations(false)} />
+      )}
+
+      {/* Template picker modal (for creating new flows) */}
+      {fb.showTemplatePickerModal && (
+        <TemplatePickerModal
+          onSelect={fb.createFromTemplate}
+          onClose={fb.closeTemplatePicker}
+        />
+      )}
+
+      {/* Locked banner */}
+      <AnimatePresence>
+        {fb.showLockedBanner && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="fixed top-16 left-1/2 -translate-x-1/2 z-50 px-5 py-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 text-sm font-medium shadow-lg flex items-center gap-2"
+            dir="rtl"
+          >
+            <Lock className="w-4 h-4" />
+            {t("lockedBanner")}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -292,9 +292,9 @@ function AdminGuard({ children }: { children: React.ReactNode }) {
 ### Flow Builder Tables
 
 **`workflows`** — user_id, name, flow_json (JSON with nodes+edges), status ("draft", "active", "paused")
-**`subscriber_sessions`** — workflow_id, phone, current_node_id, variables (JSON), status. Unique: (workflow_id, phone)
+**`subscriber_sessions`** — workflow_id, phone, current_node_id, variables (JSON), status, conversation_stage ("engaging", "closed"), follow_up_count. Unique: (workflow_id, phone)
 **`flow_message_log`** — workflow_id, session_id, node_id, direction ("inbound", "outbound"), message_type, content, status
-**`flow_delayed_jobs`** — session_id, node_id, execute_at, status ("pending", "executed", "cancelled")
+**`flow_delayed_jobs`** — session_id, node_id, execute_at, status ("pending", "executed", "cancelled"), job_type ("node", "auto_follow_up")
 **`flow_processed_messages`** — id_message (deduplication)
 **`node_analytics`** — workflow_id, node_id, sent, delivered, clicked. Unique: (workflow_id, node_id)
 
@@ -409,10 +409,19 @@ Each runs server-side in Supabase's Deno runtime with service role key + API sec
 | `bot-demo` | Fetches bot prompt + scraped content → searches products → gets FAQs → gets history → Gemini (fallback Claude) → saves to `demo_conversations` |
 | `bot-edit` | Fetches current prompt → Claude generates updated prompt + summary → updates `form_responses` → inserts `bot_edit_history` |
 | `wclixapi-connect` | Starts WClixAPI session → returns QR code → polls status → updates `bot_status` |
-| `flow-webhook` | Receives WhatsApp messages from WClixAPI → deduplicates → finds user by customerId → executes flow engine → LLM fallback if no trigger matches |
-| `flow-demo` | Same flow engine as `flow-webhook` but in browser preview using `demo_conversations` |
+| `flow-webhook` | Receives WhatsApp messages from WClixAPI → deduplicates → finds user by customerId → executes flow engine (incl. AI Agent nodes) → LLM fallback via shared engine. Supports `USE_INNGEST` env flag for Inngest dispatch. |
+| `flow-demo` | Same flow engine as `flow-webhook` but in browser preview using `demo_conversations`. Supports AI Agent node with shared LLM engine. |
+| `inngest` | Inngest serve endpoint — defines durable workflow functions: `process-message` (flow execution) and `process-delayed-jobs` (cron every 2 min — executes auto-follow-ups, static follow_up nodes, and delay node expiry). Called by Inngest cloud, not from frontend. Uses shared LLM engine + WA messaging modules. |
 | `scrape-trigger` | Scrapes URLs via Firecrawl (up to 5) → discovers subpages (up to 10) → re-generates enhanced bot prompt → updates `form_responses` |
 | `scrape-status` | Returns `{ status, total_pages, scraped_pages, products_found }` |
+
+#### Shared Modules (`supabase/functions/_shared/`)
+
+| Module | Purpose |
+|--------|---------|
+| `llm-engine.ts` | Single LLM calling logic. Fetches bot prompt, products, FAQs, scraped content. Calls OpenRouter with primary/fallback models. Exports: `callLLMEngine()` (with `classifyStage` param for conversation stage detection), `classifyTrigger()`, `generateFollowUpMessage()`. Used by: bot-demo, flow-demo, flow-webhook, inngest. |
+| `wa-messaging.ts` | WhatsApp messaging via WClixAPI gateway. `sendTextMessage()`, `sendButtonsMessage()`, `sendImageMessage()`. Used by: flow-webhook, inngest. |
+| `cors.ts` | CORS headers for edge function responses. |
 
 ### Usage Example
 
@@ -593,35 +602,46 @@ if (error) { console.error("RPC failed:", error.message); return; }
 **Node types** (stored in `workflows.flow_json`):
 | Type | Purpose |
 |---|---|
-| `start` | Entry point with trigger text keyword |
+| `start` | Entry point with trigger text keyword (empty trigger = catch-all) |
 | `text` | Send text message (optional expectedReply, continueAuto) |
 | `image` | Send image with caption |
 | `buttons` | Interactive buttons (max 10) with per-button edges |
 | `collect_input` | Prompt user, store reply in variable `{{variableName}}` |
 | `delay` | Pause flow for N minutes |
 | `follow_up` | Send delayed message after N minutes |
+| `condition` | Visual-only branching (equals, contains, not_empty) |
+| `ai_agent` | AI Agent — calls LLM with configurable model, temperature, knowledge sources. Loops (stays on node) until a trigger word restarts a different flow. |
 
-**Flow Engine** (in `flow-webhook` and `flow-demo`):
+**Default workflow template:** `Start (empty trigger) → AI Agent (default config)` — auto-created for new workflows.
+
+**Flow Engine** (in `flow-webhook`, `flow-demo`, and `inngest`):
 - Trigger matching: exact or contains on `triggerText`
 - Variable substitution: `{{variableName}}` in messages
 - Button matching: by button ID, by label (exact), by number (1, 2, 3)
-- If no trigger matches → LLM fallback (open conversation)
+- Catch-all agent: `findCatchAllAgentNode()` finds Start with empty trigger → connected AI Agent
+- If no trigger matches → catch-all AI Agent (if exists) → LLM fallback
 - Sessions tracked in `subscriber_sessions`, messages in `flow_message_log`
+- **Inngest path** (`USE_INNGEST=true`): flow-webhook dispatches event to Inngest for durable processing
+- **Monolith path** (`USE_INNGEST=false`): flow-webhook processes inline (60s timeout)
 
 ---
 
 ## 10. AI Integration
 
-- **Primary**: Google Gemini `gemini-2.0-flash` (cost efficiency)
-- **Fallback**: Anthropic Claude `claude-sonnet-4-5-20250929`
+**Shared LLM Engine** (`supabase/functions/_shared/llm-engine.ts`):
+- Single source of truth for all LLM calls (eliminates duplication across edge functions)
+- **Primary**: OpenRouter — Grok 4 Fast (`x-ai/grok-4-fast`)
+- **Fallback**: OpenRouter — Grok 4.1 Fast (`x-ai/grok-4.1-fast`)
 - For structured outputs (prompt generation, bot editing): Claude only
+- AI Agent nodes can override: model, temperature, max tokens, knowledge sources
 
 **Context provided to AI:**
-- Bot system prompt (from form_responses.bot_prompt)
+- Bot system prompt (from form_responses.bot_prompt or draft_bot_prompt)
 - Scraped website content (up to 8000 chars)
 - Product search results (fuzzy Hebrew search via pg_trgm)
 - FAQ entries (high-priority context)
-- Conversation history (last 10-20 messages)
+- Conversation history (configurable, default 20 messages)
+- Trigger context (available flow trigger words for LLM awareness)
 
 ---
 
@@ -676,6 +696,10 @@ if (error) { console.error("RPC failed:", error.message); return; }
 | `GEMINI_API_KEY` | Google Gemini API key (edge functions) |
 | `OPENROUTER_API_KEY` | OpenRouter API key (edge functions) |
 | `FIRECRAWL_API_KEY` | Firecrawl scraping API (edge functions) |
+| **Inngest** | |
+| `INNGEST_EVENT_KEY` | Inngest event key for sending events (server-side) |
+| `INNGEST_SIGNING_KEY` | Inngest signing key for verifying serve requests (server-side) |
+| `USE_INNGEST` | Feature flag: `"true"` = dispatch to Inngest, `"false"` = monolith path (server-side) |
 | **n8n** | |
 | `VITE_N8N_API_BASE_URL` | n8n instance URL |
 | `VITE_N8N_API_KEY` | n8n API key |
@@ -692,7 +716,9 @@ Variables prefixed with `VITE_` are exposed to the browser. Non-prefixed variabl
 |---|---|---|
 | Supabase | Auth, DB, Edge Functions, Storage | gctijcljpjtmpyuzaohm.supabase.co |
 | WClixAPI | Custom WhatsApp Gateway (Baileys) | wa.clixwapp.online |
-| Anthropic Claude | Prompt generation, bot editing, fallback AI | api.anthropic.com |
-| Google Gemini | Primary AI for bot responses | generativelanguage.googleapis.com |
+| Inngest | Durable workflow orchestration (retries, delays, concurrency) | inn.gs (events), api.inngest.com (dashboard) |
+| OpenRouter | Primary LLM API (Grok 4 Fast + Grok 4.1 Fast fallback) | openrouter.ai/api/v1 |
+| Anthropic Claude | Prompt generation, bot editing | api.anthropic.com |
+| Google Gemini | Legacy AI (replaced by OpenRouter in shared engine) | generativelanguage.googleapis.com |
 | Firecrawl | Website scraping | api.firecrawl.dev |
 | Supabase Storage | Bot media (bucket: `bot-media`) | supabase.co/storage/v1 |

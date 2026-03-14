@@ -11,17 +11,16 @@ const admin = {
   dashboardSubtitle: "Here's what's happening in CLIX",
   statTotalUsers: "Total Users",
   statPendingApprovals: "Pending Approvals",
-  statConnectedBots: "Connected Bots",
+  statOpenTickets: "Open Tickets",
   statActiveWorkflows: "Active Workflows",
-  statFormSubmissions: "Form Submissions",
   chartRegistrations: "User Registrations",
   chartRegistrationsSub: "New signups over the last months",
   chartUserStatus: "Users by Status",
   chartUserStatusSub: "Approval breakdown",
   chartBotStatus: "Bot Status",
   chartBotStatusSub: "Distribution across users",
-  chartFormSubmissions: "Form Submissions",
-  chartFormSubmissionsSub: "Submissions over time",
+  chartTickets: "Support Tickets",
+  chartTicketsSub: "Tickets submitted over time",
 
   // Approvals page
   approvalsTitle: "Pending User Approvals",
@@ -87,6 +86,23 @@ const admin = {
   fieldTypeFile: "File Upload",
   fieldTypeNumber: "Number",
   fieldTypeToggle: "Toggle",
+
+  // Tickets
+  navTickets: "Tickets",
+  ticketsTitle: "Support Tickets",
+  ticketsSubtitle: "Manage and respond to user support requests",
+  ticketsEmpty: "No tickets yet",
+  ticketFrom: "From",
+  ticketReplyPlaceholder: "Type your reply...",
+  ticketReply: "Reply",
+  ticketReplied: "Reply sent",
+  ticketStatusUpdated: "Status updated",
+  ticketSelectPrompt: "Select a ticket to view details",
+  ticketFilterAll: "All",
+  ticketFilterSubmitted: "Submitted",
+  ticketFilterInProgress: "In Progress",
+  ticketFilterResolved: "Resolved",
+  ticketFilterClosed: "Closed",
 };
 
 export default admin;

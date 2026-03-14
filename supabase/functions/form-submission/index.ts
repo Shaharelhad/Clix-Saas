@@ -1,4 +1,5 @@
-import { corsHeaders } from "../_shared/cors.ts";
+import { getCorsHeaders } from "../_shared/cors.ts";
+import { getAuthenticatedUserId } from "../_shared/auth.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const FIRECRAWL_API_KEY = Deno.env.get("FIRECRAWL_API_KEY") || "";
@@ -54,19 +55,16 @@ async function scrapeBasic(url: string): Promise<string> {
 }
 
 Deno.serve(async (req) => {
+  const cors = getCorsHeaders(req);
+
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response("ok", { headers: cors });
   }
 
   try {
-    const { user_id, full_name, fields } = await req.json();
-
-    if (!user_id) {
-      return new Response(
-        JSON.stringify({ error: "user_id is required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
+    const body = await req.json();
+    const user_id = await getAuthenticatedUserId(req);
+    const { full_name, fields } = body;
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -243,13 +241,15 @@ Deno.serve(async (req) => {
         scrape_job_id: scrapeJobId,
         message: "Bot created successfully",
       }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      { headers: { ...cors, "Content-Type": "application/json" } },
     );
   } catch (err) {
     console.error("form-submission error:", err);
+    const message = err instanceof Error ? err.message : "Unknown error";
+    const status = message.includes("Authorization") || message.includes("token") ? 401 : 500;
     return new Response(
-      JSON.stringify({ error: err.message }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      JSON.stringify({ error: message }),
+      { status, headers: { ...cors, "Content-Type": "application/json" } },
     );
   }
 });

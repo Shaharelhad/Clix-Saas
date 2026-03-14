@@ -44,7 +44,7 @@ const dashboard = {
   demoChatStatus: "Online",
   demoChatPlaceholder: "Type a message to test...",
   demoChatGreeting:
-    "Hi! I'm your bot. Send me a message to test how I respond.",
+    "Hi! Send me a message to test your bot.",
   newConversation: "New conversation",
 
   // Edit Bot Section
@@ -56,16 +56,7 @@ const dashboard = {
   editBotSuccess: "Changes applied successfully!",
   editBotError: "Something went wrong. Please try again.",
 
-  // Draft / Publish
-  publishChanges: "Publish Changes",
-  discardDraft: "Discard Draft",
-  unpublishedChanges: "You have unpublished changes",
-  publishSuccess: "Changes published successfully!",
-  publishError: "Publish failed. Please try again.",
-  discardSuccess: "Draft discarded.",
-  discardError: "Discard failed. Please try again.",
-  draftIndicator: "Draft",
-  draftSaved: "Draft saved",
+  changesSaved: "Changes saved",
 
   // Business Content Section
   businessContentTitle: "Business Content",
@@ -77,7 +68,7 @@ const dashboard = {
   websiteUrl: "Website URL",
   additionalInfo: "Additional Info",
   saveChanges: "Save Changes",
-  saving: "Saving...",
+  saving: "Saving, this may take a few seconds...",
   savedSuccessfully: "Saved successfully!",
   saveError: "Failed to save. Please try again.",
   updatingBot: "Updating Your Bot...",
@@ -90,6 +81,56 @@ const dashboard = {
   productsFound: "Products found",
   noFormData: "No business content found. Please create your bot first.",
   goToCreateBot: "Create Bot",
+
+  // Business Content Categories
+  categoryAbout: "About the Business",
+  categoryAudience: "Audience & Tone",
+  categoryRules: "Rules & Boundaries",
+  categoryCommunication: "Communication",
+  categoryMedia: "Media & Links",
+  categoryOther: "Additional Info",
+  cancelChanges: "Cancel",
+  categorySaved: "Saved!",
+
+  // Blocked Numbers
+  blockedNumbers: "Blocked Numbers",
+  blockedNumbersTitle: "Blocked Numbers",
+  blockedNumbersDesc: "These numbers will be ignored by your bot.",
+  blockedNumbersEmpty: "No blocked numbers yet",
+  blockedNumbersEmptyDesc: "Numbers you block won't receive bot responses.",
+  blockedNumbersAdd: "Add",
+  blockedNumbersPlaceholder: "+972... or 05...",
+  blockedNumbersRemove: "Remove",
+  blockedNumbersInvalid: "Enter a valid phone number (min 7 digits)",
+  blockedNumbersDuplicate: "This number is already blocked",
+  blockedNumbersAdded: "Number blocked",
+  blockedNumbersRemoved: "Number unblocked",
+  blockedNumbersError: "Failed to update. Please try again.",
+
+  // Integrations
+  integrationsTitle: "Integrations",
+  integrationsSubtitle: "Connect external services for use in your flows",
+  addIntegration: "Add Integration",
+  editIntegration: "Edit",
+  deleteIntegration: "Delete",
+  deleteIntegrationConfirm: "Remove this integration? Flows using it will stop working.",
+  integrationActive: "Active",
+  integrationInactive: "Inactive",
+  integrationTypeCloudbeds: "Cloudbeds",
+  integrationTypeCustomApi: "Custom API",
+  integrationApiKey: "API Key",
+  integrationClientId: "Client ID",
+  integrationClientSecret: "Client Secret",
+  integrationBaseUrl: "Base URL",
+  integrationAuthType: "Auth Type",
+  integrationAuthValue: "Auth Value",
+  integrationName: "Name",
+  integrationSaved: "Integration saved",
+  integrationDeleted: "Integration removed",
+  integrationError: "Failed to save. Please try again.",
+  integrationsEmpty: "No integrations yet",
+  integrationsEmptyDesc: "Add an API connection to use in your flow builder.",
+  selectType: "Select type",
 };
 
 export default dashboard;

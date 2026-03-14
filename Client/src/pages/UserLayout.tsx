@@ -1,20 +1,19 @@
+import { useState } from "react";
 import { Outlet, NavLink, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { useQuery } from "@tanstack/react-query";
 import {
   LogOut,
   LayoutDashboard,
   Pencil,
   GitBranch,
-  Upload,
-  Trash2,
-  Loader2,
-  Check,
-  AlertCircle,
+  BookOpen,
+  Headphones,
 } from "lucide-react";
-import { AnimatePresence, motion } from "framer-motion";
 import { useAuth } from "@/hooks/useAuth";
-import { useDraftStatus } from "@/hooks/useDraftStatus";
-import { usePublishDraft } from "@/hooks/usePublishDraft";
+import { supabase } from "@/services/supabase";
+import RagUploadModal from "@/components/RagUploadModal";
+import SupportTicketModal from "@/components/SupportTicketModal";
 import { cn } from "@/lib/utils";
 
 const navItems = [
@@ -25,11 +24,25 @@ const navItems = [
 
 export default function UserLayout() {
   const { t } = useTranslation("sidebar");
-  const { t: td } = useTranslation("dashboard");
   const { signOut, user } = useAuth();
   const navigate = useNavigate();
-  const { hasDraft } = useDraftStatus();
-  const { publish, discard, isPublishing, isDiscarding, feedback } = usePublishDraft();
+  const [ragModalOpen, setRagModalOpen] = useState(false);
+  const [supportModalOpen, setSupportModalOpen] = useState(false);
+
+  const { data: ragStatus } = useQuery({
+    queryKey: ["rag-status", user?.id],
+    enabled: !!user?.id,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("user_documents")
+        .select("status")
+        .eq("user_id", user!.id)
+        .maybeSingle();
+      return data?.status ?? null;
+    },
+  });
+  const hasReadyDoc = ragStatus === "ready";
 
   const handleSignOut = async () => {
     await signOut();
@@ -80,8 +93,27 @@ export default function UserLayout() {
             ))}
           </nav>
 
-          {/* User info + logout */}
+          {/* Knowledge Base + User info + logout */}
           <div className="flex items-center gap-4">
+            <button
+              onClick={() => setRagModalOpen(true)}
+              className="relative flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-[#7A7267] hover:text-[#2D2A26] hover:bg-[#EDE6DD]/40 transition-all duration-200 cursor-pointer"
+              title={t("knowledgeBase")}
+            >
+              <BookOpen className="w-4 h-4 shrink-0" />
+              <span className="hidden sm:inline">{t("knowledgeBase")}</span>
+              {hasReadyDoc && (
+                <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-white" />
+              )}
+            </button>
+            <button
+              onClick={() => setSupportModalOpen(true)}
+              className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-[#7A7267] hover:text-[#2D2A26] hover:bg-[#EDE6DD]/40 transition-all duration-200 cursor-pointer"
+              title={t("support")}
+            >
+              <Headphones className="w-4 h-4 shrink-0" />
+              <span className="hidden sm:inline">{t("support")}</span>
+            </button>
             {user && (
               <div className="hidden sm:block text-end">
                 <p className="text-xs font-semibold text-[#2D2A26]">{user.full_name}</p>
@@ -99,73 +131,19 @@ export default function UserLayout() {
         </div>
       </header>
 
-      {/* Publish Banner */}
-      <AnimatePresence>
-        {(hasDraft || feedback) && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.25 }}
-            className="overflow-hidden"
-          >
-            {feedback ? (
-              <div
-                className={cn(
-                  "flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-medium",
-                  feedback.type === "success"
-                    ? "bg-emerald-50 text-emerald-700 border-b border-emerald-200"
-                    : "bg-red-50 text-red-700 border-b border-red-200",
-                )}
-              >
-                {feedback.type === "success" ? (
-                  <Check className="w-4 h-4" />
-                ) : (
-                  <AlertCircle className="w-4 h-4" />
-                )}
-                {td(feedback.message)}
-              </div>
-            ) : (
-              <div className="flex items-center justify-between px-5 sm:px-8 py-2.5 bg-amber-50 border-b border-amber-200">
-                <span className="text-sm font-medium text-amber-800">
-                  {td("unpublishedChanges")}
-                </span>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={discard}
-                    disabled={isDiscarding}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-amber-700 hover:bg-amber-100 transition-colors cursor-pointer disabled:opacity-50"
-                  >
-                    {isDiscarding ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      <Trash2 className="w-3.5 h-3.5" />
-                    )}
-                    {td("discardDraft")}
-                  </button>
-                  <button
-                    onClick={publish}
-                    disabled={isPublishing}
-                    className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-bold text-white bg-[#FF7E47] hover:bg-[#E86B38] transition-colors cursor-pointer disabled:opacity-50"
-                  >
-                    {isPublishing ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      <Upload className="w-3.5 h-3.5" />
-                    )}
-                    {td("publishChanges")}
-                  </button>
-                </div>
-              </div>
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       {/* Main content */}
       <main className="flex-1 min-w-0">
         <Outlet />
       </main>
+
+      <RagUploadModal isOpen={ragModalOpen} onClose={() => setRagModalOpen(false)} />
+      {user?.id && (
+        <SupportTicketModal
+          open={supportModalOpen}
+          onClose={() => setSupportModalOpen(false)}
+          userId={user.id}
+        />
+      )}
     </div>
   );
 }

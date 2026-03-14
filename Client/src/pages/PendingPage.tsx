@@ -16,6 +16,7 @@ export default function PendingPage() {
     isAuthenticated,
     isApproved,
     isPending,
+    hasCompletedOnboarding,
     isLoading: authLoading,
     signOut,
     refreshProfile,
@@ -31,9 +32,11 @@ export default function PendingPage() {
       return;
     }
     if (isApproved) {
-      navigate("/create-bot", { replace: true });
+      navigate(hasCompletedOnboarding ? "/dashboard" : "/create-bot", {
+        replace: true,
+      });
     }
-  }, [isAuthenticated, isApproved, authLoading, navigate]);
+  }, [isAuthenticated, isApproved, hasCompletedOnboarding, authLoading, navigate]);
 
   // Auto-poll for status change
   useEffect(() => {

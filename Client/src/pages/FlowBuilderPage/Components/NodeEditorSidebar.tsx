@@ -1,14 +1,19 @@
+import { useState, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { X, Plus, Trash2 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { X, Plus, Trash2, Upload, Loader2, Bot } from "lucide-react";
 import type { FlowNode, FlowNodeData, ButtonItem } from "@/types/flow";
+import { supabase } from "@/services/supabase";
+import { useAuthStore } from "@/store/auth.store";
 
 interface NodeEditorSidebarProps {
   node: FlowNode | null;
   onUpdate: (nodeId: string, data: Partial<FlowNodeData>) => void;
   onClose: () => void;
+  isLocked: boolean;
 }
 
-export default function NodeEditorSidebar({ node, onUpdate, onClose }: NodeEditorSidebarProps) {
+export default function NodeEditorSidebar({ node, onUpdate, onClose, isLocked }: NodeEditorSidebarProps) {
   const { t } = useTranslation("flow");
 
   if (!node) {
@@ -35,6 +40,7 @@ export default function NodeEditorSidebar({ node, onUpdate, onClose }: NodeEdito
       </div>
 
       {/* Fields */}
+      <fieldset disabled={isLocked} className={isLocked ? "opacity-60" : ""}>
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {/* Start node */}
         {data.type === "start" && (
@@ -50,7 +56,7 @@ export default function NodeEditorSidebar({ node, onUpdate, onClose }: NodeEdito
         )}
 
         {/* Text / Image / Buttons / Collect Input — message field */}
-        {["text", "image", "buttons", "collect_input"].includes(data.type) && (
+        {["text", "image", "buttons"].includes(data.type) && (
           <Field label={t("message")} hint={t("messageHint")}>
             <textarea
               value={data.message ?? ""}
@@ -61,41 +67,56 @@ export default function NodeEditorSidebar({ node, onUpdate, onClose }: NodeEdito
           </Field>
         )}
 
-        {/* Image URL */}
+        {/* Image upload */}
         {data.type === "image" && (
-          <Field label={t("imageUrl")} hint={t("imageUrlHint")}>
-            <input
-              type="url"
-              value={data.imageUrl ?? ""}
-              onChange={(e) => update({ imageUrl: e.target.value })}
-              className="field-input"
-              dir="ltr"
-            />
-          </Field>
+          <ImageUploadField
+            imageUrl={data.imageUrl ?? ""}
+            onUpdate={(imageUrl) => update({ imageUrl })}
+          />
         )}
 
-        {/* Expected reply */}
+        {/* Yes/No question toggle */}
         {(data.type === "text" || data.type === "image") && (
-          <>
-            <Field label={t("expectedReply")} hint={t("expectedReplyHint")}>
+          <div className="flex items-center justify-between px-1">
+            <span className="text-[10px] text-[#A39B90]">{t("yesNoModeHint")}</span>
+            <label className="relative inline-flex items-center cursor-pointer shrink-0 ms-2">
+              <input
+                type="checkbox"
+                checked={data.yesNoMode ?? false}
+                onChange={(e) => update({ yesNoMode: e.target.checked, ...(e.target.checked ? { expectedReply: "", continueAuto: false } : {}) })}
+                className="sr-only peer"
+              />
+              <div className="w-8 h-[18px] bg-[#EDE6DD] rounded-full peer peer-checked:bg-[#22c55e] after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-[14px] after:w-[14px] after:transition-all peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full after:shadow-sm" />
+            </label>
+          </div>
+        )}
+
+        {/* Expected reply / continue on any (hidden when yesNoMode is on) */}
+        {(data.type === "text" || data.type === "image") && !data.yesNoMode && (
+          <div className="space-y-3">
+            <Field label={t("expectedReply")} hint={data.continueAuto ? undefined : t("expectedReplyHint")}>
               <input
                 type="text"
-                value={data.expectedReply ?? ""}
-                onChange={(e) => update({ expectedReply: e.target.value })}
-                className="field-input"
+                value={data.continueAuto ? "" : (data.expectedReply ?? "")}
+                onChange={(e) => update({ expectedReply: e.target.value, continueAuto: false })}
+                disabled={data.continueAuto ?? false}
+                className={`field-input ${data.continueAuto ? "opacity-40 cursor-not-allowed" : ""}`}
                 dir="rtl"
               />
             </Field>
-            <label className="flex items-center gap-2 text-xs text-[#7A7267] cursor-pointer">
-              <input
-                type="checkbox"
-                checked={data.continueAuto ?? false}
-                onChange={(e) => update({ continueAuto: e.target.checked })}
-                className="accent-[#FF7E47]"
-              />
-              {t("continueAuto")}
-            </label>
-          </>
+            <div className="flex items-center justify-between px-1">
+              <span className="text-[10px] text-[#A39B90]">{t("continueAutoHint")}</span>
+              <label className="relative inline-flex items-center cursor-pointer shrink-0 ms-2">
+                <input
+                  type="checkbox"
+                  checked={data.continueAuto ?? false}
+                  onChange={(e) => update({ continueAuto: e.target.checked, ...(e.target.checked ? { expectedReply: "" } : {}) })}
+                  className="sr-only peer"
+                />
+                <div className="w-8 h-[18px] bg-[#EDE6DD] rounded-full peer peer-checked:bg-[#FF7E47] after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-[14px] after:w-[14px] after:transition-all peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full after:shadow-sm" />
+              </label>
+            </div>
+          </div>
         )}
 
         {/* Buttons list */}
@@ -106,82 +127,71 @@ export default function NodeEditorSidebar({ node, onUpdate, onClose }: NodeEdito
           />
         )}
 
-        {/* Variable name */}
+        {/* Open Bot info (read-only) */}
+        {data.type === "open_bot" && (
+          <div className="bg-violet-50 border border-violet-200 rounded-lg p-3">
+            <div className="flex items-center gap-2 mb-2">
+              <Bot className="w-4 h-4 text-violet-600" />
+              <span className="text-xs font-bold text-violet-700">{t("nodeOpenBot")}</span>
+            </div>
+            <p className="text-[11px] text-violet-600 leading-relaxed">{t("openBotInfo")}</p>
+          </div>
+        )}
+
+        {/* Collect Input */}
         {data.type === "collect_input" && (
-          <Field label={t("variableName")} hint={t("variableNameHint")}>
-            <input
-              type="text"
-              value={data.variableName ?? ""}
-              onChange={(e) => update({ variableName: e.target.value })}
-              className="field-input"
-              dir="ltr"
-            />
-          </Field>
+          <>
+            <Field label={t("message")} hint={t("collectInputMessageHint")}>
+              <textarea
+                value={data.message ?? ""}
+                onChange={(e) => update({ message: e.target.value })}
+                className="field-input min-h-[80px] resize-y"
+                dir="rtl"
+              />
+            </Field>
+            <Field label={t("variableName")} hint={t("variableNameHint")}>
+              <input
+                type="text"
+                value={data.variableName ?? ""}
+                onChange={(e) => update({ variableName: e.target.value })}
+                className="field-input"
+                dir="ltr"
+                placeholder="name"
+              />
+            </Field>
+            <Field label={t("expectedAnswer")} hint={t("expectedAnswerHint")}>
+              <input
+                type="text"
+                value={data.expectedAnswer ?? ""}
+                onChange={(e) => update({ expectedAnswer: e.target.value })}
+                className="field-input"
+                dir="rtl"
+              />
+            </Field>
+          </>
         )}
 
         {/* Delay minutes */}
-        {(data.type === "delay" || data.type === "follow_up") && (
+        {data.type === "delay" && (
           <Field label={t("delayMinutes")} hint={t("delayMinutesHint")}>
             <input
               type="number"
               min={1}
-              max={data.type === "follow_up" ? 10080 : 1440}
-              value={data.delayMinutes ?? (data.type === "follow_up" ? 30 : 5)}
+              max={1440}
+              value={data.delayMinutes ?? 5}
               onChange={(e) => update({ delayMinutes: Number(e.target.value) })}
               className="field-input"
             />
           </Field>
         )}
 
-        {/* Follow-up message */}
-        {data.type === "follow_up" && (
-          <Field label={t("followUpMessage")} hint={t("followUpMessageHint")}>
-            <textarea
-              value={data.followUpMessage ?? ""}
-              onChange={(e) => update({ followUpMessage: e.target.value })}
-              className="field-input min-h-[80px] resize-y"
-              dir="rtl"
-            />
-          </Field>
+        {/* API Call */}
+        {data.type === "api_call" && (
+          <ApiCallEditor data={data} update={update} />
         )}
 
-        {/* Condition */}
-        {data.type === "condition" && (
-          <>
-            <Field label={t("conditionVariable")}>
-              <input
-                type="text"
-                value={data.variable ?? ""}
-                onChange={(e) => update({ variable: e.target.value })}
-                className="field-input"
-                dir="ltr"
-              />
-            </Field>
-            <Field label={t("conditionOperator")}>
-              <select
-                value={data.operator ?? "equals"}
-                onChange={(e) => update({ operator: e.target.value as FlowNodeData["operator"] })}
-                className="field-input"
-              >
-                <option value="equals">{t("operatorEquals")}</option>
-                <option value="contains">{t("operatorContains")}</option>
-                <option value="not_empty">{t("operatorNotEmpty")}</option>
-              </select>
-            </Field>
-            {data.operator !== "not_empty" && (
-              <Field label={t("conditionValue")}>
-                <input
-                  type="text"
-                  value={data.value ?? ""}
-                  onChange={(e) => update({ value: e.target.value })}
-                  className="field-input"
-                  dir="rtl"
-                />
-              </Field>
-            )}
-          </>
-        )}
       </div>
+      </fieldset>
 
       {/* Inline styles for field inputs */}
       <style>{`
@@ -221,7 +231,7 @@ function ButtonsEditor({ buttons, onChange }: { buttons: ButtonItem[]; onChange:
   const { t } = useTranslation("flow");
 
   const addButton = () => {
-    if (buttons.length >= 3) return;
+    if (buttons.length >= 10) return;
     onChange([...buttons, { id: `btn-${Date.now()}`, label: "" }]);
   };
 
@@ -233,10 +243,14 @@ function ButtonsEditor({ buttons, onChange }: { buttons: ButtonItem[]; onChange:
     onChange(buttons.map((b) => (b.id === id ? { ...b, label } : b)));
   };
 
+  const toggleOpenBot = (id: string) => {
+    onChange(buttons.map((b) => (b.id === id ? { ...b, openBot: !b.openBot } : b)));
+  };
+
   return (
     <div>
       <label className="text-xs font-semibold text-[#2D2A26] block mb-2">{t("buttons")}</label>
-      <div className="space-y-2">
+      <div className="space-y-2 max-h-[280px] overflow-y-auto">
         {buttons.map((btn) => (
           <div key={btn.id} className="flex items-center gap-1.5">
             <input
@@ -248,6 +262,17 @@ function ButtonsEditor({ buttons, onChange }: { buttons: ButtonItem[]; onChange:
               dir="rtl"
             />
             <button
+              onClick={() => toggleOpenBot(btn.id)}
+              className={`p-1.5 rounded cursor-pointer transition-colors ${
+                btn.openBot
+                  ? "bg-violet-100 text-violet-600"
+                  : "text-[#A39B90] hover:bg-violet-50 hover:text-violet-500"
+              }`}
+              title={t("openBotToggle")}
+            >
+              <Bot className="w-3 h-3" />
+            </button>
+            <button
               onClick={() => removeButton(btn.id)}
               className="p-1.5 rounded hover:bg-red-50 text-[#A39B90] hover:text-red-500 cursor-pointer"
             >
@@ -256,7 +281,7 @@ function ButtonsEditor({ buttons, onChange }: { buttons: ButtonItem[]; onChange:
           </div>
         ))}
       </div>
-      {buttons.length < 3 ? (
+      {buttons.length < 10 ? (
         <button
           onClick={addButton}
           className="flex items-center gap-1 mt-2 text-xs text-[#FF7E47] hover:text-[#E86B38] cursor-pointer"
@@ -265,6 +290,263 @@ function ButtonsEditor({ buttons, onChange }: { buttons: ButtonItem[]; onChange:
         </button>
       ) : (
         <p className="text-[10px] text-[#A39B90] mt-1">{t("maxButtons")}</p>
+      )}
+    </div>
+  );
+}
+
+const MAX_IMAGE_SIZE_MB = 5;
+
+async function uploadImageToStorage(
+  file: File,
+  userId: string,
+): Promise<string> {
+  if (file.size > MAX_IMAGE_SIZE_MB * 1024 * 1024) {
+    throw new Error(`File exceeds ${MAX_IMAGE_SIZE_MB}MB limit`);
+  }
+  const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+  const path = `${userId}/${crypto.randomUUID()}.${ext}`;
+  const { error } = await supabase.storage
+    .from("bot-media")
+    .upload(path, file, { contentType: file.type, upsert: false });
+  if (error) throw error;
+  const { data } = supabase.storage.from("bot-media").getPublicUrl(path);
+  return data.publicUrl;
+}
+
+function ImageUploadField({ imageUrl, onUpdate }: { imageUrl: string; onUpdate: (url: string) => void }) {
+  const { t } = useTranslation("flow");
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState("");
+  const fileRef = useRef<HTMLInputElement>(null);
+  const userId = useAuthStore((s) => s.user?.id);
+
+  const handleFile = async (file: File) => {
+    if (!userId || !file.type.startsWith("image/")) return;
+    setUploading(true);
+    setError("");
+    try {
+      const publicUrl = await uploadImageToStorage(file, userId);
+      onUpdate(publicUrl);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("imageUploadError"));
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  };
+
+  if (imageUrl) {
+    return (
+      <Field label={t("nodeImage")}>
+        <div className="relative rounded-lg overflow-hidden border border-[#EDE6DD]">
+          <img src={imageUrl} alt="" className="w-full h-28 object-cover" />
+          <button
+            type="button"
+            onClick={() => onUpdate("")}
+            className="absolute top-1 right-1 p-1 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors cursor-pointer"
+            title={t("imageRemove")}
+          >
+            <X className="w-3 h-3" />
+          </button>
+        </div>
+      </Field>
+    );
+  }
+
+  return (
+    <Field label={t("nodeImage")}>
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
+      />
+      <button
+        type="button"
+        onClick={() => fileRef.current?.click()}
+        disabled={uploading}
+        className="w-full flex flex-col items-center justify-center gap-1.5 py-4 rounded-lg border-2 border-dashed border-[#EDE6DD] hover:border-[#FF7E47]/40 hover:bg-[#FFF5F0]/30 transition-colors cursor-pointer disabled:cursor-wait"
+      >
+        {uploading ? (
+          <>
+            <Loader2 className="w-5 h-5 text-[#A39B90] animate-spin" />
+            <span className="text-[10px] text-[#A39B90]">{t("imageUploading")}</span>
+          </>
+        ) : (
+          <>
+            <Upload className="w-5 h-5 text-[#A39B90]" />
+            <span className="text-[10px] text-[#A39B90]">{t("imageUpload")}</span>
+          </>
+        )}
+      </button>
+      {error && <p className="text-[10px] text-red-500 mt-1">{error}</p>}
+    </Field>
+  );
+}
+
+function ApiCallEditor({ data, update }: { data: FlowNodeData; update: (patch: Partial<FlowNodeData>) => void }) {
+  const { t } = useTranslation("flow");
+  const userId = useAuthStore((s) => s.user?.id);
+
+  const { data: integrations } = useQuery({
+    queryKey: ["integrations", userId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("integrations")
+        .select("id, integration_type, config, status")
+        .eq("status", "active")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: !!userId,
+  });
+
+  const method = data.method ?? "GET";
+
+  return (
+    <>
+      {/* Integration selector */}
+      <Field label={t("apiCallIntegration")} hint={t("apiCallIntegrationHint")}>
+        {integrations && integrations.length > 0 ? (
+          <select
+            value={data.integrationId ?? ""}
+            onChange={(e) => update({ integrationId: e.target.value || undefined })}
+            className="field-input"
+          >
+            <option value="">{t("apiCallIntegration")}...</option>
+            {integrations.map((intg) => (
+              <option key={intg.id} value={intg.id}>
+                {intg.integration_type}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <p className="text-[10px] text-amber-600">{t("apiCallNoIntegrations")}</p>
+        )}
+      </Field>
+
+      {/* Method */}
+      <Field label={t("apiCallMethod")}>
+        <select
+          value={method}
+          onChange={(e) => update({ method: e.target.value })}
+          className="field-input"
+        >
+          <option value="GET">GET</option>
+          <option value="POST">POST</option>
+          <option value="PUT">PUT</option>
+        </select>
+      </Field>
+
+      {/* Endpoint */}
+      <Field label={t("apiCallEndpoint")} hint={t("apiCallEndpointHint")}>
+        <input
+          type="text"
+          value={data.endpoint ?? ""}
+          onChange={(e) => update({ endpoint: e.target.value })}
+          className="field-input"
+          dir="ltr"
+          placeholder="/api/v1/rooms"
+        />
+      </Field>
+
+      {/* Body template (POST/PUT only) */}
+      {(method === "POST" || method === "PUT") && (
+        <Field label={t("apiCallBody")} hint={t("apiCallBodyHint")}>
+          <textarea
+            value={data.bodyTemplate ?? ""}
+            onChange={(e) => update({ bodyTemplate: e.target.value })}
+            className="field-input min-h-[80px] resize-y font-mono text-[11px]"
+            dir="ltr"
+            placeholder='{"check_in": "{{checkin_date}}"}'
+          />
+        </Field>
+      )}
+
+      {/* Response mapping */}
+      <ResponseMappingEditor
+        mappings={data.responseMapping ?? []}
+        onChange={(responseMapping) => update({ responseMapping })}
+      />
+
+      {/* Error message */}
+      <Field label={t("apiCallErrorMessage")} hint={t("apiCallErrorMessageHint")}>
+        <textarea
+          value={data.errorMessage ?? ""}
+          onChange={(e) => update({ errorMessage: e.target.value })}
+          className="field-input min-h-[60px] resize-y"
+          dir="rtl"
+        />
+      </Field>
+    </>
+  );
+}
+
+function ResponseMappingEditor({
+  mappings,
+  onChange,
+}: {
+  mappings: Array<{ jsonPath: string; variableName: string }>;
+  onChange: (m: Array<{ jsonPath: string; variableName: string }>) => void;
+}) {
+  const { t } = useTranslation("flow");
+
+  const addMapping = () => {
+    if (mappings.length >= 10) return;
+    onChange([...mappings, { jsonPath: "", variableName: "" }]);
+  };
+
+  const removeMapping = (index: number) => {
+    onChange(mappings.filter((_, i) => i !== index));
+  };
+
+  const updateMapping = (index: number, patch: Partial<{ jsonPath: string; variableName: string }>) => {
+    onChange(mappings.map((m, i) => (i === index ? { ...m, ...patch } : m)));
+  };
+
+  return (
+    <div>
+      <label className="text-xs font-semibold text-[#2D2A26] block mb-2">{t("apiCallResponseMapping")}</label>
+      <div className="space-y-2 max-h-[240px] overflow-y-auto">
+        {mappings.map((m, i) => (
+          <div key={i} className="space-y-1 p-2 rounded-lg bg-[#FAF7F3] border border-[#EDE6DD]/60">
+            <input
+              type="text"
+              value={m.jsonPath}
+              onChange={(e) => updateMapping(i, { jsonPath: e.target.value })}
+              placeholder={t("apiCallJsonPath")}
+              className="field-input text-[11px]"
+              dir="ltr"
+            />
+            <input
+              type="text"
+              value={m.variableName}
+              onChange={(e) => updateMapping(i, { variableName: e.target.value })}
+              placeholder={t("apiCallVariableName")}
+              className="field-input text-[11px]"
+              dir="ltr"
+            />
+            <button
+              onClick={() => removeMapping(i)}
+              className="flex items-center gap-1 text-[10px] text-red-400 hover:text-red-600 cursor-pointer"
+            >
+              <Trash2 className="w-3 h-3" /> {t("deleteNode")}
+            </button>
+          </div>
+        ))}
+      </div>
+      {mappings.length < 10 ? (
+        <button
+          onClick={addMapping}
+          className="flex items-center gap-1 mt-2 text-xs text-[#FF7E47] hover:text-[#E86B38] cursor-pointer"
+        >
+          <Plus className="w-3 h-3" /> {t("apiCallAddMapping")}
+        </button>
+      ) : (
+        <p className="text-[10px] text-[#A39B90] mt-1">{t("apiCallMaxMappings")}</p>
       )}
     </div>
   );

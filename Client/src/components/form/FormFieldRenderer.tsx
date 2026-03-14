@@ -2,7 +2,9 @@ import React from "react";
 import { Plus, Trash2, Globe } from "lucide-react";
 import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
+import DOMPurify from "dompurify";
 import { cn } from "@/lib/utils";
+import { RICH_TEXT_CLASS } from "@/lib/form-constants";
 import type { FormField, FileUploadItem } from "@/types/form";
 import { FileUploadZone } from "./FileUploadZone";
 
@@ -23,6 +25,19 @@ interface FormFieldRendererProps {
   ) => void;
   addUrlEntry: (fieldId: string) => void;
   removeUrlEntry: (fieldId: string, index: number) => void;
+  getQaEntries: (fieldId: string) => Array<{ question: string; answer: string }>;
+  updateQaEntry: (
+    fieldId: string,
+    index: number,
+    key: "question" | "answer",
+    value: string,
+  ) => void;
+  addQaEntry: (fieldId: string) => void;
+  removeQaEntry: (fieldId: string, index: number) => void;
+  getRulesEntries: (fieldId: string, categoryCount: number) => string[][];
+  updateRulesItem: (fieldId: string, catIdx: number, itemIdx: number, value: string) => void;
+  addRulesItem: (fieldId: string, catIdx: number) => void;
+  removeRulesItem: (fieldId: string, catIdx: number, itemIdx: number) => void;
   fileUploads: Record<string, FileUploadItem[]>;
   fileInputRefs: React.MutableRefObject<Record<string, HTMLInputElement | null>>;
   handleFileSelect: (fieldId: string, files: FileList | null) => void;
@@ -39,8 +54,6 @@ interface FormFieldRendererProps {
 const inputBase =
   "w-full bg-[#FAF7F3] border border-[#E5DDD3] rounded-xl px-4 py-3 text-sm text-[#2D2A26] placeholder-[#B8AFA4] focus:border-[#FF7E47] focus:ring-2 focus:ring-[#FF7E47]/15 outline-none transition-all duration-200";
 
-const richTextClass =
-  "[&_p]:m-0 [&_ol]:list-decimal [&_ol]:pr-5 [&_ol]:space-y-0.5 [&_ul]:list-disc [&_ul]:pr-5 [&_ul]:space-y-0.5 [&_li]:pr-1";
 
 /* ── Warm-themed checkbox (matches OrangeCheck pattern) ── */
 function WarmCheckbox({
@@ -166,27 +179,88 @@ function WarmToggle({
   );
 }
 
-/* ── Label with rich text + required indicator ── */
+/* ── Parse numbered list items from HTML description ── */
+export function parseListItems(html: string): string[] {
+  const div = document.createElement("div");
+  div.innerHTML = DOMPurify.sanitize(html);
+  // Try <ol>/<ul> with <li> elements first
+  const lis = div.querySelectorAll("li");
+  if (lis.length > 0) {
+    return Array.from(lis).map((li) => li.textContent?.trim() ?? "").filter(Boolean);
+  }
+  // Fallback: numbered lines like "1. Business name\n2. ..."
+  // Convert <br> and block-level closing tags to newlines before extracting text
+  div.innerHTML = html.replace(/<br\s*\/?>/gi, "\n").replace(/<\/p>/gi, "\n");
+  const text = div.textContent ?? "";
+  const lines = text.split(/\n/).map((l) => l.trim()).filter(Boolean);
+  const numbered = lines.filter((l) => /^\d+[\.\)]\s?/.test(l));
+  if (numbered.length >= 2) {
+    return numbered.map((l) => l.replace(/^\d+[\.\)]\s?/, "").trim());
+  }
+  return [];
+}
+
+/* ── Combine sub-field values into a single string ── */
+export function combineSubValues(
+  items: string[],
+  subValues: Record<number, string>,
+): string {
+  return items
+    .map((label, i) => {
+      const val = (subValues[i] ?? "").trim();
+      return val ? `${label}: ${val}` : "";
+    })
+    .filter(Boolean)
+    .join("\n");
+}
+
+/* ── Parse combined string back into sub-values ── */
+export function parseSubValues(
+  items: string[],
+  combined: string,
+): Record<number, string> {
+  const result: Record<number, string> = {};
+  if (!combined) return result;
+  const lines = combined.split("\n");
+  for (const line of lines) {
+    for (let i = 0; i < items.length; i++) {
+      const prefix = `${items[i]}: `;
+      if (line.startsWith(prefix)) {
+        result[i] = line.slice(prefix.length);
+        break;
+      }
+    }
+  }
+  return result;
+}
+
+/* ── Label with rich text + required/optional indicator ── */
 function FieldLabel({
   field,
 }: {
   field: FormField;
 }) {
+  const { t } = useTranslation("common");
   return (
     <div className="space-y-1">
-      <div className="text-sm font-bold text-[#2D2A26] flex items-start gap-1">
+      <div className="text-sm font-bold text-[#2D2A26] flex items-start gap-1.5">
         {field.is_required && (
           <span className="text-red-400 leading-relaxed">*</span>
         )}
         <span
-          className={richTextClass}
-          dangerouslySetInnerHTML={{ __html: field.label }}
+          className={RICH_TEXT_CLASS}
+          dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(field.label) }}
         />
+        {!field.is_required && (
+          <span className="text-[10px] font-medium text-[#B8AFA4] bg-[#F5F0EA] rounded-full px-2 py-0.5 leading-tight mt-0.5 whitespace-nowrap">
+            {t("optional")}
+          </span>
+        )}
       </div>
-      {field.description && (
+      {field.description && field.field_type !== "rules_list" && (
         <div
-          className={`text-xs text-[#7A7267] ${richTextClass}`}
-          dangerouslySetInnerHTML={{ __html: field.description }}
+          className={`text-xs text-[#7A7267] ${RICH_TEXT_CLASS}`}
+          dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(field.description) }}
         />
       )}
     </div>
@@ -205,6 +279,14 @@ export function FormFieldRenderer({
   updateUrlEntry,
   addUrlEntry,
   removeUrlEntry,
+  getQaEntries,
+  updateQaEntry,
+  addQaEntry,
+  removeQaEntry,
+  getRulesEntries,
+  updateRulesItem,
+  addRulesItem,
+  removeRulesItem,
   fileUploads,
   fileInputRefs,
   handleFileSelect,
@@ -312,6 +394,113 @@ export function FormFieldRenderer({
       );
     }
 
+    case "qa_pairs": {
+      const qaItems = getQaEntries(field.id);
+      return (
+        <div className="space-y-2">
+          <FieldLabel field={field} />
+          <div className="space-y-3">
+            {qaItems.map((entry, idx) => (
+              <div
+                key={idx}
+                className="flex items-start gap-2 bg-[#FAF7F3] rounded-xl p-3 border border-[#EDE6DD]/50"
+              >
+                <div className="flex-1 space-y-2">
+                  <input
+                    placeholder={t("qaQuestion")}
+                    value={entry.question}
+                    onChange={(e) =>
+                      updateQaEntry(field.id, idx, "question", e.target.value)
+                    }
+                    className={cn(inputBase, "font-semibold")}
+                  />
+                  <input
+                    placeholder={t("qaAnswer")}
+                    value={entry.answer}
+                    onChange={(e) =>
+                      updateQaEntry(field.id, idx, "answer", e.target.value)
+                    }
+                    className={inputBase}
+                  />
+                </div>
+                {qaItems.length > 1 && (
+                  <button
+                    type="button"
+                    className="h-9 w-9 shrink-0 flex items-center justify-center rounded-lg text-[#B8AFA4] hover:text-red-400 hover:bg-red-50 transition-colors mt-1"
+                    onClick={() => removeQaEntry(field.id, idx)}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={() => addQaEntry(field.id)}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold text-[#FF7E47] bg-[#FF7E47]/8 hover:bg-[#FF7E47]/15 border border-[#FF7E47]/20 transition-all duration-200"
+          >
+            <Plus className="w-4 h-4" /> {t("addQuestion")}
+          </button>
+        </div>
+      );
+    }
+
+    case "rules_list": {
+      const categories = parseListItems(field.description);
+      const rulesData = getRulesEntries(field.id, categories.length);
+      return (
+        <div className="space-y-3">
+          <FieldLabel field={field} />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+            {categories.map((catLabel, catIdx) => {
+              const items = rulesData[catIdx] ?? [""];
+              return (
+                <div
+                  key={catIdx}
+                  className="bg-white rounded-2xl border border-[#EDE6DD] p-5 shadow-[0_1px_8px_rgba(45,42,38,0.04)]"
+                >
+                  <h4 className="text-sm font-bold text-[#FF7E47] mb-3">
+                    {catLabel}
+                  </h4>
+                  <div className="space-y-2">
+                    {items.map((item, itemIdx) => (
+                      <div key={itemIdx} className="flex items-center gap-2">
+                        <input
+                          value={item}
+                          onChange={(e) =>
+                            updateRulesItem(field.id, catIdx, itemIdx, e.target.value)
+                          }
+                          className={cn(inputBase, "flex-1")}
+                          placeholder={catLabel}
+                        />
+                        {items.length > 1 && (
+                          <button
+                            type="button"
+                            className="h-8 w-8 shrink-0 flex items-center justify-center rounded-lg text-[#B8AFA4] hover:text-red-400 hover:bg-red-50 transition-colors"
+                            onClick={() => removeRulesItem(field.id, catIdx, itemIdx)}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => addRulesItem(field.id, catIdx)}
+                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold text-[#FF7E47] bg-[#FF7E47]/8 hover:bg-[#FF7E47]/15 border border-[#FF7E47]/20 transition-all duration-200 mt-3"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> {t("addRule")}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
+
     case "toggle":
       return (
         <div className="flex items-center justify-between p-4 bg-[#FAF7F3] rounded-xl border border-[#EDE6DD]/50">
@@ -338,20 +527,50 @@ export function FormFieldRenderer({
               />
             ))}
             {field.allow_other && (
-              <div className="flex items-center gap-2">
-                <WarmCheckbox
-                  checked={selected.includes("__other__")}
-                  onChange={() => toggleCheckboxValue(field.id, "__other__")}
-                  label={t("other") + ":"}
-                />
+              <button
+                type="button"
+                onClick={() => toggleCheckboxValue(field.id, "__other__")}
+                className={cn(
+                  "group flex items-center gap-3 w-full rounded-xl px-4 py-3.5 text-start transition-all duration-300",
+                  selected.includes("__other__")
+                    ? "bg-[#FF7E47]/8 border-2 border-[#FF7E47]/40"
+                    : "bg-[#FAF7F3] border-2 border-transparent hover:border-[#EDE6DD]",
+                )}
+              >
+                <div
+                  className={cn(
+                    "flex-shrink-0 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all duration-200",
+                    selected.includes("__other__")
+                      ? "bg-[#FF7E47] border-[#FF7E47]"
+                      : "border-[#D5CCBF] group-hover:border-[#FF7E47]/40",
+                  )}
+                >
+                  {selected.includes("__other__") && (
+                    <motion.svg
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                      className="w-3 h-3 text-white"
+                      viewBox="0 0 12 12"
+                      fill="none"
+                    >
+                      <path d="M2 6L5 9L10 3" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                    </motion.svg>
+                  )}
+                </div>
+                <span className="text-sm font-medium text-[#2D2A26] whitespace-nowrap">{t("other")}:</span>
                 <input
                   placeholder={t("enterValue")}
                   value={otherValues[field.id] ?? ""}
-                  onChange={(e) => setOtherValue(field.id, e.target.value)}
-                  className={cn(inputBase, "h-10 text-sm flex-1")}
+                  onChange={(e) => {
+                    e.stopPropagation();
+                    setOtherValue(field.id, e.target.value);
+                  }}
+                  onClick={(e) => e.stopPropagation()}
                   disabled={!selected.includes("__other__")}
+                  className="flex-1 bg-transparent border-none outline-none text-sm text-[#2D2A26] placeholder-[#B8AFA4] disabled:opacity-40"
                 />
-              </div>
+              </button>
             )}
           </div>
         </div>

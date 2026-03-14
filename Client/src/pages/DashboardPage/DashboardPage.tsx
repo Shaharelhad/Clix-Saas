@@ -11,12 +11,14 @@ import {
   RefreshCw,
   ChevronDown,
   X,
+  ShieldBan,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/services/supabase";
 import { callWClixAPIConnect } from "@/services/edge-functions";
 import ConversationsSection from "./Sections/ConversationsSection";
+import BlockedNumbersModal from "./Sections/BlockedNumbersModal";
 
 /* ─────────────────────── Animation config ──────────────────── */
 
@@ -102,13 +104,14 @@ function BotStatusPill({ userId }: { userId: string }) {
   const status = resolveStatus(dbBotStatus ?? null);
   const config = STATUS_CONFIG[status];
 
-  // Gateway health-check: poll every 30s to detect if customer disconnected from phone
-  // Require 3 consecutive failures (~90s) before overwriting DB to avoid transient blips
+  // Gateway health-check: poll every 15s to detect if customer disconnected from phone
+  // Require 2 consecutive failures (~30s) before overwriting DB to avoid transient blips
   const failCountRef = useRef(0);
-  const FAIL_THRESHOLD = 3;
+  const FAIL_THRESHOLD = 2;
 
   useEffect(() => {
-    if (status !== "connected") return;
+    if (status !== "connected" && status !== "paused") return;
+    if (status === "paused") return; // Don't health-check while paused
     let cancelled = false;
     failCountRef.current = 0;
 
@@ -130,7 +133,7 @@ function BotStatusPill({ userId }: { userId: string }) {
       }
     };
 
-    const interval = setInterval(check, 30000);
+    const interval = setInterval(check, 15000);
     check();
 
     return () => {
@@ -491,6 +494,23 @@ function BotStatusPill({ userId }: { userId: string }) {
 export default function DashboardPage() {
   const { t } = useTranslation("dashboard");
   const { user } = useAuth();
+  const [blockedModalOpen, setBlockedModalOpen] = useState(false);
+
+  // Fetch blocked numbers (shared cache with modal)
+  const { data: blockedNumbers = [] } = useQuery({
+    queryKey: ["blocked_numbers", user?.id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("blocked_numbers")
+        .eq("id", user!.id)
+        .single();
+      const raw = data?.blocked_numbers;
+      return Array.isArray(raw) ? (raw as string[]) : [];
+    },
+    enabled: !!user?.id,
+  });
+  const blockedCount = blockedNumbers.length;
 
   return (
     <motion.div
@@ -509,14 +529,41 @@ export default function DashboardPage() {
           <p className="text-sm text-[#7A7267] mt-0.5">{t("subtitle")}</p>
         </motion.div>
 
-        {/* Bot Status */}
-        {user?.id && <BotStatusPill userId={user.id} />}
+        {/* Bot Status + Blocked Numbers */}
+        {user?.id && (
+          <motion.div variants={fadeUp} className="flex items-center gap-3">
+            <button
+              onClick={() => setBlockedModalOpen(true)}
+              className="flex items-center gap-2 px-3.5 py-2.5 rounded-2xl border border-[#EDE6DD] bg-white shadow-sm cursor-pointer transition-all hover:shadow-md hover:border-[#D5CEC5]"
+            >
+              <ShieldBan className="w-4 h-4 text-[#7A7267]" />
+              <span className="text-xs font-bold uppercase tracking-wider text-[#7A7267]">
+                {t("blockedNumbers")}
+              </span>
+              {blockedCount > 0 && (
+                <span className="bg-red-500 text-white text-[10px] font-bold min-w-[18px] h-[18px] flex items-center justify-center rounded-full px-1">
+                  {blockedCount}
+                </span>
+              )}
+            </button>
+            <BotStatusPill userId={user.id} />
+          </motion.div>
+        )}
       </div>
 
       {/* ── Conversations (full width) ── */}
       <motion.div variants={fadeUp}>
         <ConversationsSection />
       </motion.div>
+
+      {/* ── Blocked Numbers Modal ── */}
+      {user?.id && (
+        <BlockedNumbersModal
+          open={blockedModalOpen}
+          onClose={() => setBlockedModalOpen(false)}
+          userId={user.id}
+        />
+      )}
     </motion.div>
   );
 }

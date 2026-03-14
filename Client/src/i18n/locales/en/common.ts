@@ -3,12 +3,19 @@ export default {
   error: "Error",
   waiting: "Please wait",
   other: "Other",
+  optional: "Optional",
   enterValue: "Enter a value",
   select: "Select",
 
   // Form — URL fields
   addLink: "Add link",
   urlLabelPlaceholder: "Label",
+
+  // Form — Q&A pairs
+  qaQuestion: "Question",
+  qaAnswer: "Answer (optional)",
+  addQuestion: "Add a question",
+  addRule: "Add",
 
   // Form — File upload
   clickToUpload: "Click to upload images or videos",

@@ -2,7 +2,8 @@ import { create } from "zustand";
 import type { Session } from "@supabase/supabase-js";
 import type { Database } from "@/types/database";
 
-type Profile = Database["public"]["Functions"]["get_my_profile"]["Returns"][number];
+type RpcProfile = Database["public"]["Functions"]["get_my_profile"]["Returns"][number];
+type Profile = RpcProfile & { bot_status?: string };
 
 interface AuthState {
   user: Profile | null;

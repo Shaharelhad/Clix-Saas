@@ -1,4 +1,5 @@
-import { corsHeaders } from "../_shared/cors.ts";
+import { getCorsHeaders } from "../_shared/cors.ts";
+import { getAuthenticatedUserId } from "../_shared/auth.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const FIRECRAWL_API_KEY = Deno.env.get("FIRECRAWL_API_KEY") || "";
@@ -86,19 +87,16 @@ function extractOldUrls(additionalInfo: string | Record<string, unknown> | null)
 }
 
 Deno.serve(async (req) => {
+  const cors = getCorsHeaders(req);
+
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response("ok", { headers: cors });
   }
 
   try {
-    const { user_id, full_name, fields } = await req.json();
-
-    if (!user_id) {
-      return new Response(
-        JSON.stringify({ error: "user_id is required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
+    const body = await req.json();
+    const user_id = await getAuthenticatedUserId(req);
+    const { full_name, fields } = body;
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -117,7 +115,7 @@ Deno.serve(async (req) => {
     if (fetchErr || !existing) {
       return new Response(
         JSON.stringify({ error: "No existing form response found. Use form-submission for first-time submissions." }),
-        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        { status: 404, headers: { ...cors, "Content-Type": "application/json" } },
       );
     }
 
@@ -279,13 +277,15 @@ Deno.serve(async (req) => {
         urls_changed: urlsChanged,
         message: "Form updated successfully",
       }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      { headers: { ...cors, "Content-Type": "application/json" } },
     );
   } catch (err) {
     console.error("form-update error:", err);
+    const message = err instanceof Error ? err.message : "Unknown error";
+    const status = message.includes("Authorization") || message.includes("token") ? 401 : 500;
     return new Response(
-      JSON.stringify({ error: (err as Error).message }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      JSON.stringify({ error: message }),
+      { status, headers: { ...cors, "Content-Type": "application/json" } },
     );
   }
 });

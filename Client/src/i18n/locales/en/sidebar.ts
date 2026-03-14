@@ -6,6 +6,8 @@ const sidebar = {
   faq: "FAQ",
   connect: "Connect",
   flowBuilder: "Flow Builder",
+  knowledgeBase: "Knowledge Base",
+  support: "Support",
   logout: "Logout",
 };
 

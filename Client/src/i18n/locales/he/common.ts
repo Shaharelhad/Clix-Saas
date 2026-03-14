@@ -3,12 +3,19 @@ export default {
   error: "שגיאה",
   waiting: "נא להמתין",
   other: "אחר",
+  optional: "לא חובה",
   enterValue: "הזן ערך",
   select: "בחר",
 
   // Form — URL fields
   addLink: "הוסף קישור",
   urlLabelPlaceholder: "תווית",
+
+  // Form — Q&A pairs
+  qaQuestion: "שאלה",
+  qaAnswer: "תשובה (לא חובה)",
+  addQuestion: "הוסף שאלה נפוצה",
+  addRule: "הוסף",
 
   // Form — File upload
   clickToUpload: "לחץ להעלאת תמונות או סרטונים",

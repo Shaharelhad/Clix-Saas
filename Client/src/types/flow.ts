@@ -7,14 +7,15 @@ export type FlowNodeType =
   | "text"
   | "image"
   | "buttons"
-  | "collect_input"
   | "delay"
-  | "follow_up"
-  | "condition"; // visual-only — no backend execution yet
+  | "open_bot"
+  | "collect_input"
+  | "api_call";
 
 export interface ButtonItem {
   id: string;
   label: string;
+  openBot?: boolean;
 }
 
 export interface FlowNodeData extends Record<string, unknown> {
@@ -30,24 +31,60 @@ export interface FlowNodeData extends Record<string, unknown> {
   imageUrl?: string;
   // buttons
   buttons?: ButtonItem[];
+  // text / image — yes/no question mode
+  yesNoMode?: boolean;
   // collect_input
   variableName?: string;
-  // delay / follow_up
+  expectedAnswer?: string;
+  // delay
   delayMinutes?: number;
-  followUpMessage?: string;
-  // condition (visual-only)
-  variable?: string;
-  operator?: "equals" | "contains" | "not_empty";
-  value?: string;
+  // open_bot (auto-created by button toggle)
+  linkedButtonId?: string;
+  linkedNodeId?: string;
+  // api_call
+  integrationId?: string;
+  endpoint?: string;
+  method?: string;
+  bodyTemplate?: string;
+  responseMapping?: Array<{ jsonPath: string; variableName: string }>;
+  errorMessage?: string;
 }
 
 // XYFlow typed node / edge
 export type FlowNode = Node<FlowNodeData, FlowNodeType>;
 export type FlowEdge = Edge;
 
+// ── Workflow-level settings (pre-processing guards) ────────
+export interface FlowSettings {
+  ignoreGroupChats: boolean;
+  cooldownEnabled: boolean;
+  cooldownMinutes: number;
+  deduplicateMessages: boolean;
+  autoFollowUpEnabled: boolean;
+  autoFollowUpDelayMinutes: number;
+  autoFollowUpMaxCount: number;
+  sessionResetEnabled: boolean;
+  sessionResetMinutes: number;
+  strictMode: boolean;
+}
+
+export const DEFAULT_FLOW_SETTINGS: FlowSettings = {
+  ignoreGroupChats: true,
+  cooldownEnabled: true,
+  cooldownMinutes: 60,
+  deduplicateMessages: true,
+  autoFollowUpEnabled: false,
+  autoFollowUpDelayMinutes: 120,
+  autoFollowUpMaxCount: 1,
+  sessionResetEnabled: false,
+  sessionResetMinutes: 1440,
+  strictMode: false,
+};
+
 export interface FlowJSON {
   nodes: FlowNode[];
   edges: FlowEdge[];
+  settings?: FlowSettings;
 }
 
 // Database row type
@@ -59,10 +96,10 @@ export const NODE_COLORS: Record<FlowNodeType, string> = {
   text: "#3b82f6",
   image: "#a855f7",
   buttons: "#f59e0b",
-  collect_input: "#06b6d4",
   delay: "#6b7280",
-  follow_up: "#ec4899",
-  condition: "#ef4444",
+  open_bot: "#8B5CF6",
+  collect_input: "#06b6d4",
+  api_call: "#ec4899",
 };
 
 // Default labels for each node type
@@ -71,8 +108,8 @@ export const NODE_DEFAULTS: Record<FlowNodeType, Partial<FlowNodeData>> = {
   text: { type: "text", message: "", continueAuto: false },
   image: { type: "image", message: "", imageUrl: "" },
   buttons: { type: "buttons", message: "", buttons: [] },
-  collect_input: { type: "collect_input", message: "", variableName: "" },
   delay: { type: "delay", delayMinutes: 5 },
-  follow_up: { type: "follow_up", followUpMessage: "", delayMinutes: 30 },
-  condition: { type: "condition", variable: "", operator: "equals", value: "" },
+  open_bot: { type: "open_bot" },
+  collect_input: { type: "collect_input", message: "", variableName: "" },
+  api_call: { type: "api_call", method: "GET", endpoint: "", responseMapping: [], errorMessage: "" },
 };

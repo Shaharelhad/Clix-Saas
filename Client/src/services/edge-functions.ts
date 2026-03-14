@@ -78,3 +78,15 @@ export function callScrapeStatus(data: Record<string, unknown>) {
 export function callFlowDemo(data: Record<string, unknown>) {
   return callEdgeFn("VITE_EDGE_FN_FLOW_DEMO", data);
 }
+
+export function callRagUpload(data: Record<string, unknown>) {
+  return callEdgeFn("VITE_EDGE_FN_RAG_UPLOAD", data);
+}
+
+export function callRagDelete(data: Record<string, unknown>) {
+  return callEdgeFn("VITE_EDGE_FN_RAG_DELETE", data);
+}
+
+export function callFlowAssistant(data: Record<string, unknown>) {
+  return callEdgeFn("VITE_EDGE_FN_FLOW_ASSISTANT", data);
+}

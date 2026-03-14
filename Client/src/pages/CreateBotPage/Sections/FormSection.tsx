@@ -1,163 +1,63 @@
-import { useState } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
-import { motion } from "framer-motion";
-import {
-  Bot,
-  Sparkles,
-  Shield,
-  ArrowLeft,
-  Loader2,
-  AlertCircle,
-} from "lucide-react";
-import DOMPurify from "dompurify";
+import { motion, AnimatePresence } from "framer-motion";
+import { Bot, Shield, Loader2, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import DOMPurify from "dompurify";
 import { supabase } from "@/services/supabase";
-import { callFormSubmission, callScrapeStatus } from "@/services/edge-functions";
+import {
+  callFormSubmission,
+  callScrapeStatus,
+} from "@/services/edge-functions";
 import { useAuth } from "@/hooks/useAuth";
 import { useFormFields } from "@/hooks/useFormFields";
 import { useFileUpload } from "@/hooks/useFileUpload";
-import { FormFieldRenderer } from "@/components/form/FormFieldRenderer";
+import { FormFieldRenderer, parseListItems } from "@/components/form/FormFieldRenderer";
+import { SubmissionProgress } from "@/components/SubmissionProgress";
+import type { SubmissionPhase, ScrapeProgress } from "@/components/SubmissionProgress";
+import { RICH_TEXT_CLASS, buildFileCategoryOptions } from "@/lib/form-constants";
+import WizardNavigator from "./WizardNavigator";
 import type { FormField, FormSettings } from "@/types/form";
+
+/* ── Sub-field key for storing split long_text items ── */
+const subFieldKey = (fieldId: string, idx: number) =>
+  `${fieldId}__sub__${idx}`;
 
 interface FormSectionProps {
   onNext: () => void;
 }
 
 /* ── Animation helpers ── */
-const stagger = {
-  hidden: {},
-  show: { transition: { staggerChildren: 0.08 } },
-};
 const EASE = [0.22, 1, 0.36, 1] as const;
 
-const fadeUp = {
-  hidden: { opacity: 0, y: 18 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: EASE } },
+const stepVariants = {
+  enter: (dir: number) => ({ y: dir > 0 ? 50 : -50, opacity: 0 }),
+  center: { y: 0, opacity: 1 },
+  exit: (dir: number) => ({ y: dir > 0 ? -50 : 50, opacity: 0 }),
 };
 
-/* ── Card wrapper ── */
-function Card({
-  children,
-  className,
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <motion.div
-      variants={fadeUp}
-      className={cn(
-        "bg-white rounded-2xl p-6 sm:p-8",
-        "shadow-[0_2px_24px_rgba(45,42,38,0.05)]",
-        "border border-[#EDE6DD]/50",
-        className,
-      )}
-    >
-      {children}
-    </motion.div>
-  );
-}
-
-/* ── Rich text rendering class ── */
-const richTextClass =
-  "[&_p]:m-0 [&_ol]:list-decimal [&_ol]:pr-5 [&_ol]:space-y-0.5 [&_ul]:list-disc [&_ul]:pr-5 [&_ul]:space-y-0.5 [&_li]:pr-1";
-
-/* ── Loading overlay during submission ── */
-function SubmissionProgress({
-  phase,
-  scrapeProgress,
-}: {
-  phase: "prompt" | "scraping" | "done";
-  scrapeProgress: { pages: number; products: number };
-}) {
-  const { t } = useTranslation("createBot");
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      className="flex flex-col items-center justify-center py-20 text-center"
-    >
-      <motion.div
-        animate={{ rotate: 360 }}
-        transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-        className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#FF7E47] to-[#E86B38] flex items-center justify-center shadow-[0_4px_24px_rgba(255,126,71,0.3)] mb-6"
-      >
-        <Bot className="w-8 h-8 text-white" />
-      </motion.div>
-
-      <h3 className="text-xl font-bold text-[#2D2A26] mb-2">
-        {phase === "prompt" && t("creatingBot")}
-        {phase === "scraping" && t("scrapingWebsite")}
-        {phase === "done" && t("botCreated")}
-      </h3>
-
-      <p className="text-sm text-[#7A7267] max-w-xs">
-        {phase === "prompt" && t("creatingBotDesc")}
-        {phase === "scraping" && t("scrapingDesc")}
-        {phase === "done" && t("botReadyForPreview")}
-      </p>
-
-      {phase === "scraping" &&
-        (scrapeProgress.pages > 0 || scrapeProgress.products > 0) && (
-          <div className="mt-4 flex items-center gap-4 text-sm text-[#7A7267]">
-            {scrapeProgress.pages > 0 && (
-              <span>
-                {t("pagesScraped")}:{" "}
-                <strong className="text-[#FF7E47]">
-                  {scrapeProgress.pages}
-                </strong>
-              </span>
-            )}
-            {scrapeProgress.products > 0 && (
-              <span>
-                {t("productsFound")}:{" "}
-                <strong className="text-[#FF7E47]">
-                  {scrapeProgress.products}
-                </strong>
-              </span>
-            )}
-          </div>
-        )}
-
-      <motion.div className="mt-6 h-1 w-48 rounded-full bg-[#EDE6DD] overflow-hidden">
-        <motion.div
-          className="h-full bg-[#FF7E47] rounded-full"
-          initial={{ width: "0%" }}
-          animate={{ width: phase === "done" ? "100%" : "70%" }}
-          transition={{
-            duration: phase === "done" ? 0.3 : 8,
-            ease: "easeOut",
-          }}
-        />
-      </motion.div>
-    </motion.div>
-  );
-}
+/* ── Step types ── */
+type WizardStep =
+  | { type: "opening"; settings: FormSettings }
+  | { type: "field"; field: FormField }
+  | { type: "sub_field"; field: FormField; label: string; index: number; totalSubs: number; parentLabel: string }
+  | { type: "closing"; settings: FormSettings };
 
 const FormSection = ({ onNext }: FormSectionProps) => {
   const { t } = useTranslation("createBot");
-  const { user } = useAuth();
+  const { user, refreshProfile } = useAuth();
+  const stepContainerRef = useRef<HTMLDivElement>(null);
+  const handleSubmitRef = useRef<() => void>(() => {});
 
+  /* ── Submission state ── */
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [loadingPhase, setLoadingPhase] = useState<
-    "prompt" | "scraping" | "done"
-  >("prompt");
-  const [scrapeProgress, setScrapeProgress] = useState({
-    pages: 0,
-    products: 0,
-  });
+  const [loadingPhase, setLoadingPhase] = useState<SubmissionPhase>("prompt");
+  const [scrapeProgress, setScrapeProgress] = useState<ScrapeProgress>({ pages: 0, products: 0 });
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [stepError, setStepError] = useState<string | null>(null);
 
-  const fileCategoryOptions = [
-    { value: "product", label: t("common:categoryProduct") },
-    { value: "service", label: t("common:categoryService") },
-    { value: "portfolio", label: t("common:categoryPortfolio") },
-    { value: "team", label: t("common:categoryTeam") },
-    { value: "logo", label: t("common:categoryLogo") },
-    { value: "general", label: t("common:categoryGeneral") },
-  ];
+  const fileCategoryOptions = buildFileCategoryOptions(t);
 
   /* ── Form field state management ── */
   const {
@@ -170,6 +70,14 @@ const FormSection = ({ onNext }: FormSectionProps) => {
     updateUrlEntry,
     addUrlEntry,
     removeUrlEntry,
+    getQaEntries,
+    updateQaEntry,
+    addQaEntry,
+    removeQaEntry,
+    getRulesEntries,
+    updateRulesItem,
+    addRulesItem,
+    removeRulesItem,
     resolveFieldValue,
   } = useFormFields();
 
@@ -213,17 +121,191 @@ const FormSection = ({ onNext }: FormSectionProps) => {
     },
   });
 
+  /* ── Build wizard steps (split long_text with numbered lists into sub-steps) ── */
+  const steps = useMemo(() => {
+    const result: WizardStep[] = [];
+    if (settings && (settings.opening_title || settings.opening_text)) {
+      result.push({ type: "opening", settings });
+    }
+    for (const field of fields) {
+      if (field.field_type === "long_text" && field.description) {
+        const items = parseListItems(field.description);
+        if (items.length >= 2) {
+          // Split into individual sub-field steps
+          const plainLabel = (() => {
+            const div = document.createElement("div");
+            div.innerHTML = field.label;
+            return div.textContent ?? field.label;
+          })();
+          for (let i = 0; i < items.length; i++) {
+            result.push({
+              type: "sub_field",
+              field,
+              label: items[i],
+              index: i,
+              totalSubs: items.length,
+              parentLabel: plainLabel,
+            });
+          }
+          continue;
+        }
+      }
+      result.push({ type: "field", field });
+    }
+    if (settings && settings.closing_text) {
+      result.push({ type: "closing", settings });
+    }
+    return result;
+  }, [fields, settings]);
+
+  /* ── Wizard navigation state ── */
+  const [wizardStep, setWizardStep] = useState(() => {
+    const saved = sessionStorage.getItem("createBot_wizardStep");
+    return saved ? Number(saved) : 0;
+  });
+  const [direction, setDirection] = useState(1);
+
+  // Clamp wizard step when steps array changes
+  useEffect(() => {
+    if (steps.length > 0 && wizardStep >= steps.length) {
+      setWizardStep(steps.length - 1);
+    }
+  }, [steps.length, wizardStep]);
+
+  // Persist wizard step
+  useEffect(() => {
+    sessionStorage.setItem("createBot_wizardStep", String(wizardStep));
+  }, [wizardStep]);
+
+  // Auto-focus first input after step transition
+  const handleAnimationComplete = useCallback(() => {
+    if (!stepContainerRef.current) return;
+    const input = stepContainerRef.current.querySelector<HTMLElement>(
+      "input:not([type=hidden]):not([type=file]), textarea, select",
+    );
+    if (input) {
+      setTimeout(() => input.focus(), 50);
+    }
+  }, []);
+
+  /* ── Per-step validation ── */
+  const isFieldValid = useCallback(
+    (step: WizardStep): boolean => {
+      if (step.type === "sub_field") {
+        const val = (formValues[subFieldKey(step.field.id, step.index)] as string) ?? "";
+        return val.trim().length > 0;
+      }
+      if (step.type !== "field") return true;
+      const field = step.field;
+      if (!field.is_required) return true;
+
+      if (field.field_type === "url") {
+        return getUrlEntries(field.id).some((e) => e.url.trim());
+      }
+      if (field.field_type === "qa_pairs") {
+        return getQaEntries(field.id).some((e) => e.question.trim());
+      }
+      if (field.field_type === "rules_list") {
+        const categories = parseListItems(field.description);
+        const entries = getRulesEntries(field.id, categories.length);
+        return entries.some((cat) => cat.some((item) => item.trim()));
+      }
+      if (field.field_type === "file_upload") {
+        const uploads = fileUploads[field.id] ?? [];
+        return uploads.some((u) => u.uploaded && u.storedUrl);
+      }
+      const val = formValues[field.id];
+      if (val === undefined || val === "" || val === null) return false;
+      if (Array.isArray(val) && val.length === 0) return false;
+      return true;
+    },
+    [formValues, fileUploads, getUrlEntries, getQaEntries, getRulesEntries],
+  );
+
+  const isFileUploading = useCallback(
+    (step: WizardStep): boolean => {
+      if (step.type !== "field" || step.field.field_type !== "file_upload")
+        return false;
+      return (fileUploads[step.field.id] ?? []).some((f) => f.uploading);
+    },
+    [fileUploads],
+  );
+
+  /* ── Navigation handlers ── */
+  const goNext = useCallback(() => {
+    if (steps.length === 0) return;
+    const current = steps[wizardStep];
+
+    // Validate current step
+    if (current && !isFieldValid(current)) {
+      setStepError(t("missingFields"));
+      return;
+    }
+    if (current && isFileUploading(current)) {
+      setStepError(t("common:filesStillUploading"));
+      return;
+    }
+
+    setStepError(null);
+
+    // If on last step, submit (use ref to avoid stale closure)
+    if (wizardStep >= steps.length - 1) {
+      handleSubmitRef.current();
+      return;
+    }
+
+    setDirection(1);
+    setWizardStep((s) => s + 1);
+  }, [steps, wizardStep, isFieldValid, isFileUploading, t]);
+
+  const goBack = useCallback(() => {
+    if (wizardStep <= 0) return;
+    setStepError(null);
+    setDirection(-1);
+    setWizardStep((s) => s - 1);
+  }, [wizardStep]);
+
+  /* ── Keyboard: Enter advances ── */
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        const tag = (e.target as HTMLElement)?.tagName;
+        if (tag === "TEXTAREA") return;
+        e.preventDefault();
+        goNext();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [goNext]);
+
   /* ── Form submission ── */
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async () => {
     setSubmitError(null);
 
-    // Validate required fields
+    // Full validation of all required fields
     const missingRequired = fields.filter((f) => {
       if (!f.is_required) return false;
+      // For split long_text fields, check if at least one sub-field has a value
+      if (f.field_type === "long_text" && f.description) {
+        const items = parseListItems(f.description);
+        if (items.length >= 2) {
+          return !items.some((_, i) =>
+            ((formValues[subFieldKey(f.id, i)] as string) ?? "").trim(),
+          );
+        }
+      }
       if (f.field_type === "url") {
         const entries = getUrlEntries(f.id);
         return !entries.some((entry) => entry.url.trim());
+      }
+      if (f.field_type === "qa_pairs") {
+        return !getQaEntries(f.id).some((e) => e.question.trim());
+      }
+      if (f.field_type === "rules_list") {
+        const categories = parseListItems(f.description);
+        const entries = getRulesEntries(f.id, categories.length);
+        return !entries.some((cat) => cat.some((item) => item.trim()));
       }
       if (f.field_type === "file_upload") {
         const uploads = fileUploads[f.id] ?? [];
@@ -240,7 +322,6 @@ const FormSection = ({ onNext }: FormSectionProps) => {
       return;
     }
 
-    // Check if any files are still uploading
     const stillUploading = Object.values(fileUploads).some((items) =>
       items.some((f) => f.uploading),
     );
@@ -249,9 +330,40 @@ const FormSection = ({ onNext }: FormSectionProps) => {
       return;
     }
 
-    // Build payload: key = field label, value = resolved value
+    // Combine sub-field values back into their parent long_text fields before submission
+    for (const field of fields) {
+      if (field.field_type === "long_text" && field.description) {
+        const items = parseListItems(field.description);
+        if (items.length >= 2) {
+          const combined = items
+            .map((label, i) => {
+              const val = ((formValues[subFieldKey(field.id, i)] as string) ?? "").trim();
+              return val ? `${label}: ${val}` : "";
+            })
+            .filter(Boolean)
+            .join("\n");
+          setValue(field.id, combined);
+        }
+      }
+    }
+
     const fieldsPayload: Record<string, unknown> = {};
     for (const field of fields) {
+      // For split long_text fields, build the combined value directly
+      if (field.field_type === "long_text" && field.description) {
+        const items = parseListItems(field.description);
+        if (items.length >= 2) {
+          const combined = items
+            .map((label, i) => {
+              const val = ((formValues[subFieldKey(field.id, i)] as string) ?? "").trim();
+              return val ? `${label}: ${val}` : "";
+            })
+            .filter(Boolean)
+            .join("\n");
+          fieldsPayload[field.label] = combined;
+          continue;
+        }
+      }
       fieldsPayload[field.label] = resolveFieldValue(field, fileUploads);
     }
 
@@ -273,10 +385,19 @@ const FormSection = ({ onNext }: FormSectionProps) => {
         message?: string;
       } | null;
 
-      // If scraping was triggered, poll until done
+      // Update bot_status to "created" (edge function doesn't do this)
+      const userId = user?.id ?? "";
+      if (userId) {
+        await supabase
+          .from("profiles")
+          .update({ bot_status: "created" })
+          .eq("id", userId);
+        // Refresh auth store so hasCompletedOnboarding is true
+        refreshProfile();
+      }
+
       if (data?.scrape_job_id) {
         setLoadingPhase("scraping");
-        const userId = user?.id ?? "";
 
         let done = false;
         while (!done) {
@@ -310,11 +431,14 @@ const FormSection = ({ onNext }: FormSectionProps) => {
       }
 
       setLoadingPhase("done");
-      // Brief pause to show "done" state
       await new Promise((r) => setTimeout(r, 800));
-      setIsSubmitting(false);
+      // Call onNext FIRST — parent switches phase and unmounts FormSection,
+      // avoiding re-render of dangerouslySetInnerHTML nodes that can cause
+      // DOM errors when browser extensions have modified them.
+      sessionStorage.removeItem("createBot_wizardStep");
       onNext();
     } catch (err) {
+      console.error("[FormSection] Submission error:", err);
       setIsSubmitting(false);
       setLoadingPhase("prompt");
       setSubmitError(
@@ -322,165 +446,278 @@ const FormSection = ({ onNext }: FormSectionProps) => {
       );
     }
   };
+  handleSubmitRef.current = handleSubmit;
 
-  const showOpening =
-    settings && (settings.opening_title || settings.opening_text);
-  const showClosing = settings && settings.closing_text;
-
-  // Show progress overlay during submission
+  /* ── Render: submission overlay ── */
   if (isSubmitting) {
     return (
-      <motion.div
-        variants={stagger}
-        initial="hidden"
-        animate="show"
-        className="flex flex-col gap-6 pt-4"
-      >
-        <Card>
-          <SubmissionProgress
-            phase={loadingPhase}
-            scrapeProgress={scrapeProgress}
-          />
-        </Card>
-      </motion.div>
+      <SubmissionProgress
+        phase={loadingPhase}
+        scrapeProgress={scrapeProgress}
+        ns="createBot"
+        icon={Bot}
+        phaseKeys={{
+          promptTitle: "creatingBot",
+          promptDesc: "creatingBotDesc",
+          scrapingTitle: "scrapingWebsite",
+          scrapingDesc: "scrapingDesc",
+          doneTitle: "botCreated",
+          doneDesc: "botReadyForPreview",
+        }}
+        className="min-h-[60vh]"
+      />
     );
   }
 
+  /* ── Render: loading ── */
+  if (fieldsLoading || steps.length === 0) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Loader2 className="animate-spin w-8 h-8 text-[#FF7E47]" />
+      </div>
+    );
+  }
+
+  const currentStepData = steps[wizardStep];
+  const isLastStep = wizardStep === steps.length - 1;
+  const inputSteps = steps.filter((s) => s.type === "field" || s.type === "sub_field");
+
+  // For step counter: find index among field/sub_field steps only
+  const inputIndex =
+    currentStepData?.type === "field" || currentStepData?.type === "sub_field"
+      ? inputSteps.indexOf(currentStepData)
+      : -1;
+
   return (
-    <motion.div
-      variants={stagger}
-      initial="hidden"
-      animate="show"
-      className="flex flex-col gap-6 pt-4"
-    >
-      {/* ── Header ── */}
-      <motion.div variants={fadeUp} className="text-center mb-2">
-        <div className="inline-flex items-center gap-3 mb-4">
-          <h1 className="text-2xl sm:text-3xl font-bold text-[#2D2A26]">
-            {t("formTitle")}
-          </h1>
-          <motion.span
-            animate={{ rotate: [0, 10, -10, 0] }}
-            transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }}
-            className="text-3xl"
-          >
-            <Bot className="w-8 h-8 text-[#FF7E47]" />
-          </motion.span>
-        </div>
-        <p className="text-[#7A7267] text-base max-w-md mx-auto leading-relaxed">
-          {t("formSubtitle")}
-        </p>
-      </motion.div>
-
-      {/* ── Loading state ── */}
-      {fieldsLoading ? (
-        <Card className="flex items-center justify-center py-16">
-          <Loader2 className="animate-spin w-8 h-8 text-[#FF7E47]" />
-        </Card>
-      ) : (
-        <form onSubmit={handleSubmit} className="flex flex-col gap-6">
-          {/* ── Opening text (from form_settings) ── */}
-          {showOpening && (
-            <Card>
-              {settings.opening_title && (
-                <div
-                  className={`font-bold text-base text-[#2D2A26] mb-2 ${richTextClass}`}
-                  dangerouslySetInnerHTML={{
-                    __html: DOMPurify.sanitize(settings.opening_title),
-                  }}
-                />
-              )}
-              {settings.opening_text && (
-                <div
-                  className={`text-sm text-[#7A7267] leading-relaxed ${richTextClass}`}
-                  dangerouslySetInnerHTML={{
-                    __html: DOMPurify.sanitize(settings.opening_text),
-                  }}
-                />
-              )}
-            </Card>
-          )}
-
-          {/* ── Dynamic form fields ── */}
-          {fields.map((field) => (
-            <Card key={field.id}>
-              <FormFieldRenderer
-                field={field}
-                fileCategoryOptions={fileCategoryOptions}
-                formValues={formValues}
-                otherValues={otherValues}
-                setValue={setValue}
-                setOtherValue={setOtherValue}
-                toggleCheckboxValue={toggleCheckboxValue}
-                getUrlEntries={getUrlEntries}
-                updateUrlEntry={updateUrlEntry}
-                addUrlEntry={addUrlEntry}
-                removeUrlEntry={removeUrlEntry}
-                fileUploads={fileUploads}
-                fileInputRefs={fileInputRefs}
-                handleFileSelect={handleFileSelect}
-                removeFileUpload={removeFileUpload}
-                updateFileMetadata={updateFileMetadata}
-              />
-            </Card>
-          ))}
-
-          {/* ── Closing text (from form_settings) ── */}
-          {showClosing && (
-            <Card>
-              <div
-                className={`text-sm text-[#7A7267] leading-relaxed ${richTextClass}`}
-                dangerouslySetInnerHTML={{
-                  __html: DOMPurify.sanitize(settings.closing_text),
-                }}
-              />
-            </Card>
-          )}
-
-          {/* ── Error message ── */}
-          {submitError && (
-            <motion.div
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="flex items-center gap-3 bg-red-50 border border-red-200 text-red-700 rounded-xl px-5 py-3.5 text-sm"
-            >
-              <AlertCircle className="w-4.5 h-4.5 flex-shrink-0" />
-              {submitError}
-            </motion.div>
-          )}
-
-          {/* ── Privacy Notice ── */}
-          <motion.div variants={fadeUp} className="text-center px-4">
-            <div className="flex items-center justify-center gap-2 mb-1.5">
-              <Shield className="w-3.5 h-3.5 text-[#A39B90]" />
-              <span className="text-xs text-[#A39B90] font-semibold uppercase tracking-wider">
-                Privacy
-              </span>
-            </div>
-            <p className="text-xs text-[#A39B90] leading-relaxed max-w-sm mx-auto">
-              {t("privacyNotice")}
-            </p>
-          </motion.div>
-
-          {/* ── Submit Button ── */}
+    <div className={cn(
+      "flex flex-col min-h-[70vh] mx-auto px-4 transition-all duration-300",
+      currentStepData?.type === "field" && currentStepData.field.field_type === "rules_list"
+        ? "max-w-4xl"
+        : "max-w-2xl",
+    )}>
+      {/* ── Step content ── */}
+      <div className="flex-1 flex items-center justify-center">
+        <AnimatePresence mode="wait" custom={direction}>
           <motion.div
-            variants={fadeUp}
-            className="flex justify-center pt-2 pb-4"
+            key={wizardStep}
+            ref={stepContainerRef}
+            custom={direction}
+            variants={stepVariants}
+            initial="enter"
+            animate="center"
+            exit="exit"
+            transition={{ duration: 0.35, ease: EASE }}
+            onAnimationComplete={handleAnimationComplete}
+            className="w-full"
           >
-            <motion.button
-              type="submit"
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className="group relative w-full sm:w-auto inline-flex items-center justify-center gap-2.5 bg-[#FF7E47] hover:bg-[#E86B38] text-white font-bold text-base rounded-2xl px-10 py-4 transition-all duration-300 shadow-[0_4px_20px_rgba(255,126,71,0.3)] hover:shadow-[0_6px_28px_rgba(255,126,71,0.4)]"
-            >
-              {t("createBotBtn")}
-              <Sparkles className="w-4.5 h-4.5 transition-transform group-hover:rotate-12" />
-              <ArrowLeft className="w-4 h-4 rtl:rotate-0 ltr:rotate-180 transition-transform group-hover:ltr:-translate-x-0.5 group-hover:rtl:translate-x-0.5" />
-            </motion.button>
+            {/* Opening step */}
+            {currentStepData?.type === "opening" && (
+              <div className="text-center py-8">
+                <motion.div
+                  animate={{ rotate: [0, 10, -10, 0] }}
+                  transition={{
+                    duration: 2,
+                    repeat: Infinity,
+                    repeatDelay: 3,
+                  }}
+                  className="inline-block mb-6"
+                >
+                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#FF7E47] to-[#E86B38] flex items-center justify-center shadow-[0_4px_24px_rgba(255,126,71,0.3)]">
+                    <Bot className="w-8 h-8 text-white" />
+                  </div>
+                </motion.div>
+
+                {currentStepData.settings.opening_title && (
+                  <div
+                    className={`text-2xl sm:text-3xl font-bold text-[#2D2A26] mb-4 ${RICH_TEXT_CLASS}`}
+                    dangerouslySetInnerHTML={{
+                      __html: DOMPurify.sanitize(
+                        currentStepData.settings.opening_title,
+                      ),
+                    }}
+                  />
+                )}
+                {currentStepData.settings.opening_text && (
+                  <div
+                    className={`text-base text-[#7A7267] leading-relaxed max-w-md mx-auto ${RICH_TEXT_CLASS}`}
+                    dangerouslySetInnerHTML={{
+                      __html: DOMPurify.sanitize(
+                        currentStepData.settings.opening_text,
+                      ),
+                    }}
+                  />
+                )}
+              </div>
+            )}
+
+            {/* Field step */}
+            {currentStepData?.type === "field" && (
+              <div className="py-4">
+                {/* Step counter */}
+                <p className="text-xs text-[#A39B90] font-semibold mb-6 text-center tracking-wide">
+                  {t("stepOf", {
+                    current: inputIndex + 1,
+                    total: inputSteps.length,
+                  })}
+                </p>
+
+                {/* Field card */}
+                <div className="bg-white rounded-2xl p-6 sm:p-8 shadow-[0_2px_24px_rgba(45,42,38,0.05)] border border-[#EDE6DD]/50">
+                  <FormFieldRenderer
+                    field={currentStepData.field}
+                    fileCategoryOptions={fileCategoryOptions}
+                    formValues={formValues}
+                    otherValues={otherValues}
+                    setValue={setValue}
+                    setOtherValue={setOtherValue}
+                    toggleCheckboxValue={toggleCheckboxValue}
+                    getUrlEntries={getUrlEntries}
+                    updateUrlEntry={updateUrlEntry}
+                    addUrlEntry={addUrlEntry}
+                    removeUrlEntry={removeUrlEntry}
+                    getQaEntries={getQaEntries}
+                    updateQaEntry={updateQaEntry}
+                    addQaEntry={addQaEntry}
+                    removeQaEntry={removeQaEntry}
+                    getRulesEntries={getRulesEntries}
+                    updateRulesItem={updateRulesItem}
+                    addRulesItem={addRulesItem}
+                    removeRulesItem={removeRulesItem}
+                    fileUploads={fileUploads}
+                    fileInputRefs={fileInputRefs}
+                    handleFileSelect={handleFileSelect}
+                    removeFileUpload={removeFileUpload}
+                    updateFileMetadata={updateFileMetadata}
+                  />
+                </div>
+
+                {/* Step-level error */}
+                {stepError && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="flex items-center gap-3 bg-red-50 border border-red-200 text-red-700 rounded-xl px-5 py-3 text-sm mt-4"
+                  >
+                    <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                    {stepError}
+                  </motion.div>
+                )}
+              </div>
+            )}
+
+            {/* Sub-field step (split from long_text with numbered list) */}
+            {currentStepData?.type === "sub_field" && (
+              <div className="py-4">
+                {/* Step counter */}
+                <p className="text-xs text-[#A39B90] font-semibold mb-6 text-center tracking-wide">
+                  {t("stepOf", {
+                    current: inputIndex + 1,
+                    total: inputSteps.length,
+                  })}
+                </p>
+
+                {/* Sub-field card */}
+                <div className="bg-white rounded-2xl p-6 sm:p-8 shadow-[0_2px_24px_rgba(45,42,38,0.05)] border border-[#EDE6DD]/50">
+                  <div className="space-y-2">
+                    <p className="text-xs text-[#A39B90] font-medium">
+                      {currentStepData.parentLabel}
+                    </p>
+                    <h2 className="text-lg font-bold text-[#2D2A26]">
+                      {currentStepData.label}
+                    </h2>
+                    <input
+                      placeholder={currentStepData.label}
+                      value={
+                        (formValues[
+                          subFieldKey(
+                            currentStepData.field.id,
+                            currentStepData.index,
+                          )
+                        ] as string) ?? ""
+                      }
+                      onChange={(e) =>
+                        setValue(
+                          subFieldKey(
+                            currentStepData.field.id,
+                            currentStepData.index,
+                          ),
+                          e.target.value,
+                        )
+                      }
+                      className="w-full bg-[#FAF7F3] border border-[#E5DDD3] rounded-xl px-4 py-3 text-sm text-[#2D2A26] placeholder-[#B8AFA4] focus:border-[#FF7E47] focus:ring-2 focus:ring-[#FF7E47]/15 outline-none transition-all duration-200"
+                    />
+                  </div>
+                </div>
+
+                {/* Step-level error */}
+                {stepError && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="flex items-center gap-3 bg-red-50 border border-red-200 text-red-700 rounded-xl px-5 py-3 text-sm mt-4"
+                  >
+                    <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                    {stepError}
+                  </motion.div>
+                )}
+              </div>
+            )}
+
+            {/* Closing step */}
+            {currentStepData?.type === "closing" && (
+              <div className="text-center py-8">
+                <div className="flex items-center justify-center gap-2 mb-3">
+                  <Shield className="w-5 h-5 text-[#A39B90]" />
+                  <span className="text-xs text-[#A39B90] font-semibold uppercase tracking-wider">
+                    Privacy
+                  </span>
+                </div>
+                {currentStepData.settings.closing_text && (
+                  <div
+                    className={`text-sm text-[#7A7267] leading-relaxed max-w-sm mx-auto mb-6 ${RICH_TEXT_CLASS}`}
+                    dangerouslySetInnerHTML={{
+                      __html: DOMPurify.sanitize(
+                        currentStepData.settings.closing_text,
+                      ),
+                    }}
+                  />
+                )}
+                <p className="text-xs text-[#A39B90] leading-relaxed max-w-sm mx-auto">
+                  {t("privacyNotice")}
+                </p>
+
+                {/* Submit error on closing step */}
+                {submitError && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="flex items-center gap-3 bg-red-50 border border-red-200 text-red-700 rounded-xl px-5 py-3 text-sm mt-6 max-w-sm mx-auto"
+                  >
+                    <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                    {submitError}
+                  </motion.div>
+                )}
+              </div>
+            )}
           </motion.div>
-        </form>
-      )}
-    </motion.div>
+        </AnimatePresence>
+      </div>
+
+      {/* ── Bottom navigation ── */}
+      <div className="pb-8">
+        <WizardNavigator
+          currentStep={wizardStep}
+          totalSteps={steps.length}
+          onBack={goBack}
+          onNext={goNext}
+          showBack={wizardStep > 0}
+          isSubmit={isLastStep}
+          nextDisabled={
+            currentStepData ? isFileUploading(currentStepData) : false
+          }
+        />
+      </div>
+    </div>
   );
 };
 
