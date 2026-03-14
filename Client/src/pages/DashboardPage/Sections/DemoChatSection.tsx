@@ -73,7 +73,7 @@ export default function DemoChatSection({ resetKey = 0, workflowId }: DemoChatSe
   /* ── Send message ── */
   const handleSend = useCallback(async () => {
     const text = input.trim();
-    if (!text || isSending || !workflowId) return;
+    if (!text || isSending) return;
 
     const userMsg: ChatMessage = {
       id: `user-${Date.now()}`,
@@ -142,7 +142,7 @@ export default function DemoChatSection({ resetKey = 0, workflowId }: DemoChatSe
 
   /* ── Button click in chat ── */
   const handleButtonClick = useCallback(async (label: string) => {
-    if (isSending || !workflowId) return;
+    if (isSending) return;
 
     // Find the message with these buttons and mark it clicked
     setMessages((prev) => {
