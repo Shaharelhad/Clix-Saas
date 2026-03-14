@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { callLLMEngine, classifyTrigger, type TriggerInfo, type LLMResult } from "../_shared/llm-engine.ts";
+import { callLLMEngine, classifyTrigger, validateCollectInput, type TriggerInfo, type LLMResult } from "../_shared/llm-engine.ts";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -52,11 +52,20 @@ interface FlowNode {
     imageUrl?: string;
     buttons?: ButtonItem[];
     variableName?: string;
+    expectedAnswer?: string;
     delayMinutes?: number;
     triggerText?: string;
     expectedReply?: string;
     continueAuto?: boolean;
     followUpMessage?: string;
+    yesNoMode?: boolean;
+    // api_call
+    integrationId?: string;
+    endpoint?: string;
+    method?: string;
+    bodyTemplate?: string;
+    responseMapping?: Array<{ jsonPath: string; variableName: string }>;
+    errorMessage?: string;
   };
 }
 
@@ -158,11 +167,36 @@ function matchButton(
   return undefined;
 }
 
+function isUrlSafe(urlString: string): boolean {
+  try {
+    const url = new URL(urlString);
+    if (!["https:", "http:"].includes(url.protocol)) return false;
+    const hostname = url.hostname.toLowerCase();
+    if (hostname === "localhost" || hostname === "127.0.0.1" || hostname === "0.0.0.0") return false;
+    if (hostname.startsWith("10.")) return false;
+    if (/^172\.(1[6-9]|2\d|3[01])\./.test(hostname)) return false;
+    if (hostname.startsWith("192.168.")) return false;
+    if (hostname.startsWith("169.254.")) return false;
+    if (hostname.endsWith(".internal") || hostname.endsWith(".local")) return false;
+    return true;
+  } catch { return false; }
+}
+
 function resolveVariables(
   text: string,
   variables: Record<string, string>
 ): string {
   return text.replace(/\{\{(\w+)\}\}/g, (_, key) => variables[key] || "");
+}
+
+function extractJsonPath(obj: unknown, path: string): unknown {
+  const parts = path.replace(/\[(\d+)\]/g, ".$1").split(".");
+  let current: unknown = obj;
+  for (const part of parts) {
+    if (current == null || typeof current !== "object") return undefined;
+    current = (current as Record<string, unknown>)[part];
+  }
+  return current;
 }
 
 // Send event to Inngest for durable processing
@@ -451,10 +485,11 @@ async function executeNode(
     const msg = resolveVariables(node.data.message || "", variables);
     await sendTextMessage(customerId, phone, msg);
     await logMessage(msg, "text");
+    // yesNoMode = wait for yes/no answer then route via handles
     // continueAuto ON = wait for any response then continue
     // expectedReply set = wait for specific response
     // neither = send and immediately continue (chain mode)
-    if (node.data.continueAuto || node.data.expectedReply) {
+    if (node.data.yesNoMode || node.data.continueAuto || node.data.expectedReply) {
       return { nextNodeId: node.id, waitForInput: true };
     }
     const next = findNextNode(flow, node.id);
@@ -493,6 +528,93 @@ async function executeNode(
     await logMessage(msg, "collect_input");
     // Wait for user reply
     return { nextNodeId: node.id, waitForInput: true };
+  }
+
+  if (node.type === "api_call") {
+    const integrationId = node.data.integrationId;
+    if (!integrationId) {
+      const errMsg = resolveVariables(node.data.errorMessage || "API call not configured", variables);
+      await sendTextMessage(customerId, phone, errMsg);
+      await logMessage(errMsg, "api_call_error");
+      return { nextNodeId: null, waitForInput: false };
+    }
+
+    // Fetch integration credentials from DB
+    const { data: integration, error: intError } = await supabase
+      .from("integrations")
+      .select("*")
+      .eq("id", integrationId)
+      .single();
+
+    if (intError || !integration || integration.status !== "active") {
+      const errMsg = resolveVariables(node.data.errorMessage || "Service unavailable", variables);
+      await sendTextMessage(customerId, phone, errMsg);
+      await logMessage(errMsg, "api_call_error");
+      return { nextNodeId: null, waitForInput: false };
+    }
+
+    // Build URL and headers based on integration type
+    const config = integration.config as Record<string, string>;
+    let baseUrl = "";
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+
+    if (integration.integration_type === "cloudbeds") {
+      baseUrl = "https://api.cloudbeds.com";
+      headers["Authorization"] = `Bearer ${config.apiKey}`;
+    } else {
+      // custom_api
+      baseUrl = config.baseUrl || "";
+      if (config.authType === "bearer") {
+        headers["Authorization"] = `Bearer ${config.authValue}`;
+      } else if (config.authType === "api_key") {
+        headers["x-api-key"] = config.authValue;
+      }
+    }
+
+    const endpoint = resolveVariables(node.data.endpoint || "", variables);
+    const url = `${baseUrl.replace(/\/$/, "")}/${endpoint.replace(/^\//, "")}`;
+    const method = (node.data.method || "GET").toUpperCase();
+
+    const fetchOptions: RequestInit = { method, headers };
+    if (method !== "GET" && node.data.bodyTemplate) {
+      fetchOptions.body = resolveVariables(node.data.bodyTemplate, variables);
+    }
+
+    try {
+      if (!isUrlSafe(url)) {
+        throw new Error("Blocked: URL targets a private or internal address");
+      }
+
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000);
+      fetchOptions.signal = controller.signal;
+
+      const response = await fetch(url, fetchOptions);
+      clearTimeout(timeout);
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const json = await response.json();
+
+      // Extract response fields per responseMapping
+      for (const mapping of (node.data.responseMapping || [])) {
+        const value = extractJsonPath(json, mapping.jsonPath);
+        variables[mapping.variableName] = String(value ?? "");
+      }
+
+      await logMessage(`API ${method} ${endpoint} → ${response.status}`, "api_call");
+      const next = findNextNode(flow, node.id);
+      return { nextNodeId: next?.id || null, waitForInput: false };
+    } catch (err: unknown) {
+      const errMessage = err instanceof Error ? err.message : String(err);
+      console.error("[flow] api_call error:", errMessage);
+      const errMsg = resolveVariables(node.data.errorMessage || "Something went wrong", variables);
+      await sendTextMessage(customerId, phone, errMsg);
+      await logMessage(`API error: ${errMessage}`, "api_call_error");
+      return { nextNodeId: null, waitForInput: false };
+    }
   }
 
   if (node.type === "delay") {
@@ -1276,9 +1398,42 @@ Deno.serve(async (req) => {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-    } else if ((currentNode.type === "text" || currentNode.type === "image") && (currentNode.data.continueAuto || currentNode.data.expectedReply)) {
+    } else if ((currentNode.type === "text" || currentNode.type === "image") && (currentNode.data.yesNoMode || currentNode.data.continueAuto || currentNode.data.expectedReply)) {
       // Node is waiting for a response from the user
-      if (currentNode.data.expectedReply) {
+      if (currentNode.data.yesNoMode) {
+        // Yes/No mode — classify response as affirmative or negative via LLM
+        const yesNoResult = await classifyTrigger(
+          [{ id: "yes", trigger: "yes" }, { id: "no", trigger: "no" }],
+          userMessage,
+        );
+        console.log("[flow] yesNoMode check:", { userMessage, result: yesNoResult, nodeId: currentNode.id });
+        if (yesNoResult === "yes") {
+          const nextNode = findNextNode(flow, currentNode.id, "yes");
+          nextNodeId = nextNode?.id || null;
+        } else if (yesNoResult === "no") {
+          const nextNode = findNextNode(flow, currentNode.id, "no");
+          nextNodeId = nextNode?.id || null;
+        } else {
+          // Unclear answer — re-ask
+          if (settings.strictMode) {
+            const nudge = `לא הבנתי. ${currentNode.data.message || "אנא נסה שוב."}`;
+            await sendTextMessage(customerId, phone, nudge);
+            await supabase.from("flow_message_log").insert({
+              workflow_id: workflow.id, session_id: session.id,
+              direction: "outbound", message_type: "text", content: nudge,
+            });
+          } else {
+            await callOpenLLM(profile.id, userMessage, session.id, workflow.id, customerId, phone, workflowRecord);
+          }
+          await supabase
+            .from("subscriber_sessions")
+            .update({ last_message_at: new Date().toISOString() })
+            .eq("id", session.id);
+          return new Response(JSON.stringify({ ok: true, action: settings.strictMode ? "strict_nudge" : "llm_response" }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+      } else if (currentNode.data.expectedReply) {
         // Check if user's message matches the expected reply (exact or semantic)
         const expected = currentNode.data.expectedReply.trim().toLowerCase();
         const userInput = userMessage.trim().toLowerCase();
@@ -1331,6 +1486,34 @@ Deno.serve(async (req) => {
       const nextNode = findNextNode(flow, currentNode.id);
       nextNodeId = nextNode?.id || null;
     } else if (currentNode.type === "collect_input") {
+      // Validate input if expectedAnswer is set
+      if (currentNode.data.expectedAnswer) {
+        const isValid = await validateCollectInput(
+          currentNode.data.message || "",
+          currentNode.data.expectedAnswer,
+          userMessage,
+        );
+        if (!isValid) {
+          // Re-ask — stay on same node
+          if (settings.strictMode) {
+            const nudge = `לא הבנתי. ${currentNode.data.message || "אנא נסה שוב."}`;
+            await sendTextMessage(customerId, phone, nudge);
+            await supabase.from("flow_message_log").insert({
+              workflow_id: workflow.id, session_id: session.id,
+              direction: "outbound", message_type: "text", content: nudge,
+            });
+          } else {
+            await callOpenLLM(profile.id, userMessage, session.id, workflow.id, customerId, phone, workflowRecord);
+          }
+          await supabase
+            .from("subscriber_sessions")
+            .update({ last_message_at: new Date().toISOString() })
+            .eq("id", session.id);
+          return new Response(JSON.stringify({ ok: true, action: "collect_input_invalid" }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+      }
       const varName = currentNode.data.variableName || "answer";
       updatedVariables[varName] = userMessage;
       const nextNode = findNextNode(flow, currentNode.id);

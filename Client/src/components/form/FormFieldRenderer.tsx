@@ -2,6 +2,7 @@ import React from "react";
 import { Plus, Trash2, Globe } from "lucide-react";
 import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
+import DOMPurify from "dompurify";
 import { cn } from "@/lib/utils";
 import { RICH_TEXT_CLASS } from "@/lib/form-constants";
 import type { FormField, FileUploadItem } from "@/types/form";
@@ -181,7 +182,7 @@ function WarmToggle({
 /* ── Parse numbered list items from HTML description ── */
 export function parseListItems(html: string): string[] {
   const div = document.createElement("div");
-  div.innerHTML = html;
+  div.innerHTML = DOMPurify.sanitize(html);
   // Try <ol>/<ul> with <li> elements first
   const lis = div.querySelectorAll("li");
   if (lis.length > 0) {
@@ -248,7 +249,7 @@ function FieldLabel({
         )}
         <span
           className={RICH_TEXT_CLASS}
-          dangerouslySetInnerHTML={{ __html: field.label }}
+          dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(field.label) }}
         />
         {!field.is_required && (
           <span className="text-[10px] font-medium text-[#B8AFA4] bg-[#F5F0EA] rounded-full px-2 py-0.5 leading-tight mt-0.5 whitespace-nowrap">
@@ -259,7 +260,7 @@ function FieldLabel({
       {field.description && field.field_type !== "rules_list" && (
         <div
           className={`text-xs text-[#7A7267] ${RICH_TEXT_CLASS}`}
-          dangerouslySetInnerHTML={{ __html: field.description }}
+          dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(field.description) }}
         />
       )}
     </div>
