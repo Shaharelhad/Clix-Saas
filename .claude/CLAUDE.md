@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Project Overview
+## Project Overview 
 
 **CLIX** — SaaS WhatsApp Bot Builder for Israeli businesses (Hebrew-first, RTL). Users create AI-powered WhatsApp chatbots through a web dashboard without coding.
 
