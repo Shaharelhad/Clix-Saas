@@ -53,7 +53,7 @@ export default function EditBotPage() {
         .eq("user_id", user!.id)
         .order("updated_at", { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
       if (error) return null;
       return data;
     },
