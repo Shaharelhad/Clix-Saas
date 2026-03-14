@@ -1636,6 +1636,22 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Empty flow fallback — Start node matched but no children → use LLM
+    if (!nextNodeId && !workflow.strict_mode) {
+      console.log("[flow] Empty flow fallback — using LLM response");
+      await updateSessionDirect(session.id, {
+        current_node_id: null,
+        variables: updatedVariables,
+        status: "completed",
+        last_message_at: new Date().toISOString(),
+      });
+      await callOpenLLM(profile.id, userMessage, session.id, workflow.id, customerId, phone, workflowRecord);
+      return new Response(
+        JSON.stringify({ ok: true, action: "llm_fallback", current_node: null }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // Final session update (handles flow completion and non-waitForInput cases)
     const sessionStatus = nextNodeId ? "active" : "completed";
     console.log("[flow] Final session update:", { node: nextNodeId, status: sessionStatus });
