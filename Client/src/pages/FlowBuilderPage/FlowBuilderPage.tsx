@@ -7,6 +7,7 @@ import { useFlowBuilder } from "@/hooks/useFlowBuilder";
 import FlowCanvas from "./Components/FlowCanvas";
 import FlowToolbar from "./Components/FlowToolbar";
 import FlowSettingsModal from "./Components/FlowSettingsModal";
+import FlowIntegrationsModal from "./Components/FlowIntegrationsModal";
 import NodePalette from "./Components/NodePalette";
 import NodeEditorSidebar from "./Components/NodeEditorSidebar";
 import FlowHelpAssistant from "./Components/FlowHelpAssistant";
@@ -16,6 +17,7 @@ function FlowBuilderContent() {
   const fb = useFlowBuilder();
   const { t } = useTranslation("flow");
   const [showSettings, setShowSettings] = useState(false);
+  const [showIntegrations, setShowIntegrations] = useState(false);
 
   // Listen for node/edge delete events from custom components
   useEffect(() => {
@@ -58,6 +60,7 @@ function FlowBuilderContent() {
         onNameChange={fb.setWorkflowName}
         onToggleStatus={fb.toggleStatus}
         onOpenSettings={() => setShowSettings(true)}
+        onOpenIntegrations={() => setShowIntegrations(true)}
         saveStatus={fb.saveStatus}
         isLocked={fb.isLocked}
         workflows={fb.workflows}
@@ -105,6 +108,11 @@ function FlowBuilderContent() {
           onUpdate={fb.updateFlowSettings}
           onClose={() => setShowSettings(false)}
         />
+      )}
+
+      {/* Integrations modal */}
+      {showIntegrations && (
+        <FlowIntegrationsModal onClose={() => setShowIntegrations(false)} />
       )}
 
       {/* Template picker modal (for creating new flows) */}

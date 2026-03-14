@@ -105,6 +105,31 @@ const dashboard = {
   blockedNumbersAdded: "המספר נחסם",
   blockedNumbersRemoved: "המספר הוסר מהחסימה",
   blockedNumbersError: "העדכון נכשל. נסה שוב.",
+
+  // Integrations
+  integrationsTitle: "אינטגרציות",
+  integrationsSubtitle: "חבר שירותים חיצוניים לשימוש בתהליכים שלך",
+  addIntegration: "הוסף אינטגרציה",
+  editIntegration: "ערוך",
+  deleteIntegration: "מחק",
+  deleteIntegrationConfirm: "להסיר אינטגרציה זו? תהליכים שמשתמשים בה יפסיקו לעבוד.",
+  integrationActive: "פעיל",
+  integrationInactive: "לא פעיל",
+  integrationTypeCloudbeds: "Cloudbeds",
+  integrationTypeCustomApi: "API מותאם",
+  integrationApiKey: "מפתח API",
+  integrationClientId: "מזהה לקוח",
+  integrationClientSecret: "סוד לקוח",
+  integrationBaseUrl: "כתובת בסיס",
+  integrationAuthType: "סוג אימות",
+  integrationAuthValue: "ערך אימות",
+  integrationName: "שם",
+  integrationSaved: "האינטגרציה נשמרה",
+  integrationDeleted: "האינטגרציה הוסרה",
+  integrationError: "השמירה נכשלה. נסה שוב.",
+  integrationsEmpty: "אין אינטגרציות עדיין",
+  integrationsEmptyDesc: "הוסף חיבור API לשימוש בבונה התהליכים.",
+  selectType: "בחר סוג",
 };
 
 export default dashboard;

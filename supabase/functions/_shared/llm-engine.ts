@@ -41,6 +41,12 @@ export async function classifyTrigger(
 ): Promise<string | null> {
   if (triggers.length === 0) return null;
 
+  // Quick exact match — skip LLM call
+  const exactMatch = triggers.find(
+    (t) => t.trigger.trim().toLowerCase() === message.trim().toLowerCase()
+  );
+  if (exactMatch) return exactMatch.id;
+
   const openrouterKey = Deno.env.get("OPENROUTER_API_KEY");
   if (!openrouterKey) return null;
 
@@ -76,20 +82,30 @@ If no trigger matches: {"match":null}`;
       }),
     });
 
-    if (!res.ok) return null;
+    if (!res.ok) {
+      console.error("[classifyTrigger] API error:", res.status);
+      return null;
+    }
 
     const data = await res.json();
     const text = data.choices?.[0]?.message?.content?.trim();
     if (!text) return null;
 
-    const parsed = JSON.parse(text);
+    // Strip markdown code fences if LLM wraps the JSON
+    const cleanText = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
+    console.log("[classifyTrigger]", { message, rawText: text, cleanText });
+
+    const parsed = JSON.parse(cleanText);
     const matchedId = parsed?.match;
     if (!matchedId || typeof matchedId !== "string") return null;
 
-    // Verify the ID actually exists in our triggers
-    if (triggers.some((t) => t.id === matchedId)) return matchedId;
+    // Case-insensitive verify against trigger IDs
+    const lower = matchedId.toLowerCase();
+    const found = triggers.find((t) => t.id.toLowerCase() === lower);
+    if (found) return found.id;
     return null;
-  } catch {
+  } catch (err) {
+    console.error("[classifyTrigger] parse error:", err);
     return null;
   }
 }
@@ -343,6 +359,72 @@ export async function callLLMEngine(
   }
 
   return { response: botResponse, model: usedModel, conversationStage };
+}
+
+// ── Collect-input validator ──────────────────────────────────
+
+/**
+ * Validate a user's response against the expected answer description.
+ * Returns true if valid, false if not.
+ */
+export async function validateCollectInput(
+  question: string,
+  expectedAnswer: string,
+  userResponse: string,
+): Promise<boolean> {
+  if (!expectedAnswer.trim()) return true;
+
+  const openrouterKey = Deno.env.get("OPENROUTER_API_KEY");
+  if (!openrouterKey) return true; // fail open if no API key
+
+  const systemPrompt = `You validate user responses in a WhatsApp chatbot.
+The bot asked the customer: "${question}"
+The expected type of answer is: "${expectedAnswer}"
+The customer responded: "${userResponse}"
+
+Determine if the customer's response is a valid answer matching the expected type.
+Be lenient — accept reasonable variations, different formats, and different languages.
+For example: if expecting "a name", accept "John", "מיכאל", "sarah cohen" etc.
+If expecting "phone number", accept "0501234567", "050-123-4567", "+972501234567" etc.
+
+Respond with ONLY valid JSON: {"valid":true} or {"valid":false}`;
+
+  try {
+    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${openrouterKey}`,
+      },
+      body: JSON.stringify({
+        model: "x-ai/grok-4-fast",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userResponse },
+        ],
+        max_tokens: 20,
+        temperature: 0,
+      }),
+    });
+
+    if (!res.ok) {
+      console.error("[validateCollectInput] API error:", res.status);
+      return true; // fail open
+    }
+
+    const data = await res.json();
+    const text = data.choices?.[0]?.message?.content?.trim();
+    if (!text) return true;
+
+    const cleanText = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
+    console.log("[validateCollectInput]", { question, expectedAnswer, userResponse, result: cleanText });
+
+    const parsed = JSON.parse(cleanText);
+    return parsed?.valid === true;
+  } catch (err) {
+    console.error("[validateCollectInput] error:", err);
+    return true; // fail open
+  }
 }
 
 // ── Follow-up message generator ──────────────────────────────

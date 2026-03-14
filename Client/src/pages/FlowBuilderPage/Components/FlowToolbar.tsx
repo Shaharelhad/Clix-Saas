@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { Loader2, Check, Upload, CircleStop, Settings, ChevronDown } from "lucide-react";
+import { Loader2, Check, Upload, CircleStop, Settings, Plug, ChevronDown } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import type { Workflow } from "@/types/flow";
 import FlowListDropdown from "./FlowListDropdown";
@@ -11,6 +11,7 @@ interface FlowToolbarProps {
   onNameChange: (name: string) => void;
   onToggleStatus: () => void;
   onOpenSettings: () => void;
+  onOpenIntegrations: () => void;
   saveStatus: "idle" | "saving" | "saved" | "error";
   isLocked: boolean;
   // Multi-workflow
@@ -27,6 +28,7 @@ export default function FlowToolbar({
   onNameChange,
   onToggleStatus,
   onOpenSettings,
+  onOpenIntegrations,
   saveStatus,
   isLocked,
   workflows,
@@ -102,6 +104,15 @@ export default function FlowToolbar({
             title={t("settingsTitle")}
           >
             <Settings className="w-4 h-4 text-[#7A7267]" />
+          </button>
+
+          {/* Integrations */}
+          <button
+            onClick={onOpenIntegrations}
+            className="p-1.5 rounded hover:bg-[#EDE6DD]/40 cursor-pointer"
+            title={t("integrationsTitle", { ns: "dashboard" })}
+          >
+            <Plug className="w-4 h-4 text-[#7A7267]" />
           </button>
         </div>
 

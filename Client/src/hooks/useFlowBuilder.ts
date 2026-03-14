@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   useNodesState,
   useEdgesState,
+  useUpdateNodeInternals,
   type OnNodesChange,
   type OnEdgesChange,
   type OnConnect,
@@ -204,6 +205,7 @@ interface UseFlowBuilderReturn {
 export function useFlowBuilder(): UseFlowBuilderReturn {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const updateNodeInternals = useUpdateNodeInternals();
 
   const [activeWorkflowId, setActiveWorkflowId] = useState<string | null>(null);
   const [workflowName, setWorkflowName] = useState("New Flow");
@@ -593,13 +595,41 @@ export function useFlowBuilder(): UseFlowBuilderReturn {
         return updated;
       });
 
-      // Defer edge update to next frame so xyflow can find handle DOM positions
+      // Wait for React to commit nodes to DOM, then force handle measurement before setting edges
       if (pendingEdges) {
-        const edges = pendingEdges;
-        setTimeout(() => setEdges(edges), 0);
+        const newEdges = pendingEdges;
+        requestAnimationFrame(() => {
+          updateNodeInternals(nodeId);
+          setEdges(newEdges);
+        });
+      }
+
+      // Migrate edges when yesNoMode is toggled
+      if (data.yesNoMode === true) {
+        // Toggled ON: migrate existing default edge → sourceHandle "yes"
+        setEdges((eds) =>
+          eds.map((e) =>
+            e.source === nodeId && !e.sourceHandle
+              ? { ...e, sourceHandle: "yes" }
+              : e
+          )
+        );
+        requestAnimationFrame(() => updateNodeInternals(nodeId));
+      } else if (data.yesNoMode === false) {
+        // Toggled OFF: migrate "yes" edge back to default, remove "no" edge
+        setEdges((eds) =>
+          eds
+            .filter((e) => !(e.source === nodeId && e.sourceHandle === "no"))
+            .map((e) =>
+              e.source === nodeId && e.sourceHandle === "yes"
+                ? { ...e, sourceHandle: undefined }
+                : e
+            )
+        );
+        requestAnimationFrame(() => updateNodeInternals(nodeId));
       }
     },
-    [isLocked, notifyLocked, setNodes, setEdges]
+    [isLocked, notifyLocked, setNodes, setEdges, updateNodeInternals]
   );
 
   // ── Delete node ──────────────────────────────────────────────

@@ -8,7 +8,9 @@ export type FlowNodeType =
   | "image"
   | "buttons"
   | "delay"
-  | "open_bot";
+  | "open_bot"
+  | "collect_input"
+  | "api_call";
 
 export interface ButtonItem {
   id: string;
@@ -29,11 +31,23 @@ export interface FlowNodeData extends Record<string, unknown> {
   imageUrl?: string;
   // buttons
   buttons?: ButtonItem[];
+  // text / image — yes/no question mode
+  yesNoMode?: boolean;
+  // collect_input
+  variableName?: string;
+  expectedAnswer?: string;
   // delay
   delayMinutes?: number;
   // open_bot (auto-created by button toggle)
   linkedButtonId?: string;
   linkedNodeId?: string;
+  // api_call
+  integrationId?: string;
+  endpoint?: string;
+  method?: string;
+  bodyTemplate?: string;
+  responseMapping?: Array<{ jsonPath: string; variableName: string }>;
+  errorMessage?: string;
 }
 
 // XYFlow typed node / edge
@@ -84,6 +98,8 @@ export const NODE_COLORS: Record<FlowNodeType, string> = {
   buttons: "#f59e0b",
   delay: "#6b7280",
   open_bot: "#8B5CF6",
+  collect_input: "#06b6d4",
+  api_call: "#ec4899",
 };
 
 // Default labels for each node type
@@ -94,4 +110,6 @@ export const NODE_DEFAULTS: Record<FlowNodeType, Partial<FlowNodeData>> = {
   buttons: { type: "buttons", message: "", buttons: [] },
   delay: { type: "delay", delayMinutes: 5 },
   open_bot: { type: "open_bot" },
+  collect_input: { type: "collect_input", message: "", variableName: "" },
+  api_call: { type: "api_call", method: "GET", endpoint: "", responseMapping: [], errorMessage: "" },
 };

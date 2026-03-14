@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { corsHeaders } from "../_shared/cors.ts";
-import { callLLMEngine, classifyTrigger, type TriggerInfo } from "../_shared/llm-engine.ts";
+import { getCorsHeaders } from "../_shared/cors.ts";
+import { getAuthenticatedUserId } from "../_shared/auth.ts";
+import { callLLMEngine, classifyTrigger, validateCollectInput, type TriggerInfo } from "../_shared/llm-engine.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -21,11 +22,20 @@ interface FlowNode {
     imageUrl?: string;
     buttons?: ButtonItem[];
     variableName?: string;
+    expectedAnswer?: string;
     delayMinutes?: number;
     triggerText?: string;
     expectedReply?: string;
     continueAuto?: boolean;
     followUpMessage?: string;
+    yesNoMode?: boolean;
+    // api_call
+    integrationId?: string;
+    endpoint?: string;
+    method?: string;
+    bodyTemplate?: string;
+    responseMapping?: Array<{ jsonPath: string; variableName: string }>;
+    errorMessage?: string;
   };
 }
 
@@ -166,7 +176,7 @@ function executeNodeDemo(
   if (node.type === "text") {
     const msg = resolveVariables(node.data.message || "", variables);
     responses.push({ type: "text", content: msg });
-    if (node.data.continueAuto || node.data.expectedReply) {
+    if (node.data.yesNoMode || node.data.continueAuto || node.data.expectedReply) {
       return { nextNodeId: node.id, waitForInput: true };
     }
     const next = findNextNode(flow, node.id);
@@ -195,6 +205,22 @@ function executeNodeDemo(
     return { nextNodeId: node.id, waitForInput: true };
   }
 
+  if (node.type === "api_call") {
+    // In demo mode, skip actual API call — populate mock values
+    for (const mapping of (node.data.responseMapping || [])) {
+      variables[mapping.variableName] = `[mock:${mapping.variableName}]`;
+    }
+    const method = node.data.method || "GET";
+    const endpoint = resolveVariables(node.data.endpoint || "/", variables);
+    const mappingCount = (node.data.responseMapping || []).length;
+    responses.push({
+      type: "text",
+      content: `🔗 API Call: ${method} ${endpoint}\n→ ${mappingCount} variable(s) set`,
+    });
+    const next = findNextNode(flow, node.id);
+    return { nextNodeId: next?.id || null, waitForInput: false };
+  }
+
   if (node.type === "delay") {
     // In demo mode, skip delays — execute immediately
     const next = findNextNode(flow, node.id);
@@ -217,17 +243,21 @@ function executeNodeDemo(
 
 // ── Main Handler ────────────────────────────────────────────
 Deno.serve(async (req) => {
+  const cors = getCorsHeaders(req);
+
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response("ok", { headers: cors });
   }
 
   try {
-    const { user_id, workflow_id, message, conversation_id, session_state } = await req.json();
+    const body = await req.json();
+    const user_id = await getAuthenticatedUserId(req);
+    const { workflow_id, message, conversation_id, session_state } = body;
 
-    if (!user_id || !message) {
+    if (!message) {
       return new Response(
-        JSON.stringify({ error: "user_id and message are required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ error: "message is required" }),
+        { status: 400, headers: { ...cors, "Content-Type": "application/json" } }
       );
     }
 
@@ -255,7 +285,7 @@ Deno.serve(async (req) => {
       });
       return new Response(
         JSON.stringify({ response: botResponse, conversation_id: convId }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { headers: { ...cors, "Content-Type": "application/json" } }
       );
     }
 
@@ -268,7 +298,7 @@ Deno.serve(async (req) => {
     if (!workflow) {
       return new Response(
         JSON.stringify({ error: "Workflow not found" }),
-        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 404, headers: { ...cors, "Content-Type": "application/json" } }
       );
     }
 
@@ -284,7 +314,7 @@ Deno.serve(async (req) => {
       });
       return new Response(
         JSON.stringify({ response: botResponse, conversation_id: convId }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { headers: { ...cors, "Content-Type": "application/json" } }
       );
     }
 
@@ -301,7 +331,7 @@ Deno.serve(async (req) => {
       });
       return new Response(
         JSON.stringify({ response: botResponse, conversation_id: convId }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { headers: { ...cors, "Content-Type": "application/json" } }
       );
     }
 
@@ -325,7 +355,7 @@ Deno.serve(async (req) => {
           conversation_id: convId,
           session_state: { current_node_id: nodeId, variables, status: nodeId ? "active" : "completed" },
         }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { headers: { ...cors, "Content-Type": "application/json" } }
       );
     }
 
@@ -348,7 +378,7 @@ Deno.serve(async (req) => {
           conversation_id: convId,
           session_state: { current_node_id: nodeId, variables, status: nodeId ? "active" : "completed" },
         }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { headers: { ...cors, "Content-Type": "application/json" } }
       );
     }
 
@@ -406,7 +436,7 @@ Deno.serve(async (req) => {
           conversation_id: convId,
           session_state: { current_node_id: currentNode.id, variables, status: "active" },
         }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { headers: { ...cors, "Content-Type": "application/json" } }
       );
     }
 
@@ -429,11 +459,30 @@ Deno.serve(async (req) => {
         const resultState: SessionState = { current_node_id: currentNodeId, variables, status: "active" };
         return new Response(
           JSON.stringify({ responses, conversation_id: convId, session_state: resultState }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          { headers: { ...cors, "Content-Type": "application/json" } }
         );
       }
-    } else if ((currentNode.type === "text" || currentNode.type === "image") && (currentNode.data.continueAuto || currentNode.data.expectedReply)) {
-      if (currentNode.data.expectedReply) {
+    } else if ((currentNode.type === "text" || currentNode.type === "image") && (currentNode.data.yesNoMode || currentNode.data.continueAuto || currentNode.data.expectedReply)) {
+      if (currentNode.data.yesNoMode) {
+        // Yes/No mode — classify response as affirmative or negative via LLM
+        const yesNoResult = await classifyTrigger(
+          [{ id: "yes", trigger: "yes" }, { id: "no", trigger: "no" }],
+          message,
+        );
+        if (yesNoResult === "yes") {
+          const nextNode = findNextNode(flow, currentNode.id, "yes");
+          nextNodeId = nextNode?.id || null;
+        } else if (yesNoResult === "no") {
+          const nextNode = findNextNode(flow, currentNode.id, "no");
+          nextNodeId = nextNode?.id || null;
+        } else {
+          // Unclear answer — re-ask
+          if (strictMode) {
+            return strictNudgeResponse(`לא הבנתי. ${currentNode.data.message || "אנא נסה שוב."}`, currentNodeId);
+          }
+          return llmFallbackResponse(currentNodeId);
+        }
+      } else if (currentNode.data.expectedReply) {
         const expected = currentNode.data.expectedReply.trim().toLowerCase();
         const userInput = message.trim().toLowerCase();
         let matched = userInput === expected;
@@ -460,6 +509,21 @@ Deno.serve(async (req) => {
         nextNodeId = nextNode?.id || null;
       }
     } else if (currentNode.type === "collect_input") {
+      // Validate input if expectedAnswer is set
+      if (currentNode.data.expectedAnswer) {
+        const isValid = await validateCollectInput(
+          currentNode.data.message || "",
+          currentNode.data.expectedAnswer,
+          message,
+        );
+        if (!isValid) {
+          // Re-ask — stay on same node
+          if (strictMode) {
+            return strictNudgeResponse(`לא הבנתי. ${currentNode.data.message || "אנא נסה שוב."}`, currentNodeId);
+          }
+          return llmFallbackResponse(currentNodeId);
+        }
+      }
       const varName = currentNode.data.variableName || "answer";
       variables[varName] = message;
       const nextNode = findNextNode(flow, currentNode.id);
@@ -544,7 +608,7 @@ Deno.serve(async (req) => {
           conversation_id: convId,
           session_state: { current_node_id: nextNodeId, variables, status: "active" },
         }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { headers: { ...cors, "Content-Type": "application/json" } }
       );
     }
 
@@ -579,13 +643,15 @@ Deno.serve(async (req) => {
         flow_completed: flowCompleted,
         session_state: { current_node_id: nextNodeId, variables, status: finalStatus },
       }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { headers: { ...cors, "Content-Type": "application/json" } }
     );
   } catch (err) {
     console.error("flow-demo error:", err);
+    const message = err instanceof Error ? err.message : "Unknown error";
+    const status = message.includes("Authorization") || message.includes("token") ? 401 : 500;
     return new Response(
-      JSON.stringify({ error: String(err) }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      JSON.stringify({ error: message }),
+      { status, headers: { ...cors, "Content-Type": "application/json" } }
     );
   }
 });

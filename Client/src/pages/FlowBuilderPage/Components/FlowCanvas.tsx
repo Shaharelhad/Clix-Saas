@@ -20,6 +20,8 @@ import ImageNode from "./nodes/ImageNode";
 import ButtonsNode from "./nodes/ButtonsNode";
 import DelayNode from "./nodes/DelayNode";
 import OpenBotNode from "./nodes/OpenBotNode";
+import CollectInputNode from "./nodes/CollectInputNode";
+import ApiCallNode from "./nodes/ApiCallNode";
 
 const nodeTypes: NodeTypes = {
   start: StartNode,
@@ -28,6 +30,8 @@ const nodeTypes: NodeTypes = {
   buttons: ButtonsNode,
   delay: DelayNode,
   open_bot: OpenBotNode,
+  collect_input: CollectInputNode,
+  api_call: ApiCallNode,
 };
 
 const edgeTypes: EdgeTypes = {

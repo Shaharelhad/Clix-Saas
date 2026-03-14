@@ -106,6 +106,31 @@ const dashboard = {
   blockedNumbersAdded: "Number blocked",
   blockedNumbersRemoved: "Number unblocked",
   blockedNumbersError: "Failed to update. Please try again.",
+
+  // Integrations
+  integrationsTitle: "Integrations",
+  integrationsSubtitle: "Connect external services for use in your flows",
+  addIntegration: "Add Integration",
+  editIntegration: "Edit",
+  deleteIntegration: "Delete",
+  deleteIntegrationConfirm: "Remove this integration? Flows using it will stop working.",
+  integrationActive: "Active",
+  integrationInactive: "Inactive",
+  integrationTypeCloudbeds: "Cloudbeds",
+  integrationTypeCustomApi: "Custom API",
+  integrationApiKey: "API Key",
+  integrationClientId: "Client ID",
+  integrationClientSecret: "Client Secret",
+  integrationBaseUrl: "Base URL",
+  integrationAuthType: "Auth Type",
+  integrationAuthValue: "Auth Value",
+  integrationName: "Name",
+  integrationSaved: "Integration saved",
+  integrationDeleted: "Integration removed",
+  integrationError: "Failed to save. Please try again.",
+  integrationsEmpty: "No integrations yet",
+  integrationsEmptyDesc: "Add an API connection to use in your flow builder.",
+  selectType: "Select type",
 };
 
 export default dashboard;

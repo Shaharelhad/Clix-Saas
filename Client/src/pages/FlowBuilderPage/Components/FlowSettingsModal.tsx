@@ -46,14 +46,6 @@ export default function FlowSettingsModal({ settings, onUpdate, onClose }: FlowS
             onChange={(v) => onUpdate({ ignoreGroupChats: v })}
           />
 
-          {/* Duplicate Message Filter */}
-          <SettingRow
-            label={t("settingsDedup")}
-            hint={t("settingsDedupHint")}
-            checked={settings.deduplicateMessages}
-            onChange={(v) => onUpdate({ deduplicateMessages: v })}
-          />
-
           {/* Human Takeover Cooldown */}
           <div className="border-t border-[#EDE6DD]/40 pt-5">
             <SettingRow
