@@ -1,20 +1,18 @@
-import { corsHeaders } from "../_shared/cors.ts";
+import { getCorsHeaders } from "../_shared/cors.ts";
+import { getAuthenticatedUserId } from "../_shared/auth.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 Deno.serve(async (req) => {
+  const cors = getCorsHeaders(req);
+
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response("ok", { headers: cors });
   }
 
   try {
-    const { user_id, scrape_job_id } = await req.json();
-
-    if (!user_id) {
-      return new Response(
-        JSON.stringify({ error: "user_id is required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
+    const body = await req.json();
+    const user_id = await getAuthenticatedUserId(req);
+    const { scrape_job_id } = body;
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -33,7 +31,7 @@ Deno.serve(async (req) => {
       if (jobErr || !job) {
         return new Response(
           JSON.stringify({ status: "none", message: "No scrape job found" }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          { headers: { ...cors, "Content-Type": "application/json" } },
         );
       }
 
@@ -53,7 +51,7 @@ Deno.serve(async (req) => {
           created_at: job.created_at,
           updated_at: job.updated_at,
         }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        { headers: { ...cors, "Content-Type": "application/json" } },
       );
     }
 
@@ -69,7 +67,7 @@ Deno.serve(async (req) => {
     if (jobsErr || !jobs || jobs.length === 0) {
       return new Response(
         JSON.stringify({ status: "none", message: "No scrape jobs found" }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        { headers: { ...cors, "Content-Type": "application/json" } },
       );
     }
 
@@ -99,13 +97,15 @@ Deno.serve(async (req) => {
         jobs_total: jobs.length,
         jobs_completed: jobs.filter((j) => j.status === "completed" || j.status === "failed").length,
       }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      { headers: { ...cors, "Content-Type": "application/json" } },
     );
   } catch (err) {
     console.error("scrape-status error:", err);
+    const message = err instanceof Error ? err.message : "Unknown error";
+    const status = message.includes("Authorization") || message.includes("token") ? 401 : 500;
     return new Response(
-      JSON.stringify({ error: err.message }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      JSON.stringify({ error: message }),
+      { status, headers: { ...cors, "Content-Type": "application/json" } },
     );
   }
 });

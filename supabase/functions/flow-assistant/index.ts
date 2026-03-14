@@ -3,7 +3,8 @@
  * Answers user questions about node types, connections, settings, etc.
  */
 
-import { corsHeaders } from "../_shared/cors.ts";
+import { getCorsHeaders } from "../_shared/cors.ts";
+import { getAuthenticatedUserId } from "../_shared/auth.ts";
 
 const SYSTEM_PROMPT = `אתה עוזר חכם של בונה התהליכים (Flow Builder) במערכת CLIX — פלטפורמה לבניית בוטים לוואטסאפ.
 תפקידך לענות על שאלות של משתמשים לגבי איך להשתמש בבונה התהליכים, מה כל צומת עושה, ואיך לבנות תהליכים אפקטיביים.
@@ -65,12 +66,16 @@ const SYSTEM_PROMPT = `אתה עוזר חכם של בונה התהליכים (Fl
 - השתמש במצב קפדני אם אתה רוצה שהבוט יעקוב רק אחרי התהליך.`;
 
 Deno.serve(async (req) => {
+  const cors = getCorsHeaders(req);
+
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response("ok", { headers: cors });
   }
 
   try {
-    const { message, history } = (await req.json()) as {
+    const body = await req.json();
+    await getAuthenticatedUserId(req); // verify auth, user_id not needed for this function
+    const { message, history } = body as {
       message?: string;
       history?: { role: string; content: string }[];
     };
@@ -78,7 +83,7 @@ Deno.serve(async (req) => {
     if (!message?.trim()) {
       return new Response(
         JSON.stringify({ error: "message is required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        { status: 400, headers: { ...cors, "Content-Type": "application/json" } },
       );
     }
 
@@ -86,7 +91,7 @@ Deno.serve(async (req) => {
     if (!openrouterKey) {
       return new Response(
         JSON.stringify({ error: "LLM not configured" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        { status: 500, headers: { ...cors, "Content-Type": "application/json" } },
       );
     }
 
@@ -125,7 +130,7 @@ Deno.serve(async (req) => {
       console.error("OpenRouter error:", res.status, errText);
       return new Response(
         JSON.stringify({ error: "LLM request failed" }),
-        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        { status: 502, headers: { ...cors, "Content-Type": "application/json" } },
       );
     }
 
@@ -134,13 +139,15 @@ Deno.serve(async (req) => {
 
     return new Response(
       JSON.stringify({ response }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      { headers: { ...cors, "Content-Type": "application/json" } },
     );
   } catch (err) {
     console.error("flow-assistant error:", err);
+    const message = err instanceof Error ? err.message : "Unknown error";
+    const status = message.includes("Authorization") || message.includes("token") ? 401 : 500;
     return new Response(
-      JSON.stringify({ error: String(err) }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      JSON.stringify({ error: message }),
+      { status, headers: { ...cors, "Content-Type": "application/json" } },
     );
   }
 });
