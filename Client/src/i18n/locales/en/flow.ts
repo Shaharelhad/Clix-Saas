@@ -163,6 +163,19 @@ const flow = {
   apiCallMaxMappings: "Maximum 10 mappings",
   apiCallErrorMessage: "Error Message",
   apiCallErrorMessageHint: "Message sent to the customer if the API call fails",
+  apiCallOperation: "Operation",
+  apiCallOperationHint: "Select an operation to perform",
+  apiCallSelectOperation: "Select operation...",
+  apiCallInputHint: "Supports {{variable}} from previous steps",
+  apiCallOutputVars: "Output Variables",
+  integrationCloudbeds: "Cloudbeds",
+  cloudbeds_opGetAvailableRooms: "Check Available Rooms",
+  cloudbeds_opGetAvailableRoomsDesc: "Search for available rooms by date range",
+  cloudbeds_fieldCheckIn: "Check-in Date",
+  cloudbeds_fieldCheckOut: "Check-out Date",
+  cloudbeds_fieldDateHint: "Format: YYYY-MM-DD or {{variable}}",
+  cloudbeds_varAvailableRooms: "available_rooms",
+  cloudbeds_errorGetAvailableRooms: "Could not check room availability. Please try again later.",
 
   // Start node management
   startNodeDisabled: "Disabled",
@@ -184,6 +197,29 @@ const flow = {
   // Node label
   nodeLabel: "Node Name",
   nodeLabelHint: "Custom name for this node",
+
+  // Allow Skip
+  allowSkip: "Allow Skip",
+  allowSkipHint: "If the customer refuses to answer, skip to the next step",
+  allowSkipBadge: "Skippable",
+
+  // Auto-translate
+  settingsAutoTranslate: "Auto-Translate",
+  settingsAutoTranslateHint: "Translate flow messages to the customer's chosen language",
+  settingsFlowLanguage: "Flow Language",
+  settingsFlowLanguageHint: "The language your flow messages are written in",
+  flowLangHe: "Hebrew",
+  flowLangEn: "English",
+  buttonsVariableName: "Save Selection As",
+  buttonsVariableNameHint: "Store the clicked button in a variable (e.g., language)",
+
+  // Language node
+  nodeLanguage: "Language",
+  nodeLanguageDesc: "Let customer choose language",
+  languagePromptDefault: "Choose your language",
+  languagePromptLabel: "Prompt Message",
+  languagePromptHint: "Message shown above the language buttons",
+  languageNodeInfo: "The customer will see English and Hebrew buttons. Their choice sets the language for all following messages in this flow.",
 
   // Misc
   deleteNode: "Delete Node",

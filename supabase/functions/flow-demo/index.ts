@@ -1,7 +1,8 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { getAuthenticatedUserId } from "../_shared/auth.ts";
-import { callLLMEngine, classifyTrigger, validateCollectInput, type TriggerInfo } from "../_shared/llm-engine.ts";
+import { callLLMEngine, classifyTrigger, validateCollectInput, detectRefusal, translateMessage, translateButtonLabels, type TriggerInfo } from "../_shared/llm-engine.ts";
+import { findOperationById } from "../_shared/integration-catalog.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -29,6 +30,7 @@ interface FlowNode {
     continueAuto?: boolean;
     followUpMessage?: string;
     yesNoMode?: boolean;
+    allowSkip?: boolean;
     // api_call
     integrationId?: string;
     endpoint?: string;
@@ -132,7 +134,8 @@ async function callLLMFallback(
   userId: string,
   userMessage: string,
   conversationId: string,
-  workflowRecord?: string
+  workflowRecord?: string,
+  languagePreference?: string
 ): Promise<string> {
   // Fetch conversation history from demo_conversations
   const { data: history } = await supabase
@@ -150,6 +153,11 @@ async function callLLMFallback(
     }
   }
 
+  const langContext = languagePreference
+    ? `\nIMPORTANT: The customer prefers to communicate in ${languagePreference}. Respond in ${languagePreference}.\n`
+    : "";
+  const fullWorkflowRecord = langContext + (workflowRecord || "");
+
   const result = await callLLMEngine(
     supabase,
     userId,
@@ -158,19 +166,25 @@ async function callLLMFallback(
     undefined, // no config overrides
     undefined, // no legacy triggerContext
     true,      // useDraft for preview
-    workflowRecord,
+    fullWorkflowRecord || undefined,
   );
 
   return result.response;
 }
 
 // ── Execute node in demo mode (no WhatsApp, collect responses) ──
-function executeNodeDemo(
+async function executeNodeDemo(
   node: FlowNode,
   variables: Record<string, string>,
   flow: FlowJSON,
   responses: DemoResponse[]
-): { nextNodeId: string | null; waitForInput: boolean } {
+): Promise<{ nextNodeId: string | null; waitForInput: boolean }> {
+  // Auto-translation check
+  const flowLang = (flow.settings as Record<string, unknown>)?.flowLanguage as string || "he";
+  const shouldTranslate = variables.language
+    && variables.language.toLowerCase() !== flowLang.toLowerCase();
+  const targetLang = variables.language || flowLang;
+
   if (node.type === "start") {
     const next = findNextNode(flow, node.id);
     return { nextNodeId: next?.id || null, waitForInput: false };
@@ -181,8 +195,20 @@ function executeNodeDemo(
     return { nextNodeId: null, waitForInput: false };
   }
 
+  // Language — send language selection buttons
+  if (node.type === "language") {
+    const msg = resolveVariables(node.data.message || "Choose your language:", variables);
+    const langButtons = [
+      { id: "lang-en", label: "English" },
+      { id: "lang-he", label: "עברית" },
+    ];
+    responses.push({ type: "buttons", content: msg, buttons: langButtons });
+    return { nextNodeId: node.id, waitForInput: true };
+  }
+
   if (node.type === "text") {
-    const msg = resolveVariables(node.data.message || "", variables);
+    let msg = resolveVariables(node.data.message || "", variables);
+    if (shouldTranslate) msg = await translateMessage(msg, flowLang, targetLang);
     responses.push({ type: "text", content: msg });
     if (node.data.yesNoMode || node.data.continueAuto || node.data.expectedReply) {
       return { nextNodeId: node.id, waitForInput: true };
@@ -192,7 +218,8 @@ function executeNodeDemo(
   }
 
   if (node.type === "image") {
-    const msg = resolveVariables(node.data.message || "", variables);
+    let msg = resolveVariables(node.data.message || "", variables);
+    if (shouldTranslate) msg = await translateMessage(msg, flowLang, targetLang);
     responses.push({ type: "image", content: msg, imageUrl: node.data.imageUrl });
     if (node.data.continueAuto || node.data.expectedReply) {
       return { nextNodeId: node.id, waitForInput: true };
@@ -202,35 +229,59 @@ function executeNodeDemo(
   }
 
   if (node.type === "buttons") {
-    const msg = resolveVariables(node.data.message || "", variables);
-    responses.push({ type: "buttons", content: msg, buttons: node.data.buttons || [] });
+    let msg = resolveVariables(node.data.message || "", variables);
+    const buttons = node.data.buttons || [];
+    let displayButtons = buttons;
+    if (shouldTranslate) {
+      msg = await translateMessage(msg, flowLang, targetLang);
+      const translatedLabels = await translateButtonLabels(
+        buttons.map((b) => b.label),
+        flowLang,
+        targetLang,
+      );
+      displayButtons = buttons.map((b, i) => ({ ...b, label: translatedLabels[i] || b.label }));
+      for (let i = 0; i < buttons.length; i++) {
+        variables[`__btn_translated_${translatedLabels[i]?.trim().toLowerCase()}`] = buttons[i].label;
+      }
+    }
+    responses.push({ type: "buttons", content: msg, buttons: displayButtons });
     return { nextNodeId: node.id, waitForInput: true };
   }
 
   if (node.type === "collect_input") {
-    const msg = resolveVariables(node.data.message || "", variables);
+    let msg = resolveVariables(node.data.message || "", variables);
+    if (shouldTranslate) msg = await translateMessage(msg, flowLang, targetLang);
     responses.push({ type: "text", content: msg });
     return { nextNodeId: node.id, waitForInput: true };
   }
 
   if (node.type === "api_call") {
-    // In demo mode, skip actual API call — populate mock values
-    for (const mapping of (node.data.responseMapping || [])) {
+    // Operation mode: resolve from catalog
+    const opDef = node.data.serviceType && node.data.operationId
+      ? findOperationById(node.data.serviceType, node.data.operationId)
+      : undefined;
+
+    const mappings = opDef
+      ? opDef.responseMapping.map((m) => ({ jsonPath: m.jsonPath, variableName: m.variableName }))
+      : (node.data.responseMapping || []);
+
+    for (const mapping of mappings) {
       variables[mapping.variableName] = `[mock:${mapping.variableName}]`;
     }
-    const method = node.data.method || "GET";
-    const endpoint = resolveVariables(node.data.endpoint || "/", variables);
-    const mappingCount = (node.data.responseMapping || []).length;
+
+    const displayLabel = opDef
+      ? opDef.labelKey
+      : `${node.data.method || "GET"} ${resolveVariables(node.data.endpoint || "/", variables)}`;
+
     responses.push({
       type: "text",
-      content: `🔗 API Call: ${method} ${endpoint}\n→ ${mappingCount} variable(s) set`,
+      content: `🔗 ${displayLabel}\n→ ${mappings.length} variable(s) set`,
     });
     const next = findNextNode(flow, node.id);
     return { nextNodeId: next?.id || null, waitForInput: false };
   }
 
   if (node.type === "delay") {
-    // In demo mode, skip delays — execute immediately
     const next = findNextNode(flow, node.id);
     return { nextNodeId: next?.id || null, waitForInput: false };
   }
@@ -240,7 +291,6 @@ function executeNodeDemo(
     return { nextNodeId: next?.id || null, waitForInput: false };
   }
 
-  // Legacy ai_agent nodes — skip through to next
   if (node.type === "ai_agent") {
     const next = findNextNode(flow, node.id);
     return { nextNodeId: next?.id || null, waitForInput: false };
@@ -313,7 +363,7 @@ Deno.serve(async (req) => {
     // Workflow paused — use LLM-only mode (no flow node execution)
     if (workflow.status !== "active") {
       const workflowRecord = (workflow.workflow_record as string) || undefined;
-      const botResponse = await callLLMFallback(user_id, message, convId, workflowRecord);
+      const botResponse = await callLLMFallback(user_id, message, convId, workflowRecord, variables?.language);
       await supabase.from("demo_conversations").insert({
         user_id,
         conversation_id: convId,
@@ -330,7 +380,7 @@ Deno.serve(async (req) => {
     const workflowRecord = (workflow.workflow_record as string) || undefined;
 
     if (!flow?.nodes?.length) {
-      const botResponse = await callLLMFallback(user_id, message, convId, workflowRecord);
+      const botResponse = await callLLMFallback(user_id, message, convId, workflowRecord, variables?.language);
       await supabase.from("demo_conversations").insert({
         user_id,
         conversation_id: convId,
@@ -372,7 +422,7 @@ Deno.serve(async (req) => {
       if (strictMode) {
         return strictNudgeResponse("אני יכול לעזור רק דרך התהליך. שלח הודעה כדי להתחיל.", stayOnNode);
       }
-      const botResponse = await callLLMFallback(user_id, message, convId, workflowRecord);
+      const botResponse = await callLLMFallback(user_id, message, convId, workflowRecord, variables?.language);
       await supabase.from("demo_conversations").insert({
         user_id,
         conversation_id: convId,
@@ -433,7 +483,7 @@ Deno.serve(async (req) => {
 
     // Open Bot node — free AI conversation (bypass strict mode)
     if (currentNode.type === "open_bot") {
-      const botResponse = await callLLMFallback(user_id, message, convId, workflowRecord);
+      const botResponse = await callLLMFallback(user_id, message, convId, workflowRecord, variables?.language);
       await supabase.from("demo_conversations").insert({
         user_id, conversation_id: convId,
         user_message: message, bot_response: botResponse,
@@ -450,11 +500,33 @@ Deno.serve(async (req) => {
 
     let nextNodeId: string | null = null;
 
+    // Language node — set language variable and advance
+    if (currentNode.type === "language") {
+      const langMap: Record<string, string> = {
+        "english": "English", "אנגלית": "English",
+        "עברית": "עברית", "hebrew": "עברית",
+      };
+      const picked = langMap[message.trim().toLowerCase()] || message.trim();
+      variables.language = picked;
+      const nextNode = findNextNode(flow, currentNode.id);
+      nextNodeId = nextNode?.id || null;
+    }
+
     // Handle user input for waiting nodes
-    if (currentNode.type === "buttons") {
+    else if (currentNode.type === "buttons") {
       const buttons = currentNode.data.buttons || [];
-      const matched = matchButton(buttons, message);
+      // Reverse-lookup translated button label to original for matching
+      let matchMessage = message;
+      const translatedKey = `__btn_translated_${message.trim().toLowerCase()}`;
+      if (variables[translatedKey]) {
+        matchMessage = variables[translatedKey];
+      }
+      const matched = matchButton(buttons, matchMessage);
       if (matched) {
+        // Store button label in variable if variableName is set
+        if (currentNode.data.variableName) {
+          variables[currentNode.data.variableName] = matched.label;
+        }
         let nextNode = findNextNode(flow, currentNode.id, `btn-${matched.id}`);
         if (!nextNode) nextNode = findNextNode(flow, currentNode.id); // fallback: default edge
         if (nextNode?.type === "follow_up") {
@@ -505,11 +577,20 @@ Deno.serve(async (req) => {
           const nextNode = findNextNode(flow, currentNode.id);
           nextNodeId = nextNode?.id || null;
         } else {
-          // No match — stay on same node
-          if (strictMode) {
+          // No match — check if user is refusing and allowSkip is on
+          if (currentNode.data.allowSkip) {
+            const isRefusal = await detectRefusal(message);
+            if (isRefusal) {
+              const nextNode = findNextNode(flow, currentNode.id);
+              nextNodeId = nextNode?.id || null;
+            } else {
+              return strictNudgeResponse(`לא הבנתי. ${currentNode.data.message || "אנא נסה שוב."}`, currentNodeId);
+            }
+          } else if (strictMode) {
             return strictNudgeResponse(`לא הבנתי. ${currentNode.data.message || "אנא נסה שוב."}`, currentNodeId);
+          } else {
+            return llmFallbackResponse(currentNodeId);
           }
-          return llmFallbackResponse(currentNodeId);
         }
       } else {
         // continueAuto — any response continues
@@ -517,25 +598,60 @@ Deno.serve(async (req) => {
         nextNodeId = nextNode?.id || null;
       }
     } else if (currentNode.type === "collect_input") {
+      let collectSkipped = false;
       // Validate input if expectedAnswer is set
       if (currentNode.data.expectedAnswer) {
-        const isValid = await validateCollectInput(
+        const validationResult = await validateCollectInput(
           currentNode.data.message || "",
           currentNode.data.expectedAnswer,
           message,
         );
-        if (!isValid) {
-          // Re-ask — stay on same node
+        if (validationResult === "refused" && currentNode.data.allowSkip) {
+          // User refused and allowSkip is on — skip, store empty
+          collectSkipped = true;
+          const varName = currentNode.data.variableName || "answer";
+          variables[varName] = "";
+          const nextNode = findNextNode(flow, currentNode.id);
+          nextNodeId = nextNode?.id || null;
+        } else if (validationResult !== "valid" && currentNode.data.allowSkip) {
+          // Validation returned "invalid" but allowSkip is on — fallback refusal check
+          const isRefusal = await detectRefusal(message);
+          if (isRefusal) {
+            collectSkipped = true;
+            const varName = currentNode.data.variableName || "answer";
+            variables[varName] = "";
+            const nextNode = findNextNode(flow, currentNode.id);
+            nextNodeId = nextNode?.id || null;
+          } else {
+            if (strictMode) {
+              return strictNudgeResponse(`לא הבנתי. ${currentNode.data.message || "אנא נסה שוב."}`, currentNodeId);
+            }
+            return llmFallbackResponse(currentNodeId);
+          }
+        } else if (validationResult !== "valid") {
+          // Invalid or refused without allowSkip — re-ask
           if (strictMode) {
             return strictNudgeResponse(`לא הבנתי. ${currentNode.data.message || "אנא נסה שוב."}`, currentNodeId);
           }
           return llmFallbackResponse(currentNodeId);
         }
+      } else if (currentNode.data.allowSkip) {
+        // No expectedAnswer but allowSkip is on — check for refusal
+        const isRefusal = await detectRefusal(message);
+        if (isRefusal) {
+          collectSkipped = true;
+          const varName = currentNode.data.variableName || "answer";
+          variables[varName] = "";
+          const nextNode = findNextNode(flow, currentNode.id);
+          nextNodeId = nextNode?.id || null;
+        }
       }
-      const varName = currentNode.data.variableName || "answer";
-      variables[varName] = message;
-      const nextNode = findNextNode(flow, currentNode.id);
-      nextNodeId = nextNode?.id || null;
+      if (!collectSkipped) {
+        const varName = currentNode.data.variableName || "answer";
+        variables[varName] = message;
+        const nextNode = findNextNode(flow, currentNode.id);
+        nextNodeId = nextNode?.id || null;
+      }
     } else if (currentNode.type === "start") {
       if (currentNode.data.triggerText) {
         const startMatchId = await classifyTrigger(triggers, message);
@@ -580,7 +696,7 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      const result = executeNodeDemo(node, variables, flow, responses);
+      const result = await executeNodeDemo(node, variables, flow, responses);
       if (result.waitForInput) {
         nextNodeId = result.nextNodeId;
         break;
@@ -605,7 +721,7 @@ Deno.serve(async (req) => {
           user_message: message, bot_response: flowText,
         });
       }
-      const botResponse = await callLLMFallback(user_id, message, convId, workflowRecord);
+      const botResponse = await callLLMFallback(user_id, message, convId, workflowRecord, variables?.language);
       await supabase.from("demo_conversations").insert({
         user_id, conversation_id: convId,
         user_message: message, bot_response: botResponse,

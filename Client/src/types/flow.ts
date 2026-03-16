@@ -10,7 +10,8 @@ export type FlowNodeType =
   | "delay"
   | "open_bot"
   | "collect_input"
-  | "api_call";
+  | "api_call"
+  | "language";
 
 export interface ButtonItem {
   id: string;
@@ -38,6 +39,8 @@ export interface FlowNodeData extends Record<string, unknown> {
   // collect_input
   variableName?: string;
   expectedAnswer?: string;
+  // text (expectedReply) & collect_input — allow customer to refuse answering
+  allowSkip?: boolean;
   // delay
   delayMinutes?: number;
   // open_bot (auto-created by button toggle)
@@ -50,6 +53,10 @@ export interface FlowNodeData extends Record<string, unknown> {
   bodyTemplate?: string;
   responseMapping?: Array<{ jsonPath: string; variableName: string }>;
   errorMessage?: string;
+  // api_call — operation mode
+  operationId?: string;
+  inputValues?: Record<string, string>;
+  serviceType?: string;
 }
 
 // XYFlow typed node / edge
@@ -68,6 +75,7 @@ export interface FlowSettings {
   sessionResetEnabled: boolean;
   sessionResetMinutes: number;
   strictMode: boolean;
+  flowLanguage: string;
 }
 
 export const DEFAULT_FLOW_SETTINGS: FlowSettings = {
@@ -81,6 +89,7 @@ export const DEFAULT_FLOW_SETTINGS: FlowSettings = {
   sessionResetEnabled: false,
   sessionResetMinutes: 1440,
   strictMode: false,
+  flowLanguage: "he",
 };
 
 export interface FlowJSON {
@@ -102,6 +111,7 @@ export const NODE_COLORS: Record<FlowNodeType, string> = {
   open_bot: "#8B5CF6",
   collect_input: "#06b6d4",
   api_call: "#ec4899",
+  language: "#2563eb",
 };
 
 // Default labels for each node type
@@ -114,4 +124,5 @@ export const NODE_DEFAULTS: Record<FlowNodeType, Partial<FlowNodeData>> = {
   open_bot: { type: "open_bot" },
   collect_input: { type: "collect_input", message: "", variableName: "" },
   api_call: { type: "api_call", method: "GET", endpoint: "", responseMapping: [], errorMessage: "" },
+  language: { type: "language", message: "" },
 };
