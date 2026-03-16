@@ -15,8 +15,7 @@ const FooterSection = () => {
           <div className="col-span-2 sm:col-span-1">
             <div className="glass-card-dark p-4 rounded-xl inline-block mb-4">
               <div className="flex items-center gap-2" dir="ltr">
-                <img src="/clix-logo.svg" alt="CLIX" className="h-8" />
-                <span className="text-[#FDF8F2] font-bold text-lg">CLIX</span>
+                <img src="/clix-logo-full.png" alt="CLIX" className="h-8" />
               </div>
             </div>
             <p className="text-[#FDF8F2]/35 text-sm leading-relaxed">

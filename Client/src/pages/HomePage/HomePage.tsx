@@ -115,14 +115,10 @@ const HomePage = () => {
               className="flex items-center gap-2 cursor-pointer group"
               aria-label="חזרה לתחילת העמוד"
             >
-              <span className="font-bold text-lg tracking-wide leading-none select-none text-[#0A0A0A] transition-colors duration-300 group-hover:opacity-80">
-                CLIX
-              </span>
               <img
-                src="/clix-logo.svg"
-                alt=""
-                aria-hidden="true"
-                className="h-8 w-8 transition-[filter] duration-300 group-hover:drop-shadow-[0_0_8px_rgba(255,107,44,0.6)]"
+                src="/clix-logo-full.png"
+                alt="CLIX"
+                className="h-6 transition-[filter] duration-300 group-hover:drop-shadow-[0_0_8px_rgba(255,107,44,0.6)]"
               />
             </motion.button>
 

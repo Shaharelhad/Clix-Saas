@@ -61,13 +61,10 @@ export default function UserLayout() {
           {/* Logo */}
           <div className="flex items-center gap-3">
             <img
-              src="/clix-logo.svg"
+              src="/clix-logo-full.png"
               alt="CLIX"
-              className="h-7 w-7 drop-shadow-[0_0_8px_rgba(255,107,44,0.3)]"
+              className="h-6 drop-shadow-[0_0_8px_rgba(255,107,44,0.3)]"
             />
-            <span className="font-bold text-lg text-[#2D2A26] tracking-wide">
-              CLIX
-            </span>
           </div>
 
           {/* Nav Tabs */}

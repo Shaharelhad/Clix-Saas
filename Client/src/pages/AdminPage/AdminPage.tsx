@@ -40,13 +40,10 @@ export default function AdminPage() {
           {/* Logo */}
           <div className="flex items-center gap-2.5">
             <img
-              src="/clix-logo.svg"
+              src="/clix-logo-full.png"
               alt="CLIX"
-              className="h-7 w-7 drop-shadow-[0_1px_3px_rgba(216,114,60,0.2)]"
+              className="h-6 drop-shadow-[0_1px_3px_rgba(216,114,60,0.2)]"
             />
-            <span className="font-bold text-lg text-[#111111] tracking-wide">
-              CLIX
-            </span>
             <span className="text-[10px] text-[#D8723C]/60 font-bold uppercase tracking-widest">
               admin
             </span>

@@ -446,13 +446,10 @@ export default function AuthPage() {
           onClick={() => navigate("/")}
         >
           <img
-            src="/clix-logo.svg"
+            src="/clix-logo-full.png"
             alt="CLIX"
-            className="h-9 w-9"
+            className="h-7"
           />
-          <span className="text-[#2D2A26] font-bold text-xl tracking-wide select-none">
-            CLIX
-          </span>
         </motion.div>
 
         {/* Form card */}
@@ -670,24 +667,27 @@ function MessageAlert({
   success: string | null;
 }) {
   const msg = error || success;
-  if (!msg) return null;
-
   const isError = !!error;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: -8, height: 0 }}
-      animate={{ opacity: 1, y: 0, height: "auto" }}
-      exit={{ opacity: 0, y: -8, height: 0 }}
-      transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-      className={cn(
-        "rounded-xl px-4 py-3 mb-1 border text-sm text-center",
-        isError
-          ? "bg-red-50 border-red-200 text-red-600"
-          : "bg-emerald-50 border-emerald-200 text-emerald-600",
+    <AnimatePresence>
+      {msg && (
+        <motion.div
+          key={isError ? "error" : "success"}
+          initial={{ opacity: 0, y: -8, height: 0 }}
+          animate={{ opacity: 1, y: 0, height: "auto" }}
+          exit={{ opacity: 0, y: -8, height: 0 }}
+          transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+          className={cn(
+            "rounded-xl px-4 py-3 mb-1 border text-sm text-center",
+            isError
+              ? "bg-red-50 border-red-200 text-red-600"
+              : "bg-emerald-50 border-emerald-200 text-emerald-600",
+          )}
+        >
+          {msg}
+        </motion.div>
       )}
-    >
-      {msg}
-    </motion.div>
+    </AnimatePresence>
   );
 }

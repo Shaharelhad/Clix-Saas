@@ -154,9 +154,9 @@ export default function PendingPage() {
           dir="ltr"
         >
           <img
-            src="/clix-logo.svg"
+            src="/clix-logo-full.png"
             alt="CLIX"
-            className="h-10 w-10 drop-shadow-[0_0_12px_rgba(255,107,44,0.3)]"
+            className="h-8 drop-shadow-[0_0_12px_rgba(255,107,44,0.3)]"
           />
           <span className="text-white font-bold text-2xl tracking-wide select-none">
             CLIX
