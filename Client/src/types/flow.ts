@@ -23,6 +23,8 @@ export interface FlowNodeData extends Record<string, unknown> {
   label?: string;
   // start
   triggerText?: string;
+  triggerKeywords?: string[];
+  disabled?: boolean;
   // text / image / buttons / collect_input
   message?: string;
   expectedReply?: string;

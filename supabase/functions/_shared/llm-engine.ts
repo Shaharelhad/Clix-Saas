@@ -72,7 +72,7 @@ If no trigger matches: {"match":null}`;
         Authorization: `Bearer ${openrouterKey}`,
       },
       body: JSON.stringify({
-        model: "x-ai/grok-4-fast",
+        model: "google/gemini-3-flash-preview",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: message },
@@ -260,7 +260,12 @@ export async function callLLMEngine(
 - אל תכתוב פסקאות ארוכות, אל תעשה רשימות מפורטות
 - אל תשתמש במילים: "בוט", "מערכת", "שירות לקוחות", "אוטומטי"
 - תגיב כמו בשיחת וואטסאפ אמיתית בין שני אנשים
-- אל תשתמש באימוג'ים בשום מקרה, אלא אם הפרומפט למעלה מציין במפורש להשתמש באימוג'ים. ברירת המחדל היא ללא אימוג'ים` +
+- אל תשתמש באימוג'ים בשום מקרה, אלא אם הפרומפט למעלה מציין במפורש להשתמש באימוג'ים. ברירת המחדל היא ללא אימוג'ים
+
+הנחיות קריטיות למידע:
+- השתמש אך ורק במידע שסופק לך למעלה (פרומפט, מוצרים, שאלות נפוצות, תוכן מהאתר)
+- אל תמציא מוצרים, מחירים, שירותים, או פרטים שלא מופיעים בהקשר
+- אם אין לך מידע על משהו שהלקוח שואל, אמור בצורה טבעית שתבדוק ותחזור אליו` +
     (classifyStage
       ? `\n\nAfter your response, on a NEW line, output exactly one of these tags (the user will NOT see this):
 <!-- stage:engaging --> if the conversation is still active and the customer hasn't been fully helped yet
@@ -280,11 +285,11 @@ export async function callLLMEngine(
     return { response: "איך אפשר לעזור?", model: "none" };
   }
 
-  const primaryModel = config?.model || "x-ai/grok-4-fast";
-  const fallbackModel = primaryModel === "x-ai/grok-4-fast"
-    ? "x-ai/grok-4.1-fast"
-    : "x-ai/grok-4-fast";
-  const temperature = config?.temperature ?? 1.0;
+  const primaryModel = config?.model || "google/gemini-3-flash-preview";
+  const fallbackModel = primaryModel === "google/gemini-3-flash-preview"
+    ? "google/gemini-2.5-flash-preview"
+    : "google/gemini-3-flash-preview";
+  const temperature = config?.temperature ?? 0.4;
   const maxTokens = config?.maxTokens ?? 2048;
 
   // Try primary model
@@ -397,7 +402,7 @@ Respond with ONLY valid JSON: {"valid":true} or {"valid":false}`;
         Authorization: `Bearer ${openrouterKey}`,
       },
       body: JSON.stringify({
-        model: "x-ai/grok-4-fast",
+        model: "google/gemini-3-flash-preview",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userResponse },

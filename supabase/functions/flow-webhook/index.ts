@@ -113,9 +113,17 @@ function getFlowSettings(flow: FlowJSON) {
 
 // ── Extract triggers from flow for LLM classification ──────
 function extractTriggers(flow: FlowJSON): TriggerInfo[] {
-  return flow.nodes
-    .filter((n) => n.type === "start" && n.data.triggerText?.trim())
-    .map((n) => ({ id: n.id, trigger: n.data.triggerText!.trim() }));
+  const triggers: TriggerInfo[] = [];
+  for (const n of flow.nodes) {
+    if (n.type !== "start" || n.data.disabled) continue;
+    const keywords: string[] = Array.isArray(n.data.triggerKeywords) && n.data.triggerKeywords.length > 0
+      ? n.data.triggerKeywords.filter((k: string) => k?.trim())
+      : n.data.triggerText?.trim() ? [n.data.triggerText.trim()] : [];
+    for (const kw of keywords) {
+      triggers.push({ id: n.id, trigger: kw.trim() });
+    }
+  }
+  return triggers;
 }
 
 // ── Find start node by ID ──────────────────────────────────
@@ -124,7 +132,7 @@ function findStartNodeById(flow: FlowJSON, nodeId: string): FlowNode | undefined
 }
 
 function findCatchAllStart(flow: FlowJSON): FlowNode | undefined {
-  return flow.nodes.find((n) => n.type === "start" && !n.data.triggerText?.trim());
+  return flow.nodes.find((n) => n.type === "start" && !n.data.disabled && !n.data.triggerText?.trim());
 }
 
 function findNodeById(flow: FlowJSON, id: string): FlowNode | undefined {

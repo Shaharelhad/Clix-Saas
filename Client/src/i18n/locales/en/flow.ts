@@ -42,8 +42,8 @@ const flow = {
   nodeCollectInput: "Collect Input",
   nodeCollectInputDesc: "Collect a response and save to variable",
   // Editor fields
-  triggerText: "Keyword Filter",
-  triggerTextHint: "Optional keyword to filter messages (leave empty for all)",
+  triggerText: "Keywords",
+  triggerTextHint: "Messages similar to these keywords will trigger this workflow",
   message: "Message",
   messageHint: "Use {{variableName}} for dynamic values",
   imageUrl: "Image URL",
@@ -163,6 +163,27 @@ const flow = {
   apiCallMaxMappings: "Maximum 10 mappings",
   apiCallErrorMessage: "Error Message",
   apiCallErrorMessageHint: "Message sent to the customer if the API call fails",
+
+  // Start node management
+  startNodeDisabled: "Disabled",
+  startNodeEnabled: "Enabled",
+  startNodeToggleHint: "Enable/disable this trigger",
+  triggerTextRequiredHint: "Required keyword to match incoming messages",
+  triggerTextRequired: "At least one keyword is required when strict mode is off",
+  addKeyword: "Add Keyword",
+  keywordPlaceholder: "e.g., hello, pricing, book",
+  strictModeCatchAll: "Strict mode is on — this node catches all incoming messages",
+  cannotAddStartStrictMode: "Can't add more start nodes in strict mode",
+  cannotDeleteLastStart: "Can't delete the last active start node",
+  cannotDisableLastStart: "Can't disable the last active start node",
+  cannotEnableStrictMultipleStarts: "Disable extra start nodes before enabling strict mode",
+  strictModeMultipleStartsWarning: "Disable extra start nodes first (only 1 active start allowed in strict mode)",
+  publishErrorEmptyTriggers: "Can't publish — all active start nodes need a keyword when strict mode is off",
+  strictModeTooltip: "Strict mode ON: One start node catches all messages — no keyword needed.\nStrict mode OFF: Multiple start nodes allowed — each needs a keyword to trigger its flow.\nToggle in Settings > Strict Mode.",
+
+  // Node label
+  nodeLabel: "Node Name",
+  nodeLabelHint: "Custom name for this node",
 
   // Misc
   deleteNode: "Delete Node",

@@ -118,7 +118,7 @@ Deno.serve(async (req) => {
         Authorization: `Bearer ${openrouterKey}`,
       },
       body: JSON.stringify({
-        model: "x-ai/grok-4-fast",
+        model: "google/gemini-3-flash-preview",
         messages: msgs,
         max_tokens: 300,
         temperature: 0.7,

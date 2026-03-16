@@ -42,8 +42,8 @@ const flow = {
   nodeCollectInput: "איסוף מידע",
   nodeCollectInputDesc: "אסוף תשובה ושמור במשתנה",
   // Editor fields
-  triggerText: "מסנן מילים",
-  triggerTextHint: "מילת מפתח אופציונלית לסינון (השאר ריק לכולן)",
+  triggerText: "מילות מפתח",
+  triggerTextHint: "הודעות דומות למילות המפתח האלו יפעילו את התהליך",
   message: "הודעה",
   messageHint: "השתמש ב-{{שםמשתנה}} לערכים דינמיים",
   imageUrl: "כתובת תמונה",
@@ -76,13 +76,13 @@ const flow = {
   helpTitle: "עוזר בונה תהליכים",
   helpStatus: "מוכן לעזור",
   helpPlaceholder: "שאל שאלה על בונה התהליכים...",
-  helpGreeting: "היי! 👋 אני כאן לעזור לך עם בונה התהליכים. שאל אותי על צמתים, חיבורים, פרסום, הגדרות, או כל דבר אחר.",
+  helpGreeting: "היי! 👋 אני כאן לעזור לך עם בונה התהליכים. שאל אותי על נודים, חיבורים, פרסום, הגדרות, או כל דבר אחר.",
   helpReset: "אפס שיחה",
   helpOpen: "עזרה",
   helpClose: "סגור עזרה",
 
   // Canvas
-  canvasEmpty: "גרור צמתים מהפאנל כדי להתחיל לבנות את התהליך",
+  canvasEmpty: "גרור נודים מהפאנל כדי להתחיל לבנות את התהליך",
 
   // Workflow Settings
   settingsTitle: "הגדרות תהליך",
@@ -120,7 +120,7 @@ const flow = {
   templatePickerTitle: "בחר תבנית",
   templatePickerSubtitle: "התחל עם תבנית מוכנה או צור תהליך ריק",
   templateBlank: "תהליך ריק",
-  templateBlankDesc: "התחל מאפס עם צומת התחלה אחד",
+  templateBlankDesc: "התחל מאפס עם נוד התחלה אחד",
   templateLeadCollection: "איסוף לידים",
   templateLeadCollectionDesc: "אסוף שם, טלפון ומייל מלקוחות",
   templateAppointment: "קביעת תור",
@@ -164,9 +164,30 @@ const flow = {
   apiCallErrorMessage: "הודעת שגיאה",
   apiCallErrorMessageHint: "הודעה שתישלח ללקוח אם קריאת ה-API נכשלת",
 
+  // Start node management
+  startNodeDisabled: "מושבת",
+  startNodeEnabled: "מופעל",
+  startNodeToggleHint: "הפעל/השבת טריגר זה",
+  triggerTextRequiredHint: "מילת מפתח נדרשת לסינון הודעות נכנסות",
+  triggerTextRequired: "נדרשת לפחות מילת מפתח אחת כשמצב קפדני כבוי",
+  addKeyword: "הוסף מילת מפתח",
+  keywordPlaceholder: "למשל: שלום, מחירון, תור",
+  strictModeCatchAll: "מצב קפדני פעיל — נוד זה תופס את כל ההודעות הנכנסות",
+  cannotAddStartStrictMode: "לא ניתן להוסיף נודי התחלה נוספים במצב קפדני",
+  cannotDeleteLastStart: "לא ניתן למחוק את נוד ההתחלה האחרון הפעיל",
+  cannotDisableLastStart: "לא ניתן להשבית את נוד ההתחלה האחרון הפעיל",
+  cannotEnableStrictMultipleStarts: "השבת נודי התחלה נוספים לפני הפעלת מצב קפדני",
+  strictModeMultipleStartsWarning: "השבת תחילה נודי התחלה נוספים (רק 1 מופעל מותר במצב קפדני)",
+  publishErrorEmptyTriggers: "לא ניתן לפרסם — כל נודי ההתחלה הפעילים צריכים מילת מפתח כשמצב קפדני כבוי",
+  strictModeTooltip: "מצב קפדני פעיל: נוד התחלה אחד תופס את כל ההודעות — אין צורך במילת מפתח.\nמצב קפדני כבוי: ניתן להוסיף מספר נודי התחלה — כל אחד צריך מילת מפתח להפעלת התהליך שלו.\nלשינוי: הגדרות > מצב קפדני.",
+
+  // Node label
+  nodeLabel: "שם הנוד",
+  nodeLabelHint: "שם מותאם אישית לנוד הזה",
+
   // Misc
-  deleteNode: "מחק צומת",
-  noNodeSelected: "בחר צומת כדי לערוך את המאפיינים שלו",
+  deleteNode: "מחק נוד",
+  noNodeSelected: "בחר נוד כדי לערוך את המאפיינים שלו",
   flowList: "התהליכים שלי",
 };
 

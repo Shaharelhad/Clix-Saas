@@ -13,6 +13,7 @@ interface FlowNodeWrapperProps {
   sourceHandles?: { id: string; label: string }[];
   hideTarget?: boolean;
   width?: number;
+  disabled?: boolean;
 }
 
 export default function FlowNodeWrapper({
@@ -25,6 +26,7 @@ export default function FlowNodeWrapper({
   sourceHandles,
   hideTarget,
   width,
+  disabled,
 }: FlowNodeWrapperProps) {
   const color = NODE_COLORS[type];
 
@@ -32,7 +34,7 @@ export default function FlowNodeWrapper({
     <div
       className={`relative overflow-visible bg-white rounded-xl shadow-md border-2 min-w-[180px] transition-shadow ${
         width ? "" : "max-w-[240px] "
-      }${selected ? "shadow-lg ring-2 ring-[#FF7E47]/40" : ""}`}
+      }${selected ? "shadow-lg ring-2 ring-[#FF7E47]/40" : ""}${disabled ? " opacity-50" : ""}`}
       style={{ borderColor: selected ? "#FF7E47" : `${color}40`, ...(width ? { width } : {}) }}
     >
       {/* Target handle */}
@@ -53,7 +55,7 @@ export default function FlowNodeWrapper({
           <span style={{ color }}>{icon}</span>
           <span className="text-xs font-bold text-[#2D2A26]">{label}</span>
         </div>
-        {onDelete && type !== "start" && (
+        {onDelete && (
           <button
             onClick={(e) => { e.stopPropagation(); onDelete(); }}
             className="p-1 rounded hover:bg-red-100 text-[#A39B90] hover:text-red-500 transition-colors cursor-pointer"
