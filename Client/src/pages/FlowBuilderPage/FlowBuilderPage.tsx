@@ -78,6 +78,7 @@ function FlowBuilderContent() {
           onUpdate={fb.updateNodeData}
           onClose={() => fb.setSelectedNodeId(null)}
           isLocked={fb.isLocked}
+          strictMode={fb.flowSettings.strictMode}
         />
 
         {/* Canvas (center) */}
@@ -95,7 +96,7 @@ function FlowBuilderContent() {
         />
 
         {/* Node palette (left in RTL = visually right) */}
-        <NodePalette isLocked={fb.isLocked} onLockedDrag={fb.notifyLocked} />
+        <NodePalette isLocked={fb.isLocked} onLockedDrag={fb.notifyLocked} strictMode={fb.flowSettings.strictMode} />
       </div>
 
       {/* Help assistant */}
@@ -135,6 +136,21 @@ function FlowBuilderContent() {
           >
             <Lock className="w-4 h-4" />
             {t("lockedBanner")}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Toast notification */}
+      <AnimatePresence>
+        {fb.toastMsg && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="fixed top-16 left-1/2 -translate-x-1/2 z-50 px-5 py-2.5 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm font-medium shadow-lg"
+            dir="rtl"
+          >
+            {fb.toastMsg}
           </motion.div>
         )}
       </AnimatePresence>

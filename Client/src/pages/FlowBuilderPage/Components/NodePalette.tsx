@@ -24,9 +24,10 @@ const PALETTE_ITEMS: { type: FlowNodeType; icon: typeof MessageSquareText; label
 interface NodePaletteProps {
   isLocked: boolean;
   onLockedDrag: () => void;
+  strictMode: boolean;
 }
 
-export default function NodePalette({ isLocked, onLockedDrag }: NodePaletteProps) {
+export default function NodePalette({ isLocked, onLockedDrag, strictMode }: NodePaletteProps) {
   const { t } = useTranslation("flow");
 
   const onDragStart = (e: DragEvent, type: FlowNodeType) => {
@@ -43,14 +44,17 @@ export default function NodePalette({ isLocked, onLockedDrag }: NodePaletteProps
         {PALETTE_ITEMS.map((item) => {
           const Icon = item.icon;
           const color = NODE_COLORS[item.type];
+          const isStartBlocked = item.type === "start" && strictMode;
+          const isItemDisabled = isLocked || isStartBlocked;
           return (
             <div
               key={item.type}
-              draggable={!isLocked}
-              onDragStart={isLocked ? undefined : (e) => onDragStart(e, item.type)}
+              draggable={!isItemDisabled}
+              onDragStart={isItemDisabled ? undefined : (e) => onDragStart(e, item.type)}
               onClick={isLocked ? onLockedDrag : undefined}
+              title={isStartBlocked ? t("cannotAddStartStrictMode") : undefined}
               className={`flex items-center gap-2.5 p-2.5 rounded-lg border border-[#EDE6DD]/60 transition-all ${
-                isLocked
+                isItemDisabled
                   ? "opacity-50 cursor-not-allowed"
                   : "hover:border-[#FF7E47]/30 hover:bg-[#FFF5F0]/50 cursor-grab active:cursor-grabbing"
               }`}

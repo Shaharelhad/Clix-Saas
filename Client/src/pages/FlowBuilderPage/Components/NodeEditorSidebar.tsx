@@ -1,7 +1,8 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
-import { X, Plus, Trash2, Upload, Loader2, Bot } from "lucide-react";
+import { X, Plus, Trash2, Upload, Loader2, Bot, HelpCircle } from "lucide-react";
 import type { FlowNode, FlowNodeData, ButtonItem } from "@/types/flow";
 import { supabase } from "@/services/supabase";
 import { useAuthStore } from "@/store/auth.store";
@@ -11,9 +12,10 @@ interface NodeEditorSidebarProps {
   onUpdate: (nodeId: string, data: Partial<FlowNodeData>) => void;
   onClose: () => void;
   isLocked: boolean;
+  strictMode: boolean;
 }
 
-export default function NodeEditorSidebar({ node, onUpdate, onClose, isLocked }: NodeEditorSidebarProps) {
+export default function NodeEditorSidebar({ node, onUpdate, onClose, isLocked, strictMode }: NodeEditorSidebarProps) {
   const { t } = useTranslation("flow");
 
   if (!node) {
@@ -44,15 +46,49 @@ export default function NodeEditorSidebar({ node, onUpdate, onClose, isLocked }:
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {/* Start node */}
         {data.type === "start" && (
-          <Field label={t("triggerText")} hint={t("triggerTextHint")}>
-            <input
-              type="text"
-              value={data.triggerText ?? ""}
-              onChange={(e) => update({ triggerText: e.target.value })}
-              className="field-input"
-              dir="rtl"
-            />
-          </Field>
+          <>
+            {/* Custom node name */}
+            <Field label={t("nodeLabel")} hint={t("nodeLabelHint")}>
+              <input
+                type="text"
+                value={data.label ?? ""}
+                onChange={(e) => update({ label: e.target.value })}
+                placeholder={t("nodeStart")}
+                className="field-input"
+                dir="rtl"
+              />
+            </Field>
+
+            {/* Enable/Disable toggle */}
+            <div className="flex items-center justify-between px-1 mb-1">
+              <span className="text-[10px] text-[#A39B90]">{t("startNodeToggleHint")}</span>
+              <label className="relative inline-flex items-center cursor-pointer shrink-0 ms-2">
+                <input
+                  type="checkbox"
+                  checked={!data.disabled}
+                  onChange={(e) => update({ disabled: !e.target.checked })}
+                  className="sr-only peer"
+                />
+                <div className="w-8 h-[18px] bg-[#EDE6DD] rounded-full peer peer-checked:bg-[#22c55e] after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-[14px] after:w-[14px] after:transition-all peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full after:shadow-sm" />
+              </label>
+            </div>
+
+            {/* Keywords — hidden in strict mode, required in non-strict */}
+            {!strictMode && (
+              <KeywordsEditor
+                keywords={data.triggerKeywords ?? (data.triggerText?.trim() ? [data.triggerText] : [""])}
+                disabled={data.disabled ?? false}
+                onChange={(keywords) => update({ triggerKeywords: keywords, triggerText: keywords[0] ?? "" })}
+              />
+            )}
+
+            {/* Strict mode info */}
+            {strictMode && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-2">
+                <p className="text-[10px] text-green-600">{t("strictModeCatchAll")}</p>
+              </div>
+            )}
+          </>
         )}
 
         {/* Text / Image / Buttons / Collect Input — message field */}
@@ -549,6 +585,120 @@ function ResponseMappingEditor({
         <p className="text-[10px] text-[#A39B90] mt-1">{t("apiCallMaxMappings")}</p>
       )}
     </div>
+  );
+}
+
+function KeywordsEditor({ keywords, disabled, onChange }: { keywords: string[]; disabled: boolean; onChange: (k: string[]) => void }) {
+  const { t } = useTranslation("flow");
+
+  const updateKeyword = (index: number, value: string) => {
+    const next = [...keywords];
+    next[index] = value;
+    onChange(next);
+  };
+
+  const addKeyword = () => {
+    onChange([...keywords, ""]);
+  };
+
+  const removeKeyword = (index: number) => {
+    if (keywords.length <= 1) return;
+    onChange(keywords.filter((_, i) => i !== index));
+  };
+
+  const hasEmpty = keywords.some((k) => !k.trim());
+
+  return (
+    <div>
+      <label className="text-xs font-semibold text-[#2D2A26] block mb-1">{t("triggerText")}</label>
+      <p className="text-[10px] text-[#A39B90] mb-1.5">{t("triggerTextHint")}</p>
+      <div className="space-y-1.5">
+        {keywords.map((kw, i) => (
+          <div key={i} className="flex items-center gap-1">
+            <input
+              type="text"
+              value={kw}
+              onChange={(e) => updateKeyword(i, e.target.value)}
+              placeholder={t("keywordPlaceholder")}
+              className={`field-input flex-1 ${!kw.trim() && !disabled ? "!border-amber-400" : ""}`}
+              dir="rtl"
+            />
+            {keywords.length > 1 && (
+              <button
+                onClick={() => removeKeyword(i)}
+                className="p-1.5 rounded hover:bg-red-50 text-[#A39B90] hover:text-red-500 cursor-pointer shrink-0"
+              >
+                <Trash2 className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+      <button
+        onClick={addKeyword}
+        className="flex items-center gap-1 mt-2 text-xs text-[#FF7E47] hover:text-[#E86B38] cursor-pointer"
+      >
+        <Plus className="w-3 h-3" /> {t("addKeyword")}
+      </button>
+      {hasEmpty && !disabled && (
+        <div className="flex items-center gap-1 mt-1.5">
+          <p className="text-[10px] text-amber-500">{t("triggerTextRequired")}</p>
+          <FixedTooltip text={t("strictModeTooltip")}>
+            <HelpCircle className="w-3 h-3 text-amber-400 cursor-help" />
+          </FixedTooltip>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FixedTooltip({ text, children }: { text: string; children: React.ReactNode }) {
+  const [visible, setVisible] = useState(false);
+  const [pos, setPos] = useState({ x: 0, y: 0 });
+  const ref = useRef<HTMLSpanElement>(null);
+
+  const show = useCallback(() => {
+    const rect = ref.current?.getBoundingClientRect();
+    if (!rect) return;
+    setPos({ x: rect.left, y: rect.top });
+    setVisible(true);
+  }, []);
+
+  const hide = useCallback(() => setVisible(false), []);
+
+  const TOOLTIP_W = 220;
+  const GAP = 8;
+  const anchorRight = pos.x - GAP;
+  const fitsLeft = anchorRight - TOOLTIP_W > 0;
+
+  return (
+    <>
+      <span ref={ref} onMouseEnter={show} onMouseLeave={hide} className="shrink-0 leading-none">
+        {children}
+      </span>
+      {createPortal(
+        <div
+          style={{
+            position: "fixed",
+            top: pos.y - 4,
+            ...(fitsLeft
+              ? { right: window.innerWidth - anchorRight }
+              : { left: pos.x + 20 }),
+            width: TOOLTIP_W,
+            zIndex: 9999,
+            pointerEvents: "none",
+            opacity: visible ? 1 : 0,
+            transform: visible ? "translateX(0)" : "translateX(4px)",
+            transition: "opacity 150ms ease, transform 150ms ease",
+          }}
+        >
+          <div className="bg-[#2D2A26] text-[#FAF7F3] text-[11px] leading-relaxed rounded-lg px-3 py-2.5 shadow-xl whitespace-pre-line" dir="auto">
+            {text}
+          </div>
+        </div>,
+        document.body,
+      )}
+    </>
   );
 }
 
