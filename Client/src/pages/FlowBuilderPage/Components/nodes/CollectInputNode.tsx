@@ -27,6 +27,9 @@ function CollectInputNode({ data, selected, id }: NodeProps<FlowNode>) {
       {data.expectedAnswer && (
         <span className="text-[10px] text-orange-500 mt-1 block">{t("expectedAnswer")}</span>
       )}
+      {data.allowSkip && (
+        <span className="text-[10px] text-cyan-500 mt-1 block">{t("allowSkipBadge")}</span>
+      )}
     </FlowNodeWrapper>
   );
 }
