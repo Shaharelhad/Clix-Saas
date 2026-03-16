@@ -14,6 +14,7 @@ interface CloudbedsConfig {
   clientId: string;
   clientSecret: string;
   apiKey: string;
+  propertyId: string;
 }
 
 interface CustomApiConfig {
@@ -47,6 +48,7 @@ interface FormState {
   clientId: string;
   clientSecret: string;
   apiKey: string;
+  propertyId: string;
   name: string;
   baseUrl: string;
   authType: "bearer" | "api_key";
@@ -58,6 +60,7 @@ const EMPTY_FORM: FormState = {
   clientId: "",
   clientSecret: "",
   apiKey: "",
+  propertyId: "",
   name: "",
   baseUrl: "",
   authType: "bearer",
@@ -66,7 +69,7 @@ const EMPTY_FORM: FormState = {
 
 function formToConfig(form: FormState): IntegrationConfig {
   if (form.type === "cloudbeds") {
-    return { clientId: form.clientId, clientSecret: form.clientSecret, apiKey: form.apiKey };
+    return { clientId: form.clientId, clientSecret: form.clientSecret, apiKey: form.apiKey, propertyId: form.propertyId };
   }
   return {
     name: form.name,
@@ -79,7 +82,7 @@ function formToConfig(form: FormState): IntegrationConfig {
 function configToForm(type: IntegrationType, config: IntegrationConfig): FormState {
   if (type === "cloudbeds") {
     const c = config as CloudbedsConfig;
-    return { ...EMPTY_FORM, type, clientId: c.clientId, clientSecret: c.clientSecret, apiKey: c.apiKey };
+    return { ...EMPTY_FORM, type, clientId: c.clientId, clientSecret: c.clientSecret, apiKey: c.apiKey, propertyId: c.propertyId || "" };
   }
   const c = config as CustomApiConfig;
   return {
@@ -317,6 +320,18 @@ export default function FlowIntegrationsModal({ onClose }: FlowIntegrationsModal
                       type="password"
                       value={form.apiKey}
                       onChange={(e) => setForm((f) => ({ ...f, apiKey: e.target.value }))}
+                      className={fieldCls}
+                      dir="ltr"
+                    />
+                  </div>
+                  <div className="mb-2">
+                    <label className="text-[10px] font-medium text-[#7A7267] mb-1 block">
+                      {t("integrationPropertyId", "Property ID")}
+                    </label>
+                    <input
+                      type="text"
+                      value={form.propertyId}
+                      onChange={(e) => setForm((f) => ({ ...f, propertyId: e.target.value }))}
                       className={fieldCls}
                       dir="ltr"
                     />
