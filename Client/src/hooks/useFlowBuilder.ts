@@ -10,6 +10,7 @@ import {
   type Connection,
 } from "@xyflow/react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { supabase } from "@/services/supabase";
 import { useAuth } from "@/hooks/useAuth";
 import type { FlowNode, FlowEdge, FlowJSON, FlowNodeData, FlowSettings, Workflow, ButtonItem } from "@/types/flow";
@@ -66,9 +67,15 @@ function describeFlowChain(
   return parts.length > 0 ? parts.join(" → ") : "תהליך ריק";
 }
 
+function getNodeKeywords(data: FlowNodeData): string[] {
+  if (data.triggerKeywords?.length) return data.triggerKeywords.filter((k) => k.trim());
+  if (data.triggerText?.trim()) return [data.triggerText.trim()];
+  return [];
+}
+
 function generateWorkflowRecord(nodes: FlowNode[], edges: FlowEdge[]): string {
   const startNodes = nodes.filter(
-    (n) => n.data.type === "start" && n.data.triggerText?.trim(),
+    (n) => n.data.type === "start" && !n.data.disabled && getNodeKeywords(n.data).length > 0,
   );
 
   if (startNodes.length === 0) {
@@ -76,9 +83,10 @@ function generateWorkflowRecord(nodes: FlowNode[], edges: FlowEdge[]): string {
   }
 
   const lines = startNodes.map((startNode) => {
-    const trigger = startNode.data.triggerText!.trim();
+    const keywords = getNodeKeywords(startNode.data);
+    const trigger = keywords.map((k) => `"${k}"`).join(", ");
     const description = describeFlowChain(startNode.id, nodes, edges);
-    return `- "${trigger}" → ${description}`;
+    return `- ${trigger} → ${description}`;
   });
 
   return `הבוט מטפל בתהליכים הבאים:\n${lines.join("\n")}\nכשאין התאמה לתהליך — ענה באופן טבעי כבעל העסק, והצע ללקוח תהליכים רלוונטיים כשמתאים.`;
@@ -193,6 +201,8 @@ interface UseFlowBuilderReturn {
   // Template picker
   showTemplatePicker: boolean;
   createFromTemplate: (templateId: string) => void;
+  // Toast
+  toastMsg: string | null;
   // Multi-workflow
   switchWorkflow: (id: string) => void;
   deleteWorkflow: (id: string) => void;
@@ -204,6 +214,7 @@ interface UseFlowBuilderReturn {
 // ── Hook ───────────────────────────────────────────────────────
 export function useFlowBuilder(): UseFlowBuilderReturn {
   const { user } = useAuth();
+  const { t } = useTranslation("flow");
   const queryClient = useQueryClient();
   const updateNodeInternals = useUpdateNodeInternals();
 
@@ -233,6 +244,15 @@ export function useFlowBuilder(): UseFlowBuilderReturn {
     setShowLockedBanner(true);
     clearTimeout(lockedBannerTimerRef.current);
     lockedBannerTimerRef.current = setTimeout(() => setShowLockedBanner(false), 3000);
+  }, []);
+
+  // Toast notification
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const showToast = useCallback((msg: string) => {
+    setToastMsg(msg);
+    clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => setToastMsg(null), 4000);
   }, []);
 
   // ── List workflows ───────────────────────────────────────────
@@ -458,6 +478,19 @@ export function useFlowBuilder(): UseFlowBuilderReturn {
       if (!activeWorkflowId || !user?.id) return;
       const newStatus = workflowStatus === "active" ? "paused" : "active";
 
+      // Publish validation: in non-strict mode, all enabled starts need keywords
+      if (newStatus === "active" && !flowSettings.strictMode) {
+        const enabledStarts = nodes.filter(
+          (n) => n.data.type === "start" && !n.data.disabled,
+        );
+        const emptyTriggers = enabledStarts.filter(
+          (n) => getNodeKeywords(n.data).length === 0,
+        );
+        if (emptyTriggers.length > 0) {
+          throw new Error("EMPTY_TRIGGERS");
+        }
+      }
+
       // If publishing, save flow_json + workflow_record so the latest changes go live
       if (newStatus === "active") {
         // Auto-pause any other active workflow first
@@ -501,6 +534,11 @@ export function useFlowBuilder(): UseFlowBuilderReturn {
       if (newStatus) setWorkflowStatus(newStatus);
       queryClient.invalidateQueries({ queryKey: ["workflow", activeWorkflowId] });
       queryClient.invalidateQueries({ queryKey: ["workflows", user?.id] });
+    },
+    onError: (err) => {
+      if (err instanceof Error && err.message === "EMPTY_TRIGGERS") {
+        showToast(t("publishErrorEmptyTriggers"));
+      }
     },
   });
 
@@ -558,6 +596,10 @@ export function useFlowBuilder(): UseFlowBuilderReturn {
   const addNode = useCallback(
     (type: FlowNodeData["type"], position: { x: number; y: number }) => {
       if (isLocked) { notifyLocked(); return; }
+      if (type === "start" && flowSettings.strictMode) {
+        showToast(t("cannotAddStartStrictMode"));
+        return;
+      }
       const id = `${type}-${Date.now()}`;
       const newNode: FlowNode = {
         id,
@@ -567,13 +609,27 @@ export function useFlowBuilder(): UseFlowBuilderReturn {
       };
       setNodes((nds) => [...nds, newNode]);
     },
-    [isLocked, notifyLocked, setNodes]
+    [isLocked, notifyLocked, setNodes, flowSettings.strictMode, showToast, t]
   );
 
   // ── Update node data ────────────────────────────────────────
   const updateNodeData = useCallback(
     (nodeId: string, data: Partial<FlowNodeData>) => {
       if (isLocked) { notifyLocked(); return; }
+
+      // Block disabling the last enabled start node
+      if (data.disabled === true) {
+        const targetNode = nodes.find((n) => n.id === nodeId);
+        if (targetNode?.data.type === "start") {
+          const otherEnabled = nodes.filter(
+            (n) => n.data.type === "start" && !n.data.disabled && n.id !== nodeId,
+          ).length;
+          if (otherEnabled === 0) {
+            showToast(t("cannotDisableLastStart"));
+            return;
+          }
+        }
+      }
 
       let pendingEdges: FlowEdge[] | null = null;
 
@@ -629,13 +685,25 @@ export function useFlowBuilder(): UseFlowBuilderReturn {
         requestAnimationFrame(() => updateNodeInternals(nodeId));
       }
     },
-    [isLocked, notifyLocked, setNodes, setEdges, updateNodeInternals]
+    [isLocked, notifyLocked, setNodes, setEdges, updateNodeInternals, nodes, showToast, t]
   );
 
   // ── Delete node ──────────────────────────────────────────────
   const deleteNode = useCallback(
     (nodeId: string) => {
       if (isLocked) { notifyLocked(); return; }
+
+      // Block deleting the last enabled start node
+      const targetNode = nodes.find((n) => n.id === nodeId);
+      if (targetNode?.data.type === "start") {
+        const enabledStartCount = nodes.filter(
+          (n) => n.data.type === "start" && !n.data.disabled && n.id !== nodeId,
+        ).length;
+        if (enabledStartCount === 0) {
+          showToast(t("cannotDeleteLastStart"));
+          return;
+        }
+      }
 
       setNodes((nds) => {
         const deletedNode = nds.find((n) => n.id === nodeId);
@@ -662,7 +730,7 @@ export function useFlowBuilder(): UseFlowBuilderReturn {
       setEdges((eds) => eds.filter((e) => e.source !== nodeId && e.target !== nodeId));
       if (selectedNodeId === nodeId) setSelectedNodeId(null);
     },
-    [isLocked, notifyLocked, setNodes, setEdges, selectedNodeId]
+    [isLocked, notifyLocked, setNodes, setEdges, selectedNodeId, nodes, showToast, t]
   );
 
   // ── Delete edge ──────────────────────────────────────────────
@@ -696,9 +764,18 @@ export function useFlowBuilder(): UseFlowBuilderReturn {
   // ── Update flow settings ────────────────────────────────────
   const updateFlowSettings = useCallback(
     (patch: Partial<FlowSettings>) => {
+      if (patch.strictMode === true) {
+        const enabledStarts = nodes.filter(
+          (n) => n.data.type === "start" && !n.data.disabled,
+        );
+        if (enabledStarts.length > 1) {
+          showToast(t("cannotEnableStrictMultipleStarts"));
+          return;
+        }
+      }
       setFlowSettings((prev) => ({ ...prev, ...patch }));
     },
-    []
+    [nodes, showToast, t]
   );
 
   // ── Selected node ────────────────────────────────────────────
@@ -732,6 +809,7 @@ export function useFlowBuilder(): UseFlowBuilderReturn {
       toggleMutation.mutate();
     },
     saveStatus,
+    toastMsg,
     isLocked,
     showLockedBanner,
     notifyLocked,
