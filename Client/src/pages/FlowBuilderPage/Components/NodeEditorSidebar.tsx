@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { X, Plus, Trash2, Upload, Loader2, Bot, HelpCircle } from "lucide-react";
 import type { FlowNode, FlowNodeData, ButtonItem } from "@/types/flow";
+import { findServiceById, findOperationById } from "@/types/integration-catalog";
 import { supabase } from "@/services/supabase";
 import { useAuthStore } from "@/store/auth.store";
 
@@ -146,21 +147,48 @@ export default function NodeEditorSidebar({ node, onUpdate, onClose, isLocked, s
                 <input
                   type="checkbox"
                   checked={data.continueAuto ?? false}
-                  onChange={(e) => update({ continueAuto: e.target.checked, ...(e.target.checked ? { expectedReply: "" } : {}) })}
+                  onChange={(e) => update({ continueAuto: e.target.checked, ...(e.target.checked ? { expectedReply: "", allowSkip: false } : {}) })}
                   className="sr-only peer"
                 />
                 <div className="w-8 h-[18px] bg-[#EDE6DD] rounded-full peer peer-checked:bg-[#FF7E47] after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-[14px] after:w-[14px] after:transition-all peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full after:shadow-sm" />
               </label>
             </div>
+            {/* Allow Skip */}
+            {!data.continueAuto && (
+              <div className="flex items-center justify-between px-1">
+                <span className="text-[10px] text-[#A39B90]">{t("allowSkipHint")}</span>
+                <label className="relative inline-flex items-center cursor-pointer shrink-0 ms-2">
+                  <input
+                    type="checkbox"
+                    checked={data.allowSkip ?? false}
+                    onChange={(e) => update({ allowSkip: e.target.checked })}
+                    className="sr-only peer"
+                  />
+                  <div className="w-8 h-[18px] bg-[#EDE6DD] rounded-full peer peer-checked:bg-[#06b6d4] after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-[14px] after:w-[14px] after:transition-all peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full after:shadow-sm" />
+                </label>
+              </div>
+            )}
           </div>
         )}
 
         {/* Buttons list */}
         {data.type === "buttons" && (
-          <ButtonsEditor
-            buttons={data.buttons ?? []}
-            onChange={(buttons) => update({ buttons })}
-          />
+          <>
+            <ButtonsEditor
+              buttons={data.buttons ?? []}
+              onChange={(buttons) => update({ buttons })}
+            />
+            <Field label={t("buttonsVariableName")} hint={t("buttonsVariableNameHint")}>
+              <input
+                type="text"
+                value={data.variableName ?? ""}
+                onChange={(e) => update({ variableName: e.target.value })}
+                className="w-full rounded-md border border-[#EDE6DD] bg-white px-3 py-1.5 text-sm text-[#2D2A26] outline-none focus:border-[#FF7E47] transition-colors"
+                dir="ltr"
+                placeholder="language"
+              />
+            </Field>
+          </>
         )}
 
         {/* Open Bot info (read-only) */}
@@ -204,6 +232,19 @@ export default function NodeEditorSidebar({ node, onUpdate, onClose, isLocked, s
                 dir="rtl"
               />
             </Field>
+            {/* Allow Skip */}
+            <div className="flex items-center justify-between px-1">
+              <span className="text-[10px] text-[#A39B90]">{t("allowSkipHint")}</span>
+              <label className="relative inline-flex items-center cursor-pointer shrink-0 ms-2">
+                <input
+                  type="checkbox"
+                  checked={data.allowSkip ?? false}
+                  onChange={(e) => update({ allowSkip: e.target.checked })}
+                  className="sr-only peer"
+                />
+                <div className="w-8 h-[18px] bg-[#EDE6DD] rounded-full peer peer-checked:bg-[#06b6d4] after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-[14px] after:w-[14px] after:transition-all peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full after:shadow-sm" />
+              </label>
+            </div>
           </>
         )}
 
@@ -224,6 +265,24 @@ export default function NodeEditorSidebar({ node, onUpdate, onClose, isLocked, s
         {/* API Call */}
         {data.type === "api_call" && (
           <ApiCallEditor data={data} update={update} />
+        )}
+
+        {/* Language */}
+        {data.type === "language" && (
+          <>
+            <Field label={t("languagePromptLabel")} hint={t("languagePromptHint")}>
+              <textarea
+                value={data.message ?? ""}
+                onChange={(e) => update({ message: e.target.value })}
+                className="field-input min-h-[60px] resize-y"
+                dir="rtl"
+                placeholder={t("languagePromptDefault")}
+              />
+            </Field>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <p className="text-[11px] text-blue-600 leading-relaxed">{t("languageNodeInfo")}</p>
+            </div>
+          </>
         )}
 
       </div>
@@ -440,6 +499,38 @@ function ApiCallEditor({ data, update }: { data: FlowNodeData; update: (patch: P
     enabled: !!userId,
   });
 
+  // Determine if selected integration is a catalog service
+  const selectedIntegration = integrations?.find((i) => i.id === data.integrationId);
+  const serviceDef = selectedIntegration
+    ? findServiceById(selectedIntegration.integration_type)
+    : undefined;
+  const isOperationMode = !!serviceDef;
+
+  const operationDef = serviceDef && data.operationId
+    ? findOperationById(serviceDef.id, data.operationId)
+    : undefined;
+
+  const handleIntegrationChange = (integrationId: string) => {
+    const intg = integrations?.find((i) => i.id === integrationId);
+    const svcType = intg?.integration_type ?? "";
+    const svc = findServiceById(svcType);
+    update({
+      integrationId: integrationId || undefined,
+      serviceType: svcType || undefined,
+      // Reset operation fields when switching integration
+      operationId: svc ? "" : undefined,
+      inputValues: svc ? {} : undefined,
+    });
+  };
+
+  const handleOperationChange = (operationId: string) => {
+    update({ operationId, inputValues: {} });
+  };
+
+  const handleInputChange = (fieldId: string, value: string) => {
+    update({ inputValues: { ...(data.inputValues ?? {}), [fieldId]: value } });
+  };
+
   const method = data.method ?? "GET";
 
   return (
@@ -449,74 +540,140 @@ function ApiCallEditor({ data, update }: { data: FlowNodeData; update: (patch: P
         {integrations && integrations.length > 0 ? (
           <select
             value={data.integrationId ?? ""}
-            onChange={(e) => update({ integrationId: e.target.value || undefined })}
+            onChange={(e) => handleIntegrationChange(e.target.value)}
             className="field-input"
           >
             <option value="">{t("apiCallIntegration")}...</option>
-            {integrations.map((intg) => (
-              <option key={intg.id} value={intg.id}>
-                {intg.integration_type}
-              </option>
-            ))}
+            {integrations.map((intg) => {
+              const svc = findServiceById(intg.integration_type);
+              const label = svc ? t(svc.labelKey) : intg.integration_type;
+              return (
+                <option key={intg.id} value={intg.id}>
+                  {label}
+                </option>
+              );
+            })}
           </select>
         ) : (
           <p className="text-[10px] text-amber-600">{t("apiCallNoIntegrations")}</p>
         )}
       </Field>
 
-      {/* Method */}
-      <Field label={t("apiCallMethod")}>
-        <select
-          value={method}
-          onChange={(e) => update({ method: e.target.value })}
-          className="field-input"
-        >
-          <option value="GET">GET</option>
-          <option value="POST">POST</option>
-          <option value="PUT">PUT</option>
-        </select>
-      </Field>
+      {/* ── Operation mode (catalog service like Cloudbeds) ── */}
+      {isOperationMode && (
+        <>
+          {/* Operation selector */}
+          <Field label={t("apiCallOperation")} hint={t("apiCallOperationHint")}>
+            <select
+              value={data.operationId ?? ""}
+              onChange={(e) => handleOperationChange(e.target.value)}
+              className="field-input"
+            >
+              <option value="">{t("apiCallSelectOperation")}</option>
+              {serviceDef.operations.map((op) => (
+                <option key={op.id} value={op.id}>
+                  {t(op.labelKey)}
+                </option>
+              ))}
+            </select>
+          </Field>
 
-      {/* Endpoint */}
-      <Field label={t("apiCallEndpoint")} hint={t("apiCallEndpointHint")}>
-        <input
-          type="text"
-          value={data.endpoint ?? ""}
-          onChange={(e) => update({ endpoint: e.target.value })}
-          className="field-input"
-          dir="ltr"
-          placeholder="/api/v1/rooms"
-        />
-      </Field>
+          {/* Dynamic input fields */}
+          {operationDef && (
+            <>
+              {operationDef.inputFields.map((field) => (
+                <Field
+                  key={field.id}
+                  label={t(field.labelKey)}
+                  hint={field.hintKey ? t(field.hintKey) : t("apiCallInputHint")}
+                >
+                  <input
+                    type="text"
+                    value={data.inputValues?.[field.id] ?? ""}
+                    onChange={(e) => handleInputChange(field.id, e.target.value)}
+                    className="field-input"
+                    dir="ltr"
+                    placeholder={field.placeholder ?? ""}
+                  />
+                </Field>
+              ))}
 
-      {/* Body template (POST/PUT only) */}
-      {(method === "POST" || method === "PUT") && (
-        <Field label={t("apiCallBody")} hint={t("apiCallBodyHint")}>
-          <textarea
-            value={data.bodyTemplate ?? ""}
-            onChange={(e) => update({ bodyTemplate: e.target.value })}
-            className="field-input min-h-[80px] resize-y font-mono text-[11px]"
-            dir="ltr"
-            placeholder='{"check_in": "{{checkin_date}}"}'
-          />
-        </Field>
+              {/* Output variables info */}
+              {operationDef.responseMapping.length > 0 && (
+                <div className="bg-pink-50 border border-pink-200 rounded-lg p-3">
+                  <p className="text-[10px] font-bold text-pink-700 mb-1">{t("apiCallOutputVars")}</p>
+                  {operationDef.responseMapping.map((m) => (
+                    <p key={m.variableName} className="text-[10px] text-pink-600 font-mono" dir="ltr">
+                      {"{{"}
+                      {m.variableName}
+                      {"}}"}
+                    </p>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </>
       )}
 
-      {/* Response mapping */}
-      <ResponseMappingEditor
-        mappings={data.responseMapping ?? []}
-        onChange={(responseMapping) => update({ responseMapping })}
-      />
+      {/* ── Raw mode (custom_api or no catalog match) ── */}
+      {!isOperationMode && data.integrationId && (
+        <>
+          {/* Method */}
+          <Field label={t("apiCallMethod")}>
+            <select
+              value={method}
+              onChange={(e) => update({ method: e.target.value })}
+              className="field-input"
+            >
+              <option value="GET">GET</option>
+              <option value="POST">POST</option>
+              <option value="PUT">PUT</option>
+            </select>
+          </Field>
 
-      {/* Error message */}
-      <Field label={t("apiCallErrorMessage")} hint={t("apiCallErrorMessageHint")}>
-        <textarea
-          value={data.errorMessage ?? ""}
-          onChange={(e) => update({ errorMessage: e.target.value })}
-          className="field-input min-h-[60px] resize-y"
-          dir="rtl"
-        />
-      </Field>
+          {/* Endpoint */}
+          <Field label={t("apiCallEndpoint")} hint={t("apiCallEndpointHint")}>
+            <input
+              type="text"
+              value={data.endpoint ?? ""}
+              onChange={(e) => update({ endpoint: e.target.value })}
+              className="field-input"
+              dir="ltr"
+              placeholder="/api/v1/rooms"
+            />
+          </Field>
+
+          {/* Body template (POST/PUT only) */}
+          {(method === "POST" || method === "PUT") && (
+            <Field label={t("apiCallBody")} hint={t("apiCallBodyHint")}>
+              <textarea
+                value={data.bodyTemplate ?? ""}
+                onChange={(e) => update({ bodyTemplate: e.target.value })}
+                className="field-input min-h-[80px] resize-y font-mono text-[11px]"
+                dir="ltr"
+                placeholder='{"check_in": "{{checkin_date}}"}'
+              />
+            </Field>
+          )}
+
+          {/* Response mapping */}
+          <ResponseMappingEditor
+            mappings={data.responseMapping ?? []}
+            onChange={(responseMapping) => update({ responseMapping })}
+          />
+
+          {/* Error message */}
+          <Field label={t("apiCallErrorMessage")} hint={t("apiCallErrorMessageHint")}>
+            <textarea
+              value={data.errorMessage ?? ""}
+              onChange={(e) => update({ errorMessage: e.target.value })}
+              className="field-input min-h-[60px] resize-y"
+              dir="rtl"
+            />
+          </Field>
+        </>
+      )}
     </>
   );
 }

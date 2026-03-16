@@ -370,29 +370,33 @@ export async function callLLMEngine(
 
 /**
  * Validate a user's response against the expected answer description.
- * Returns true if valid, false if not.
+ * Returns "valid", "invalid", or "refused" (user explicitly declines to answer).
  */
 export async function validateCollectInput(
   question: string,
   expectedAnswer: string,
   userResponse: string,
-): Promise<boolean> {
-  if (!expectedAnswer.trim()) return true;
+): Promise<"valid" | "invalid" | "refused"> {
+  if (!expectedAnswer.trim()) return "valid";
 
   const openrouterKey = Deno.env.get("OPENROUTER_API_KEY");
-  if (!openrouterKey) return true; // fail open if no API key
+  if (!openrouterKey) return "valid"; // fail open if no API key
 
   const systemPrompt = `You validate user responses in a WhatsApp chatbot.
 The bot asked the customer: "${question}"
 The expected type of answer is: "${expectedAnswer}"
 The customer responded: "${userResponse}"
 
-Determine if the customer's response is a valid answer matching the expected type.
-Be lenient — accept reasonable variations, different formats, and different languages.
+Determine if the customer's response is:
+1. A valid answer matching the expected type → {"result":"valid"}
+2. An explicit refusal to answer (e.g., "I don't want to share", "skip", "pass", "לא רוצה", "אני מעדיף לא", "no thanks") → {"result":"refused"}
+3. An unrelated or invalid response that doesn't match the expected type → {"result":"invalid"}
+
+Be lenient with valid answers — accept reasonable variations, different formats, and different languages.
 For example: if expecting "a name", accept "John", "מיכאל", "sarah cohen" etc.
 If expecting "phone number", accept "0501234567", "050-123-4567", "+972501234567" etc.
 
-Respond with ONLY valid JSON: {"valid":true} or {"valid":false}`;
+Respond with ONLY valid JSON: {"result":"valid"}, {"result":"invalid"}, or {"result":"refused"}`;
 
   try {
     const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -414,21 +418,188 @@ Respond with ONLY valid JSON: {"valid":true} or {"valid":false}`;
 
     if (!res.ok) {
       console.error("[validateCollectInput] API error:", res.status);
-      return true; // fail open
+      return "valid"; // fail open
     }
 
     const data = await res.json();
     const text = data.choices?.[0]?.message?.content?.trim();
-    if (!text) return true;
+    if (!text) return "valid";
 
     const cleanText = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
     console.log("[validateCollectInput]", { question, expectedAnswer, userResponse, result: cleanText });
 
     const parsed = JSON.parse(cleanText);
-    return parsed?.valid === true;
+    if (parsed?.result === "refused") return "refused";
+    if (parsed?.result === "valid") return "valid";
+    // Legacy format support ({"valid":true/false})
+    if (parsed?.valid === true) return "valid";
+    return "invalid";
   } catch (err) {
     console.error("[validateCollectInput] error:", err);
-    return true; // fail open
+    return "valid"; // fail open
+  }
+}
+
+/**
+ * Detect if a user message is a refusal to answer/participate.
+ * Used for text nodes with expectedReply + allowSkip.
+ */
+export async function detectRefusal(userMessage: string): Promise<boolean> {
+  const openrouterKey = Deno.env.get("OPENROUTER_API_KEY");
+  if (!openrouterKey) return false;
+
+  const systemPrompt = `You determine if a customer's WhatsApp message is an explicit refusal to answer or participate.
+Refusal examples: "I don't want to answer", "skip", "pass", "לא רוצה", "לא מעוניין", "אני מעדיף לא", "no thanks", "rather not", "not interested".
+NOT a refusal: random text, questions, unrelated messages, wrong answers.
+
+Customer message: "${userMessage}"
+
+Respond with ONLY valid JSON: {"refused":true} or {"refused":false}`;
+
+  try {
+    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${openrouterKey}`,
+      },
+      body: JSON.stringify({
+        model: "google/gemini-3-flash-preview",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userMessage },
+        ],
+        max_tokens: 20,
+        temperature: 0,
+      }),
+    });
+
+    if (!res.ok) return false;
+
+    const data = await res.json();
+    const text = data.choices?.[0]?.message?.content?.trim();
+    if (!text) return false;
+
+    const cleanText = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
+    console.log("[detectRefusal]", { userMessage, result: cleanText });
+
+    const parsed = JSON.parse(cleanText);
+    return parsed?.refused === true;
+  } catch (err) {
+    console.error("[detectRefusal] error:", err);
+    return false;
+  }
+}
+
+// ── Message translation ──────────────────────────────────────
+
+/**
+ * Translate a message from one language to another using LLM.
+ * Returns original text on failure (fail-graceful).
+ */
+export async function translateMessage(
+  text: string,
+  fromLang: string,
+  toLang: string,
+): Promise<string> {
+  if (!text.trim() || fromLang.toLowerCase() === toLang.toLowerCase()) return text;
+
+  const openrouterKey = Deno.env.get("OPENROUTER_API_KEY");
+  if (!openrouterKey) return text;
+
+  const systemPrompt = `You are a translator. Translate the following message from ${fromLang} to ${toLang}.
+Return ONLY the translated text, nothing else. Preserve formatting, line breaks, and any special characters like {{variableName}} placeholders.
+Do not add explanations, notes, or extra text.`;
+
+  try {
+    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${openrouterKey}`,
+      },
+      body: JSON.stringify({
+        model: "google/gemini-3-flash-preview",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: text },
+        ],
+        max_tokens: 1024,
+        temperature: 0,
+      }),
+    });
+
+    if (!res.ok) {
+      console.error("[translateMessage] API error:", res.status);
+      return text;
+    }
+
+    const data = await res.json();
+    const translated = data.choices?.[0]?.message?.content?.trim();
+    if (!translated) return text;
+
+    console.log("[translateMessage]", { fromLang, toLang, original: text.substring(0, 50), translated: translated.substring(0, 50) });
+    return translated;
+  } catch (err) {
+    console.error("[translateMessage] error:", err);
+    return text;
+  }
+}
+
+/**
+ * Translate an array of button labels in a single LLM call.
+ * Returns original labels on failure.
+ */
+export async function translateButtonLabels(
+  labels: string[],
+  fromLang: string,
+  toLang: string,
+): Promise<string[]> {
+  if (labels.length === 0 || fromLang.toLowerCase() === toLang.toLowerCase()) return labels;
+
+  const openrouterKey = Deno.env.get("OPENROUTER_API_KEY");
+  if (!openrouterKey) return labels;
+
+  const systemPrompt = `Translate each label from ${fromLang} to ${toLang}.
+Input: a JSON array of strings.
+Output: a JSON array of translated strings in the SAME order. Return ONLY the JSON array, nothing else.`;
+
+  try {
+    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${openrouterKey}`,
+      },
+      body: JSON.stringify({
+        model: "google/gemini-3-flash-preview",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: JSON.stringify(labels) },
+        ],
+        max_tokens: 256,
+        temperature: 0,
+      }),
+    });
+
+    if (!res.ok) {
+      console.error("[translateButtonLabels] API error:", res.status);
+      return labels;
+    }
+
+    const data = await res.json();
+    const text = data.choices?.[0]?.message?.content?.trim();
+    if (!text) return labels;
+
+    const cleanText = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
+    console.log("[translateButtonLabels]", { fromLang, toLang, original: labels, translated: cleanText });
+
+    const parsed = JSON.parse(cleanText);
+    if (Array.isArray(parsed) && parsed.length === labels.length) return parsed;
+    return labels;
+  } catch (err) {
+    console.error("[translateButtonLabels] error:", err);
+    return labels;
   }
 }
 

@@ -163,6 +163,19 @@ const flow = {
   apiCallMaxMappings: "מקסימום 10 מיפויים",
   apiCallErrorMessage: "הודעת שגיאה",
   apiCallErrorMessageHint: "הודעה שתישלח ללקוח אם קריאת ה-API נכשלת",
+  apiCallOperation: "פעולה",
+  apiCallOperationHint: "בחר פעולה לביצוע",
+  apiCallSelectOperation: "בחר פעולה...",
+  apiCallInputHint: "תומך ב-{{variable}} משלבים קודמים",
+  apiCallOutputVars: "משתני פלט",
+  integrationCloudbeds: "Cloudbeds",
+  cloudbeds_opGetAvailableRooms: "בדוק חדרים פנויים",
+  cloudbeds_opGetAvailableRoomsDesc: "חפש חדרים פנויים לפי טווח תאריכים",
+  cloudbeds_fieldCheckIn: "תאריך כניסה",
+  cloudbeds_fieldCheckOut: "תאריך יציאה",
+  cloudbeds_fieldDateHint: "פורמט: YYYY-MM-DD או {{variable}}",
+  cloudbeds_varAvailableRooms: "available_rooms",
+  cloudbeds_errorGetAvailableRooms: "לא הצלחנו לבדוק חדרים פנויים. נסה שוב מאוחר יותר.",
 
   // Start node management
   startNodeDisabled: "מושבת",
@@ -184,6 +197,29 @@ const flow = {
   // Node label
   nodeLabel: "שם הנוד",
   nodeLabelHint: "שם מותאם אישית לנוד הזה",
+
+  // Allow Skip
+  allowSkip: "אפשר דילוג",
+  allowSkipHint: "אם הלקוח מסרב לענות, דלג לשלב הבא",
+  allowSkipBadge: "ניתן לדילוג",
+
+  // Auto-translate
+  settingsAutoTranslate: "תרגום אוטומטי",
+  settingsAutoTranslateHint: "תרגם הודעות תהליך לשפה שהלקוח בחר",
+  settingsFlowLanguage: "שפת התהליך",
+  settingsFlowLanguageHint: "השפה שבה כתובות הודעות התהליך",
+  flowLangHe: "עברית",
+  flowLangEn: "אנגלית",
+  buttonsVariableName: "שמור בחירה כ",
+  buttonsVariableNameHint: "שמור את הכפתור שנלחץ במשתנה (למשל: language)",
+
+  // Language node
+  nodeLanguage: "שפה",
+  nodeLanguageDesc: "בחירת שפה ללקוח",
+  languagePromptDefault: "בחר שפה",
+  languagePromptLabel: "הודעת בחירה",
+  languagePromptHint: "ההודעה שתוצג מעל כפתורי השפה",
+  languageNodeInfo: "הלקוח יראה כפתורי אנגלית ועברית. הבחירה שלו תקבע את השפה לכל ההודעות הבאות בתהליך.",
 
   // Misc
   deleteNode: "מחק נוד",

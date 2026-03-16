@@ -83,10 +83,10 @@ export function AnimeNavBar({
                   {/* Stem pointing up */}
                   <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-[#111111] rotate-45" />
                   <img
-                    src="/clix-favicon.svg"
+                    src="/clix-logo-full.png"
                     alt=""
                     aria-hidden="true"
-                    className="w-7 h-7 drop-shadow-[0_0_6px_rgba(255,107,44,0.4)]"
+                    className="h-7 drop-shadow-[0_0_6px_rgba(255,107,44,0.4)]"
                   />
                 </motion.div>
               )}

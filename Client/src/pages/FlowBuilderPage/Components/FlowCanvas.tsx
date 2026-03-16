@@ -22,6 +22,7 @@ import DelayNode from "./nodes/DelayNode";
 import OpenBotNode from "./nodes/OpenBotNode";
 import CollectInputNode from "./nodes/CollectInputNode";
 import ApiCallNode from "./nodes/ApiCallNode";
+import LanguageNode from "./nodes/LanguageNode";
 
 const nodeTypes: NodeTypes = {
   start: StartNode,
@@ -32,6 +33,7 @@ const nodeTypes: NodeTypes = {
   open_bot: OpenBotNode,
   collect_input: CollectInputNode,
   api_call: ApiCallNode,
+  language: LanguageNode,
 };
 
 const edgeTypes: EdgeTypes = {

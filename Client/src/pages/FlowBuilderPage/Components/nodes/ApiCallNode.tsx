@@ -3,12 +3,17 @@ import type { NodeProps } from "@xyflow/react";
 import { Globe } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { FlowNode } from "@/types/flow";
+import { findOperationById } from "@/types/integration-catalog";
 import FlowNodeWrapper from "../FlowNodeWrapper";
 
 function ApiCallNode({ data, selected, id }: NodeProps<FlowNode>) {
   const { t } = useTranslation("flow");
-  const method = data.method || "GET";
-  const mappingCount = data.responseMapping?.length || 0;
+
+  // Operation mode: show service + operation label
+  const operationDef =
+    data.serviceType && data.operationId
+      ? findOperationById(data.serviceType, data.operationId)
+      : undefined;
 
   return (
     <FlowNodeWrapper
@@ -20,16 +25,31 @@ function ApiCallNode({ data, selected, id }: NodeProps<FlowNode>) {
         document.dispatchEvent(new CustomEvent("flow:delete-node", { detail: id }));
       }}
     >
-      <div className="flex items-center gap-1.5">
-        <span className="text-[10px] font-bold bg-pink-100 text-pink-700 px-1.5 py-0.5 rounded">
-          {method}
-        </span>
-        <span className="truncate text-[11px]">{data.endpoint || "/..."}</span>
-      </div>
-      {mappingCount > 0 && (
-        <span className="text-[10px] text-pink-500 mt-1 block">
-          → {mappingCount} {t("apiCallVariableName").toLowerCase()}(s)
-        </span>
+      {operationDef ? (
+        <>
+          <span className="text-[10px] font-bold bg-pink-100 text-pink-700 px-1.5 py-0.5 rounded inline-block">
+            {t(operationDef.labelKey)}
+          </span>
+          {operationDef.responseMapping.length > 0 && (
+            <span className="text-[10px] text-pink-500 mt-1 block">
+              → {operationDef.responseMapping.map((m) => m.variableName).join(", ")}
+            </span>
+          )}
+        </>
+      ) : (
+        <>
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] font-bold bg-pink-100 text-pink-700 px-1.5 py-0.5 rounded">
+              {data.method || "GET"}
+            </span>
+            <span className="truncate text-[11px]">{data.endpoint || "/..."}</span>
+          </div>
+          {(data.responseMapping?.length ?? 0) > 0 && (
+            <span className="text-[10px] text-pink-500 mt-1 block">
+              → {data.responseMapping!.length} {t("apiCallVariableName").toLowerCase()}(s)
+            </span>
+          )}
+        </>
       )}
     </FlowNodeWrapper>
   );
