@@ -42,7 +42,7 @@ export const INTEGRATION_CATALOG: ServiceDefinition[] = [
         descriptionKey: "cloudbeds_opGetAvailableRoomsDesc",
         method: "GET",
         endpointTemplate:
-          "/api/v1.2/getAvailableRoomTypes?propertyID={{propertyId}}&startDate={{startDate}}&endDate={{endDate}}",
+          "/api/v1.2/getAvailableRoomTypes?propertyID={{propertyId}}&startDate={{startDate}}&endDate={{endDate}}&adults={{adults}}",
         inputFields: [
           {
             id: "startDate",
@@ -59,6 +59,14 @@ export const INTEGRATION_CATALOG: ServiceDefinition[] = [
             required: true,
             type: "text",
             placeholder: "{{checkout_date}}",
+          },
+          {
+            id: "adults",
+            labelKey: "cloudbeds_fieldAdults",
+            hintKey: "cloudbeds_fieldAdultsHint",
+            required: true,
+            type: "text",
+            placeholder: "{{number_of_guests}}",
           },
         ],
         responseMapping: [
