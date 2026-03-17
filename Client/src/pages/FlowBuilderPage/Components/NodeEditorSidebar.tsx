@@ -43,7 +43,7 @@ export default function NodeEditorSidebar({ node, onUpdate, onClose, isLocked, s
       </div>
 
       {/* Fields */}
-      <fieldset disabled={isLocked} className={isLocked ? "opacity-60" : ""}>
+      <fieldset disabled={isLocked} className={`flex-1 min-h-0 overflow-hidden flex flex-col ${isLocked ? "opacity-60" : ""}`}>
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {/* Start node */}
         {data.type === "start" && (
@@ -597,6 +597,10 @@ function ApiCallEditor({ data, update }: { data: FlowNodeData; update: (patch: P
                       {"}}"}
                     </p>
                   ))}
+                  <p className="text-[10px] text-red-500 font-mono" dir="ltr">
+                    {"{{"}error{"}}"}
+                  </p>
+                  <p className="text-[9px] text-gray-400 mt-1">{t("apiCallErrorVarHint")}</p>
                 </div>
               )}
             </>
