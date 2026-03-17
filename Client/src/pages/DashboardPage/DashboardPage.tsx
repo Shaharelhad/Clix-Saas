@@ -8,10 +8,9 @@ import {
   Play,
   Power,
   Loader2,
-  RefreshCw,
   ChevronDown,
-  X,
   ShieldBan,
+  BookOpen,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
@@ -19,6 +18,7 @@ import { supabase } from "@/services/supabase";
 import { callWClixAPIConnect } from "@/services/edge-functions";
 import ConversationsSection from "./Sections/ConversationsSection";
 import BlockedNumbersModal from "./Sections/BlockedNumbersModal";
+import WhatsAppConnectModal from "@/components/WhatsAppConnectModal";
 
 /* ─────────────────────── Animation config ──────────────────── */
 
@@ -79,10 +79,8 @@ function BotStatusPill({ userId }: { userId: string }) {
   const [loading, setLoading] = useState(false);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; msg: string } | null>(null);
 
-  // QR reconnect state
-  const [qrCode, setQrCode] = useState<string | null>(null);
-  const [pendingReconnect, setPendingReconnect] = useState(false);
   const [showConfirmDisconnect, setShowConfirmDisconnect] = useState(false);
+  const [connectModalOpen, setConnectModalOpen] = useState(false);
 
   // Query bot_status from profiles
   const {
@@ -142,38 +140,6 @@ function BotStatusPill({ userId }: { userId: string }) {
     };
   }, [status, userId, refetchStatus]);
 
-  // Reconnect polling — continues even after QR modal is closed, auto-stops after 2 min
-  useEffect(() => {
-    if (!pendingReconnect) return;
-    let cancelled = false;
-
-    const poll = async () => {
-      const result = await callWClixAPIConnect({ user_id: userId, action: "status" });
-      const gw = (result.data as { status?: string })?.status;
-      // Gateway returns "connected" when WhatsApp session is established
-      if (!cancelled && gw === "connected") {
-        setPendingReconnect(false);
-        setQrCode(null);
-        refetchStatus();
-        showFeedback("success", t("resumeSuccess"));
-      }
-    };
-
-    const interval = setInterval(poll, 3000);
-    // Auto-stop after 2 minutes
-    const timeout = setTimeout(() => {
-      if (!cancelled) {
-        setPendingReconnect(false);
-        setQrCode(null);
-      }
-    }, 120000);
-
-    return () => {
-      cancelled = true;
-      clearInterval(interval);
-      clearTimeout(timeout);
-    };
-  }, [pendingReconnect, userId, refetchStatus, t]);
 
   const showFeedback = (type: "success" | "error", msg: string) => {
     setFeedback({ type, msg });
@@ -261,20 +227,8 @@ function BotStatusPill({ userId }: { userId: string }) {
       return;
     }
 
-    // If disconnected, start QR flow
-    setLoading(true);
-    const result = await callWClixAPIConnect({ user_id: userId });
-    const data = result.data as { status?: string; qr?: string } | null;
-
-    if (data?.status === "already_connected") {
-      await supabase.from("profiles").update({ bot_status: "connected" }).eq("id", userId);
-      await refetchStatus();
-      showFeedback("success", t("resumeSuccess"));
-    } else if (data?.qr) {
-      setQrCode(data.qr);
-      setPendingReconnect(true);
-    }
-    setLoading(false);
+    // If disconnected, open the connect modal
+    setConnectModalOpen(true);
   };
 
   // Close menu on outside click
@@ -292,14 +246,12 @@ function BotStatusPill({ userId }: { userId: string }) {
     <motion.div variants={fadeUp} className="relative shrink-0">
       {/* ── Main pill ── */}
       <button
-        onClick={() => { if (!qrCode && !pendingReconnect) setMenuOpen((o) => !o); }}
+        onClick={() => setMenuOpen((o) => !o)}
         disabled={loading}
-        className={`flex items-center gap-2.5 px-4 py-2.5 rounded-2xl border ${
-          pendingReconnect && !qrCode ? "border-blue-200 bg-blue-50" : `${config.border} ${config.bg}`
-        } shadow-sm cursor-pointer transition-all hover:shadow-md disabled:opacity-60`}
+        className={`flex items-center gap-2.5 px-4 py-2.5 rounded-2xl border ${config.border} ${config.bg} shadow-sm cursor-pointer transition-all hover:shadow-md disabled:opacity-60`}
       >
-        {loading || (pendingReconnect && !qrCode) ? (
-          <Loader2 className={`w-4 h-4 animate-spin ${pendingReconnect && !qrCode ? "text-blue-500" : "text-[#7A7267]"}`} />
+        {loading ? (
+          <Loader2 className="w-4 h-4 animate-spin text-[#7A7267]" />
         ) : (
           <span className="relative flex h-2.5 w-2.5">
             {status === "connected" && (
@@ -308,17 +260,15 @@ function BotStatusPill({ userId }: { userId: string }) {
             <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${config.dot}`} />
           </span>
         )}
-        <span className={`text-xs font-bold uppercase tracking-wider ${
-          pendingReconnect && !qrCode ? "text-blue-600" : config.text
-        }`}>
-          {pendingReconnect && !qrCode ? t("connecting") : t(config.label)}
+        <span className={`text-xs font-bold uppercase tracking-wider ${config.text}`}>
+          {t(config.label)}
         </span>
-        {!qrCode && !pendingReconnect && <ChevronDown className={`w-3.5 h-3.5 ${config.text} transition-transform ${menuOpen ? "rotate-180" : ""}`} />}
+        <ChevronDown className={`w-3.5 h-3.5 ${config.text} transition-transform ${menuOpen ? "rotate-180" : ""}`} />
       </button>
 
       {/* ── Dropdown menu ── */}
       <AnimatePresence>
-        {menuOpen && !qrCode && (
+        {menuOpen && (
           <motion.div
             initial={{ opacity: 0, y: -8, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -365,13 +315,22 @@ function BotStatusPill({ userId }: { userId: string }) {
             )}
 
             {status === "disconnected" && (
-              <button
-                onClick={(e) => { e.stopPropagation(); handleReconnect(); }}
-                className="w-full flex items-center gap-3 px-4 py-3 text-sm text-[#4A4640] hover:bg-emerald-50 transition-colors cursor-pointer"
-              >
-                <Wifi className="w-4 h-4 text-emerald-500" />
-                {t("reconnectBot")}
-              </button>
+              <>
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleReconnect(); }}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-sm text-[#4A4640] hover:bg-emerald-50 transition-colors cursor-pointer"
+                >
+                  <Wifi className="w-4 h-4 text-emerald-500" />
+                  {t("reconnectBot")}
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); setMenuOpen(false); setConnectModalOpen(true); }}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-sm text-[#4A4640] hover:bg-blue-50 transition-colors cursor-pointer"
+                >
+                  <BookOpen className="w-4 h-4 text-blue-500" />
+                  {t("connectTutorial")}
+                </button>
+              </>
             )}
           </motion.div>
         )}
@@ -420,53 +379,17 @@ function BotStatusPill({ userId }: { userId: string }) {
         )}
       </AnimatePresence>
 
-      {/* ── QR Code reconnect overlay ── */}
-      <AnimatePresence>
-        {qrCode && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
-            onClick={() => setQrCode(null)}
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              onClick={(e) => e.stopPropagation()}
-              className="bg-white rounded-2xl shadow-xl p-6 max-w-sm mx-4 space-y-4"
-            >
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-bold text-[#2D2A26]">{t("reconnectBot")}</h3>
-                <button
-                  onClick={() => setQrCode(null)}
-                  className="p-1 rounded-lg hover:bg-[#FAF7F3] transition-colors cursor-pointer"
-                >
-                  <X className="w-5 h-5 text-[#7A7267]" />
-                </button>
-              </div>
-              <p className="text-sm text-[#7A7267]">{t("scanToReconnect")}</p>
-              <div className="flex justify-center">
-                <div className="bg-white p-3 rounded-xl shadow-[0_4px_24px_rgba(45,42,38,0.08)] border border-[#EDE6DD]/50">
-                  <img src={qrCode} alt="WhatsApp QR Code" className="w-56 h-56 object-contain" />
-                </div>
-              </div>
-              <div className="flex items-center justify-center gap-2 text-sm text-[#A39B90]">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                {t("waitingForScan")}
-              </div>
-              <button
-                onClick={handleReconnect}
-                className="w-full inline-flex items-center justify-center gap-2 text-sm text-[#FF7E47] hover:text-[#E86B38] font-medium transition-colors cursor-pointer py-2"
-              >
-                <RefreshCw className="w-4 h-4" />
-                {t("refreshQr")}
-              </button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* ── WhatsApp Connect Modal ── */}
+      <WhatsAppConnectModal
+        open={connectModalOpen}
+        onClose={() => setConnectModalOpen(false)}
+        userId={userId}
+        onConnected={() => {
+          refetchStatus();
+          setConnectModalOpen(false);
+          showFeedback("success", t("resumeSuccess"));
+        }}
+      />
 
       {/* ── Feedback toast ── */}
       <AnimatePresence>

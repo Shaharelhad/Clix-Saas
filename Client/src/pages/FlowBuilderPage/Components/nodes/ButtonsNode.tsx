@@ -22,7 +22,9 @@ function ButtonsNode({ data, selected, id }: NodeProps<FlowNode>) {
       sourceHandles={buttons.map((b) => ({ id: `btn-${b.id}`, label: b.label }))}
       width={nodeWidth}
     >
+      {data.buttonHeader && <p className="truncate font-bold text-[11px]">{data.buttonHeader}</p>}
       <p className="truncate">{data.message || t("messageHint")}</p>
+      {data.buttonFooter && <p className="truncate text-[10px] text-gray-400">{data.buttonFooter}</p>}
       {buttons.length > 0 && (
         <div className="flex flex-wrap gap-1 mt-1">
           {buttons.map((b) => (

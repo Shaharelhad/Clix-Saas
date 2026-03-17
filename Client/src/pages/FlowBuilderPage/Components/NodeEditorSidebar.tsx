@@ -43,7 +43,7 @@ export default function NodeEditorSidebar({ node, onUpdate, onClose, isLocked, s
       </div>
 
       {/* Fields */}
-      <fieldset disabled={isLocked} className={isLocked ? "opacity-60" : ""}>
+      <fieldset disabled={isLocked} className={`flex-1 min-h-0 overflow-hidden flex flex-col ${isLocked ? "opacity-60" : ""}`}>
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {/* Start node */}
         {data.type === "start" && (
@@ -92,6 +92,19 @@ export default function NodeEditorSidebar({ node, onUpdate, onClose, isLocked, s
           </>
         )}
 
+        {/* Buttons — header field (optional) */}
+        {data.type === "buttons" && (
+          <Field label={t("buttonHeader")} hint={t("buttonHeaderHint")}>
+            <input
+              type="text"
+              value={data.buttonHeader ?? ""}
+              onChange={(e) => update({ buttonHeader: e.target.value })}
+              className="field-input"
+              dir="rtl"
+            />
+          </Field>
+        )}
+
         {/* Text / Image / Buttons / Collect Input — message field */}
         {["text", "image", "buttons"].includes(data.type) && (
           <Field label={t("message")} hint={t("messageHint")}>
@@ -99,6 +112,19 @@ export default function NodeEditorSidebar({ node, onUpdate, onClose, isLocked, s
               value={data.message ?? ""}
               onChange={(e) => update({ message: e.target.value })}
               className="field-input min-h-[80px] resize-y"
+              dir="rtl"
+            />
+          </Field>
+        )}
+
+        {/* Buttons — footer field (optional) */}
+        {data.type === "buttons" && (
+          <Field label={t("buttonFooter")} hint={t("buttonFooterHint")}>
+            <input
+              type="text"
+              value={data.buttonFooter ?? ""}
+              onChange={(e) => update({ buttonFooter: e.target.value })}
+              className="field-input"
               dir="rtl"
             />
           </Field>
@@ -173,22 +199,10 @@ export default function NodeEditorSidebar({ node, onUpdate, onClose, isLocked, s
 
         {/* Buttons list */}
         {data.type === "buttons" && (
-          <>
-            <ButtonsEditor
-              buttons={data.buttons ?? []}
-              onChange={(buttons) => update({ buttons })}
-            />
-            <Field label={t("buttonsVariableName")} hint={t("buttonsVariableNameHint")}>
-              <input
-                type="text"
-                value={data.variableName ?? ""}
-                onChange={(e) => update({ variableName: e.target.value })}
-                className="w-full rounded-md border border-[#EDE6DD] bg-white px-3 py-1.5 text-sm text-[#2D2A26] outline-none focus:border-[#FF7E47] transition-colors"
-                dir="ltr"
-                placeholder="language"
-              />
-            </Field>
-          </>
+          <ButtonsEditor
+            buttons={data.buttons ?? []}
+            onChange={(buttons) => update({ buttons })}
+          />
         )}
 
         {/* Open Bot info (read-only) */}
@@ -609,6 +623,10 @@ function ApiCallEditor({ data, update }: { data: FlowNodeData; update: (patch: P
                       {"}}"}
                     </p>
                   ))}
+                  <p className="text-[10px] text-red-500 font-mono" dir="ltr">
+                    {"{{"}error{"}}"}
+                  </p>
+                  <p className="text-[9px] text-gray-400 mt-1">{t("apiCallErrorVarHint")}</p>
                 </div>
               )}
             </>

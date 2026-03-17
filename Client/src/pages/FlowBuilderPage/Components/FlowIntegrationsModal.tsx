@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { X, Plus, Trash2, Pencil, Plug, Loader2 } from "lucide-react";
+import { X, Plus, Trash2, Pencil, Plug, Loader2, CheckCircle2, XCircle, Zap } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/services/supabase";
+import { callTestIntegration } from "@/services/edge-functions";
 import type { Json } from "@/types/database";
 
 /* ── Types ── */
@@ -111,6 +112,15 @@ export default function FlowIntegrationsModal({ onClose }: FlowIntegrationsModal
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [testStatus, setTestStatus] = useState<"idle" | "testing" | "success" | "error">("idle");
+  const [testError, setTestError] = useState<string | null>(null);
+
+  // Wrap setForm to reset test status on any field change
+  const updateForm = (updater: FormState | ((f: FormState) => FormState)) => {
+    setForm(updater);
+    setTestStatus("idle");
+    setTestError(null);
+  };
 
   const showFeedback = (msg: string) => {
     setFeedback(msg);
@@ -194,12 +204,16 @@ export default function FlowIntegrationsModal({ onClose }: FlowIntegrationsModal
   const openAdd = () => {
     setForm(EMPTY_FORM);
     setEditingId(null);
+    setTestStatus("idle");
+    setTestError(null);
     setShowForm(true);
   };
 
   const openEdit = (item: Integration) => {
     setForm(configToForm(item.integration_type, item.config));
     setEditingId(item.id);
+    setTestStatus("idle");
+    setTestError(null);
     setShowForm(true);
   };
 
@@ -207,6 +221,34 @@ export default function FlowIntegrationsModal({ onClose }: FlowIntegrationsModal
     setShowForm(false);
     setEditingId(null);
     setForm(EMPTY_FORM);
+    setTestStatus("idle");
+    setTestError(null);
+  };
+
+  const handleTest = async () => {
+    setTestStatus("testing");
+    setTestError(null);
+    const config = formToConfig(form);
+    const result = await callTestIntegration({
+      integration_type: form.type,
+      config,
+    });
+    if (result.error) {
+      setTestStatus("error");
+      setTestError(result.error);
+    } else {
+      const data = result.data as { success?: boolean; error?: string; propertyId?: string } | null;
+      if (data?.success) {
+        setTestStatus("success");
+        // Auto-store propertyId from Cloudbeds getHotelDetails response
+        if (form.type === "cloudbeds" && data.propertyId) {
+          setForm((f) => ({ ...f, propertyId: data.propertyId! }));
+        }
+      } else {
+        setTestStatus("error");
+        setTestError(data?.error || t("testConnectionFailed"));
+      }
+    }
   };
 
   const handleSave = () => {
@@ -277,7 +319,7 @@ export default function FlowIntegrationsModal({ onClose }: FlowIntegrationsModal
                 </label>
                 <select
                   value={form.type}
-                  onChange={(e) => setForm({ ...EMPTY_FORM, type: e.target.value as IntegrationType })}
+                  onChange={(e) => updateForm({ ...EMPTY_FORM, type: e.target.value as IntegrationType })}
                   className={fieldCls}
                 >
                   <option value="cloudbeds">{t("integrationTypeCloudbeds")}</option>
@@ -295,7 +337,7 @@ export default function FlowIntegrationsModal({ onClose }: FlowIntegrationsModal
                     <input
                       type="password"
                       value={form.clientId}
-                      onChange={(e) => setForm((f) => ({ ...f, clientId: e.target.value }))}
+                      onChange={(e) => updateForm((f) => ({ ...f, clientId: e.target.value }))}
                       className={fieldCls}
                       dir="ltr"
                     />
@@ -307,7 +349,7 @@ export default function FlowIntegrationsModal({ onClose }: FlowIntegrationsModal
                     <input
                       type="password"
                       value={form.clientSecret}
-                      onChange={(e) => setForm((f) => ({ ...f, clientSecret: e.target.value }))}
+                      onChange={(e) => updateForm((f) => ({ ...f, clientSecret: e.target.value }))}
                       className={fieldCls}
                       dir="ltr"
                     />
@@ -319,19 +361,7 @@ export default function FlowIntegrationsModal({ onClose }: FlowIntegrationsModal
                     <input
                       type="password"
                       value={form.apiKey}
-                      onChange={(e) => setForm((f) => ({ ...f, apiKey: e.target.value }))}
-                      className={fieldCls}
-                      dir="ltr"
-                    />
-                  </div>
-                  <div className="mb-2">
-                    <label className="text-[10px] font-medium text-[#7A7267] mb-1 block">
-                      {t("integrationPropertyId", "Property ID")}
-                    </label>
-                    <input
-                      type="text"
-                      value={form.propertyId}
-                      onChange={(e) => setForm((f) => ({ ...f, propertyId: e.target.value }))}
+                      onChange={(e) => updateForm((f) => ({ ...f, apiKey: e.target.value }))}
                       className={fieldCls}
                       dir="ltr"
                     />
@@ -349,7 +379,7 @@ export default function FlowIntegrationsModal({ onClose }: FlowIntegrationsModal
                     <input
                       type="text"
                       value={form.name}
-                      onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                      onChange={(e) => updateForm((f) => ({ ...f, name: e.target.value }))}
                       className={fieldCls}
                     />
                   </div>
@@ -360,7 +390,7 @@ export default function FlowIntegrationsModal({ onClose }: FlowIntegrationsModal
                     <input
                       type="url"
                       value={form.baseUrl}
-                      onChange={(e) => setForm((f) => ({ ...f, baseUrl: e.target.value }))}
+                      onChange={(e) => updateForm((f) => ({ ...f, baseUrl: e.target.value }))}
                       placeholder="https://api.example.com"
                       className={`${fieldCls} placeholder:text-[#C5BDB3]`}
                       dir="ltr"
@@ -373,7 +403,7 @@ export default function FlowIntegrationsModal({ onClose }: FlowIntegrationsModal
                     <select
                       value={form.authType}
                       onChange={(e) =>
-                        setForm((f) => ({ ...f, authType: e.target.value as "bearer" | "api_key" }))
+                        updateForm((f) => ({ ...f, authType: e.target.value as "bearer" | "api_key" }))
                       }
                       className={fieldCls}
                     >
@@ -388,7 +418,7 @@ export default function FlowIntegrationsModal({ onClose }: FlowIntegrationsModal
                     <input
                       type="password"
                       value={form.authValue}
-                      onChange={(e) => setForm((f) => ({ ...f, authValue: e.target.value }))}
+                      onChange={(e) => updateForm((f) => ({ ...f, authValue: e.target.value }))}
                       className={fieldCls}
                       dir="ltr"
                     />
@@ -396,11 +426,43 @@ export default function FlowIntegrationsModal({ onClose }: FlowIntegrationsModal
                 </>
               )}
 
+              {/* Test Connection */}
+              <div className="mt-3 space-y-2">
+                <button
+                  onClick={handleTest}
+                  disabled={!isFormValid || testStatus === "testing"}
+                  className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#EDE6DD] text-xs font-bold text-[#2D2A26] hover:bg-[#FAF7F3] disabled:opacity-50 transition-colors cursor-pointer disabled:cursor-not-allowed"
+                >
+                  <span key={testStatus} className="flex items-center justify-center gap-1.5 w-full">
+                    {testStatus === "testing" ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      <Zap className="w-3 h-3" />
+                    )}
+                    {testStatus === "testing" ? t("testConnectionTesting") : t("testConnection")}
+                  </span>
+                </button>
+
+                {/* Test result */}
+                {testStatus === "success" && (
+                  <div className="flex items-center gap-1.5 text-emerald-600 text-[10px] font-medium">
+                    <CheckCircle2 className="w-3 h-3" />
+                    {t("testConnectionSuccess")}
+                  </div>
+                )}
+                {testStatus === "error" && (
+                  <div className="flex items-start gap-1.5 text-red-500 text-[10px] font-medium">
+                    <XCircle className="w-3 h-3 mt-0.5 shrink-0" />
+                    <span>{testError || t("testConnectionFailed")}</span>
+                  </div>
+                )}
+              </div>
+
               {/* Save */}
               <div className="flex gap-2 mt-3">
                 <button
                   onClick={handleSave}
-                  disabled={!isFormValid || saveMutation.isPending}
+                  disabled={!isFormValid || saveMutation.isPending || testStatus !== "success"}
                   className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#FF7E47] hover:bg-[#E86B38] disabled:opacity-50 text-white text-xs font-bold transition-colors cursor-pointer disabled:cursor-not-allowed"
                 >
                   {saveMutation.isPending && <Loader2 className="w-3 h-3 animate-spin" />}

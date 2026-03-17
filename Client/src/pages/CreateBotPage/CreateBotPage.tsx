@@ -2,8 +2,9 @@ import { useState, useEffect, useCallback, Component, type ReactNode, type Error
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Check, FileText, Eye, Wifi, LogOut } from "lucide-react";
+import { Check, FileText, Eye, Wifi, LogOut, SkipForward } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/services/supabase";
 import { cn } from "@/lib/utils";
 import FormSection from "./Sections/FormSection";
 import PreviewSection from "./Sections/PreviewSection";
@@ -85,11 +86,18 @@ const slideVariants = {
 
 const CreateBotPage = () => {
   const { t, i18n } = useTranslation("createBot");
-  const { signOut } = useAuth();
+  const { signOut, hasCompletedOnboarding, user, refreshProfile } = useAuth();
+  const [isSkipping, setIsSkipping] = useState(false);
   const navigate = useNavigate();
   const isRTL = i18n.language === "he";
 
   const [phase, setPhase] = useState<Phase>(() => {
+    // If returning from dashboard (already completed onboarding), always start on form
+    // This handles the case where a user skipped, went to dashboard, then clicked "Create Bot"
+    if (hasCompletedOnboarding) {
+      sessionStorage.removeItem("createBot_phase");
+      return "form";
+    }
     const saved = sessionStorage.getItem("createBot_phase") as Phase | null;
     return saved && ["form", "preview", "connect"].includes(saved)
       ? saved
@@ -129,6 +137,26 @@ const CreateBotPage = () => {
       return next;
     });
   }, []);
+
+  const handleSkip = useCallback(async () => {
+    setIsSkipping(true);
+    try {
+      const userId = user?.id ?? "";
+      if (userId) {
+        await supabase
+          .from("profiles")
+          .update({ bot_status: "created" })
+          .eq("id", userId);
+        refreshProfile();
+      }
+      sessionStorage.removeItem("createBot_wizardStep");
+      sessionStorage.setItem("createBot_phase", "preview");
+      setDirection(1);
+      setPhase("preview");
+    } catch {
+      setIsSkipping(false);
+    }
+  }, [user?.id, refreshProfile]);
 
   const showStepper = phase !== "form";
 
@@ -182,6 +210,27 @@ const CreateBotPage = () => {
           <span>{t("logout")}</span>
         </div>
       </motion.button>
+
+      {/* ── Skip button (only during form phase) ── */}
+      {phase === "form" && (
+        <motion.button
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.3 }}
+          onClick={handleSkip}
+          disabled={isSkipping}
+          className="absolute top-4 end-4 z-20 flex items-center gap-2 rounded-full px-3 py-2 text-sm font-bold text-[#8C847A] backdrop-blur-xl transition-colors duration-200 hover:text-[#FF7E47] cursor-pointer disabled:opacity-50"
+          style={{
+            background: "rgba(255,255,255,0.5)",
+            border: "1px solid rgba(237,230,221,0.5)",
+          }}
+        >
+          <div className="flex items-center gap-2">
+            <span>{t("skipForm")}</span>
+            <SkipForward className="w-4 h-4" />
+          </div>
+        </motion.button>
+      )}
 
       {/* ── Stepper (only shown during preview/connect) ── */}
       {showStepper && (

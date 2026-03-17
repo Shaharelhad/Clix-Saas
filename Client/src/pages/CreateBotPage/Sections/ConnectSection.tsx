@@ -10,6 +10,7 @@ import {
   RefreshCw,
   ChevronLeft,
   ChevronRight,
+  SkipForward,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -576,20 +577,32 @@ const ConnectSection = () => {
                 {/* Action buttons (when not showing QR) */}
                 {connectStatus !== "qr" && (
                   <div className="space-y-3">
-                    <button
-                      onClick={handleConnect}
-                      disabled={isConnecting}
-                      className="group w-full inline-flex items-center justify-center gap-3 bg-[#25D366] hover:bg-[#1fb855] text-white font-bold text-base rounded-xl py-3.5 transition-all duration-300 shadow-[0_4px_20px_rgba(37,211,102,0.3)] hover:shadow-[0_6px_28px_rgba(37,211,102,0.4)] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                    >
-                      <span className={isConnecting ? "inline-flex items-center gap-3" : "hidden"}>
-                        <Loader2 className="w-5 h-5 animate-spin" />
-                        {t("connecting")}
-                      </span>
-                      <span className={isConnecting ? "hidden" : "inline-flex items-center gap-3"}>
-                        {t("getQrCode")}
-                        <Wifi className="w-5 h-5 transition-transform group-hover:scale-110" />
-                      </span>
-                    </button>
+                    <div className="flex gap-3">
+                      <button
+                        onClick={handleConnect}
+                        disabled={isConnecting}
+                        className="group flex-1 inline-flex items-center justify-center gap-3 bg-[#25D366] hover:bg-[#1fb855] text-white font-bold text-base rounded-xl py-3.5 transition-all duration-300 shadow-[0_4px_20px_rgba(37,211,102,0.3)] hover:shadow-[0_6px_28px_rgba(37,211,102,0.4)] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                      >
+                        <span className={isConnecting ? "inline-flex items-center gap-3" : "hidden"}>
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                          {t("connecting")}
+                        </span>
+                        <span className={isConnecting ? "hidden" : "inline-flex items-center gap-3"}>
+                          {t("getQrCode")}
+                          <Wifi className="w-5 h-5 transition-transform group-hover:scale-110" />
+                        </span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          sessionStorage.removeItem("createBot_phase");
+                          navigate("/dashboard");
+                        }}
+                        className="inline-flex items-center justify-center gap-2 border-2 border-white/20 text-gray-400 hover:text-white hover:border-white/40 font-bold text-base rounded-xl px-6 py-3.5 transition-all duration-300 cursor-pointer"
+                      >
+                        <SkipForward className="w-5 h-5" />
+                        {t("skipToDashboard")}
+                      </button>
+                    </div>
                     <div className="flex justify-center gap-6 text-sm">
                       <button
                         className="text-gray-500 hover:text-white transition-colors cursor-pointer"

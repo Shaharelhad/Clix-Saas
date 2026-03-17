@@ -20,6 +20,13 @@ const support = {
   back: "Back",
   yourMessage: "Your message",
   adminReply: "Admin reply",
+  newConversation: "Submit a Ticket",
+  replyPlaceholder: "Type your reply...",
+  ticketClosed: "This ticket is closed",
+  supportTeam: "Support Team",
+  you: "You",
+  justNow: "Just now",
+  sending: "Sending...",
 };
 
 export default support;

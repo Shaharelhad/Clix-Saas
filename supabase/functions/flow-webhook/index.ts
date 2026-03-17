@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { callLLMEngine, classifyTrigger, validateCollectInput, detectRefusal, translateMessage, translateButtonLabels, type TriggerInfo, type LLMResult } from "../_shared/llm-engine.ts";
+import { callLLMEngine, classifyTrigger, validateCollectInput, detectRefusal, translateMessage, translateButtonLabels, formatApiResponse, type TriggerInfo, type LLMResult } from "../_shared/llm-engine.ts";
 import { resolveOperation } from "../_shared/integration-catalog.ts";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -52,6 +52,8 @@ interface FlowNode {
     message?: string;
     imageUrl?: string;
     buttons?: ButtonItem[];
+    buttonHeader?: string;
+    buttonFooter?: string;
     variableName?: string;
     expectedAnswer?: string;
     delayMinutes?: number;
@@ -397,7 +399,9 @@ async function sendButtonsMessage(
   customerId: string,
   to: string,
   message: string,
-  buttons: ButtonItem[]
+  buttons: ButtonItem[],
+  header?: string,
+  footer?: string,
 ) {
   const url = `${WA_GATEWAY_BASE}/api/session/send-buttons/${customerId}`;
   const wclixButtons = buttons.slice(0, 10).map((b) => ({
@@ -416,16 +420,22 @@ async function sendButtonsMessage(
         to,
         body: message,
         buttons: wclixButtons,
+        ...(header ? { header } : {}),
+        ...(footer ? { footer } : {}),
       }),
     });
     if (res.ok) return res.json();
   } catch { /* interactive buttons failed, fall through to text fallback */ }
 
   // Fallback: send as numbered text list if interactive buttons are not available
+  const parts: string[] = [];
+  if (header) parts.push(header);
+  parts.push(message);
+  if (footer) parts.push(footer);
   const buttonText = buttons
     .map((b, i) => `${i + 1}. ${b.label}`)
     .join("\n");
-  const fullMessage = `${message}\n\n${buttonText}`;
+  const fullMessage = `${parts.join("\n\n")}\n\n${buttonText}`;
   return sendTextMessage(customerId, to, fullMessage);
 }
 
@@ -549,10 +559,14 @@ async function executeNode(
 
   if (node.type === "buttons") {
     let msg = resolveVariables(node.data.message || "", variables);
+    let header = resolveVariables(node.data.buttonHeader || "", variables);
+    let footer = resolveVariables(node.data.buttonFooter || "", variables);
     const buttons = node.data.buttons || [];
     let displayButtons = buttons;
     if (shouldTranslate) {
       msg = await translateMessage(msg, fromLang, targetLang);
+      if (header) header = await translateMessage(header, fromLang, targetLang);
+      if (footer) footer = await translateMessage(footer, fromLang, targetLang);
       const translatedLabels = await translateButtonLabels(
         buttons.map((b) => b.label),
         fromLang,
@@ -564,7 +578,7 @@ async function executeNode(
         variables[`__btn_translated_${translatedLabels[i]?.trim().toLowerCase()}`] = buttons[i].label;
       }
     }
-    await sendButtonsMessage(customerId, phone, msg, displayButtons);
+    await sendButtonsMessage(customerId, phone, msg, displayButtons, header || undefined, footer || undefined);
     const buttonLabels = displayButtons.map((b) => b.label).join(", ");
     await logMessage(`${msg}\n[${buttonLabels}]`, "buttons");
     return { nextNodeId: node.id, waitForInput: true };
@@ -681,22 +695,42 @@ async function executeNode(
 
       const json = await response.json();
 
-      // Extract response fields per responseMapping
+      // Extract response fields per responseMapping and LLM-format structured data
+      let hasData = false;
       for (const mapping of responseMapping) {
         const value = extractJsonPath(json, mapping.jsonPath);
-        variables[mapping.variableName] = typeof value === "object" ? JSON.stringify(value) : String(value ?? "");
+        const raw = typeof value === "object" && value !== null ? JSON.stringify(value) : String(value ?? "");
+        const isEmpty = !value || (Array.isArray(value) && value.length === 0);
+        if (!isEmpty) {
+          variables[mapping.variableName] = typeof value === "object" && value !== null
+            ? await formatApiResponse(raw, mapping.variableName)
+            : raw;
+          hasData = true;
+        } else {
+          variables[mapping.variableName] = "";
+        }
       }
 
-      await logMessage(`API ${method} ${endpoint} → ${response.status}`, "api_call");
-      const next = findNextNode(flow, node.id);
+      if (!hasData) {
+        variables.error = "Sorry, no available rooms were found for the selected dates. Please try different dates.";
+      }
+
+      await logMessage(`API ${method} ${endpoint} → ${response.status} (data: ${hasData})`, "api_call");
+      // Route via success/error handle
+      let next = findNextNode(flow, node.id, hasData ? "success" : "error");
+      if (!next) next = findNextNode(flow, node.id); // fallback to default edge
       return { nextNodeId: next?.id || null, waitForInput: false };
     } catch (err: unknown) {
       const errMessage = err instanceof Error ? err.message : String(err);
       console.error("[flow] api_call error:", errMessage);
+      variables.error = errMessage;
       const resolvedErrMsg = resolveVariables(errorMsg, variables);
       await sendTextMessage(customerId, phone, resolvedErrMsg);
       await logMessage(`API error: ${errMessage}`, "api_call_error");
-      return { nextNodeId: null, waitForInput: false };
+      // Route via error handle
+      let next = findNextNode(flow, node.id, "error");
+      if (!next) next = findNextNode(flow, node.id); // fallback to default edge
+      return { nextNodeId: next?.id || null, waitForInput: false };
     }
   }
 
@@ -1473,10 +1507,6 @@ Deno.serve(async (req) => {
       }
       const matched = matchButton(buttons, matchMessage, buttonClickId);
       if (matched) {
-        // Store button label in variable if variableName is set
-        if (currentNode.data.variableName) {
-          updatedVariables[currentNode.data.variableName] = matched.label;
-        }
         let nextNode = findNextNode(flow, currentNode.id, `btn-${matched.id}`);
         if (!nextNode) nextNode = findNextNode(flow, currentNode.id); // fallback: default edge
         // If button leads to a follow_up, skip through to its next node

@@ -34,6 +34,8 @@ export interface FlowNodeData extends Record<string, unknown> {
   imageUrl?: string;
   // buttons
   buttons?: ButtonItem[];
+  buttonHeader?: string;
+  buttonFooter?: string;
   // text / image — yes/no question mode
   yesNoMode?: boolean;
   // collect_input
@@ -72,6 +74,8 @@ export interface FlowSettings {
   autoFollowUpEnabled: boolean;
   autoFollowUpDelayMinutes: number;
   autoFollowUpMaxCount: number;
+  autoFollowUpMode: "bot" | "custom";
+  autoFollowUpCustomMessages: string[];
   sessionResetEnabled: boolean;
   sessionResetMinutes: number;
   strictMode: boolean;
@@ -86,6 +90,8 @@ export const DEFAULT_FLOW_SETTINGS: FlowSettings = {
   autoFollowUpEnabled: false,
   autoFollowUpDelayMinutes: 120,
   autoFollowUpMaxCount: 1,
+  autoFollowUpMode: "bot",
+  autoFollowUpCustomMessages: [],
   sessionResetEnabled: false,
   sessionResetMinutes: 1440,
   strictMode: false,
@@ -119,7 +125,7 @@ export const NODE_DEFAULTS: Record<FlowNodeType, Partial<FlowNodeData>> = {
   start: { type: "start", triggerText: "" },
   text: { type: "text", message: "", continueAuto: false },
   image: { type: "image", message: "", imageUrl: "" },
-  buttons: { type: "buttons", message: "", buttons: [] },
+  buttons: { type: "buttons", message: "", buttons: [], buttonHeader: "", buttonFooter: "" },
   delay: { type: "delay", delayMinutes: 5 },
   open_bot: { type: "open_bot" },
   collect_input: { type: "collect_input", message: "", variableName: "" },

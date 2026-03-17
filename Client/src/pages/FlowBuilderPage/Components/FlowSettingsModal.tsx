@@ -113,6 +113,70 @@ export default function FlowSettingsModal({ settings, onUpdate, onClose }: FlowS
                     className="field-input w-full"
                   />
                 </div>
+
+                {/* Follow-Up Mode Toggle */}
+                <div>
+                  <label className="text-[10px] font-semibold text-[#2D2A26] block mb-1.5">
+                    {t("settingsAutoFollowUpMode")}
+                  </label>
+                  <div className="flex items-center gap-2">
+                    {(["bot", "custom"] as const).map((mode) => (
+                      <button
+                        key={mode}
+                        onClick={() => onUpdate({ autoFollowUpMode: mode })}
+                        className={`flex-1 px-2.5 py-1.5 rounded text-[10px] font-medium border cursor-pointer transition-colors ${
+                          settings.autoFollowUpMode === mode
+                            ? "bg-[#FF7E47] text-white border-[#FF7E47]"
+                            : "bg-white text-[#7A7267] border-[#EDE6DD] hover:border-[#FF7E47]/50"
+                        }`}
+                      >
+                        {t(mode === "bot" ? "settingsAutoFollowUpModeBot" : "settingsAutoFollowUpModeCustom")}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Custom Message Textareas */}
+                {settings.autoFollowUpMode === "custom" && (
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-[10px] font-semibold text-[#2D2A26] block mb-1.5">
+                        {t("settingsAutoFollowUpCustom1")}
+                      </label>
+                      <textarea
+                        dir="rtl"
+                        value={settings.autoFollowUpCustomMessages?.[0] ?? ""}
+                        onChange={(e) => {
+                          const msgs = [...(settings.autoFollowUpCustomMessages || [])];
+                          msgs[0] = e.target.value;
+                          onUpdate({ autoFollowUpCustomMessages: msgs });
+                        }}
+                        placeholder={t("settingsAutoFollowUpCustomPlaceholder")}
+                        rows={3}
+                        className="field-input w-full resize-none"
+                      />
+                    </div>
+                    {settings.autoFollowUpMaxCount >= 2 && (
+                      <div>
+                        <label className="text-[10px] font-semibold text-[#2D2A26] block mb-1.5">
+                          {t("settingsAutoFollowUpCustom2")}
+                        </label>
+                        <textarea
+                          dir="rtl"
+                          value={settings.autoFollowUpCustomMessages?.[1] ?? ""}
+                          onChange={(e) => {
+                            const msgs = [...(settings.autoFollowUpCustomMessages || [])];
+                            msgs[1] = e.target.value;
+                            onUpdate({ autoFollowUpCustomMessages: msgs });
+                          }}
+                          placeholder={t("settingsAutoFollowUpCustomPlaceholder")}
+                          rows={3}
+                          className="field-input w-full resize-none"
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>

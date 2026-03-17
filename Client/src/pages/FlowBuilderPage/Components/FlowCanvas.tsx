@@ -114,9 +114,9 @@ export default function FlowCanvas({
         nodesDraggable={!isLocked}
         nodesConnectable={!isLocked}
         deleteKeyCode={isLocked ? null : "Delete"}
-        className="bg-[#F7F9FB]"
+        className="bg-[#F5EDE4]"
       >
-        <Background color="#ddd" gap={20} />
+        <Background color="#D4C4B0" gap={20} size={1.5} />
         <Controls position="bottom-left" />
         <MiniMap
           position="bottom-right"

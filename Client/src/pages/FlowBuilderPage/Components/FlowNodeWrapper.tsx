@@ -71,18 +71,28 @@ export default function FlowNodeWrapper({
       {/* Source handles */}
       {sourceHandles ? (
         sourceHandles.map((handle, i) => (
-          <Handle
+          <div
             key={handle.id}
-            type="source"
-            position={Position.Bottom}
-            id={handle.id}
-            className="!w-3 !h-3 !border-2 !border-white"
+            className="group/tip absolute overflow-visible"
             style={{
-              backgroundColor: color,
+              bottom: 0,
               left: `${((i + 1) / (sourceHandles.length + 1)) * 100}%`,
+              transform: "translate(-50%, 50%)",
+              width: 12,
+              height: 12,
             }}
-            title={handle.label}
-          />
+          >
+            <Handle
+              type="source"
+              position={Position.Bottom}
+              id={handle.id}
+              className="!w-3 !h-3 !border-2 !border-white !relative !transform-none !left-0 !top-0"
+              style={{ backgroundColor: color }}
+            />
+            <div className="pointer-events-none absolute z-50 bottom-[calc(100%+8px)] left-1/2 -translate-x-1/2 px-2 py-1 rounded-md text-[10px] font-medium leading-none whitespace-nowrap bg-[#2D2A26] text-[#EDE6DD] shadow-[0_2px_8px_rgba(45,42,38,0.25)] opacity-0 scale-95 transition-all duration-150 ease-out group-hover/tip:opacity-100 group-hover/tip:scale-100 after:content-[''] after:absolute after:top-full after:left-1/2 after:-translate-x-1/2 after:border-4 after:border-transparent after:border-t-[#2D2A26]">
+              {handle.label}
+            </div>
+          </div>
         ))
       ) : (
         <Handle

@@ -28,6 +28,7 @@ const dashboard = {
   waitingForScan: "ממתין לסריקה...",
   refreshQr: "רענן קוד QR",
   connecting: "מתחבר...",
+  connectTutorial: "מדריך חיבור",
 
   // Conversations Section
   conversationsTitle: "צ'אטים פעילים",
@@ -130,6 +131,12 @@ const dashboard = {
   integrationsEmpty: "אין אינטגרציות עדיין",
   integrationsEmptyDesc: "הוסף חיבור API לשימוש בבונה התהליכים.",
   selectType: "בחר סוג",
+
+  // Integration Test Connection
+  testConnection: "בדיקת חיבור",
+  testConnectionTesting: "...בודק",
+  testConnectionSuccess: "החיבור אומת בהצלחה",
+  testConnectionFailed: "בדיקת החיבור נכשלה",
 };
 
 export default dashboard;

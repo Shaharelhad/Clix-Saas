@@ -36,6 +36,8 @@ export async function sendButtonsMessage(
   to: string,
   message: string,
   buttons: ButtonItem[],
+  header?: string,
+  footer?: string,
 ) {
   const url = `${WA_GATEWAY_BASE}/api/session/send-buttons/${customerId}`;
   const wclixButtons = buttons.slice(0, 10).map((b) => ({
@@ -54,16 +56,22 @@ export async function sendButtonsMessage(
         to,
         body: message,
         buttons: wclixButtons,
+        ...(header ? { header } : {}),
+        ...(footer ? { footer } : {}),
       }),
     });
     if (res.ok) return res.json();
   } catch { /* interactive buttons failed, fall through to text fallback */ }
 
   // Fallback: send as numbered text list
+  const parts: string[] = [];
+  if (header) parts.push(header);
+  parts.push(message);
+  if (footer) parts.push(footer);
   const buttonText = buttons
     .map((b, i) => `${i + 1}. ${b.label}`)
     .join("\n");
-  const fullMessage = `${message}\n\n${buttonText}`;
+  const fullMessage = `${parts.join("\n\n")}\n\n${buttonText}`;
   return sendTextMessage(customerId, to, fullMessage);
 }
 

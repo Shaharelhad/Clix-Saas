@@ -90,3 +90,7 @@ export function callRagDelete(data: Record<string, unknown>) {
 export function callFlowAssistant(data: Record<string, unknown>) {
   return callEdgeFn("VITE_EDGE_FN_FLOW_ASSISTANT", data);
 }
+
+export function callTestIntegration(data: Record<string, unknown>) {
+  return callEdgeFn("VITE_EDGE_FN_TEST_INTEGRATION", data);
+}
