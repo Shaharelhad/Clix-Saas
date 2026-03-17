@@ -4,20 +4,20 @@ import { useTranslation } from "react-i18next";
 import {
   MessageSquare,
   Zap,
-  BarChart3,
-  Bot,
+  Rocket,
+  Sparkles,
   Clock,
-  Shield,
+  PenLine,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const FEATURES = [
   { key: "feature1", icon: Zap },
   { key: "feature2", icon: MessageSquare },
-  { key: "feature3", icon: BarChart3 },
-  { key: "feature4", icon: Bot },
+  { key: "feature3", icon: Rocket },
+  { key: "feature4", icon: Sparkles },
   { key: "feature5", icon: Clock },
-  { key: "feature6", icon: Shield },
+  { key: "feature6", icon: PenLine },
 ];
 
 const ORANGE = "#FF6B2C";
@@ -97,14 +97,12 @@ const FeaturesSection = () => {
                 }}
                 initial={{ opacity: 0, y: 30 }}
                 animate={inView ? { opacity: 1, y: 0 } : {}}
+                whileHover={{ y: -6 }}
                 transition={{
                   duration: 0.6,
-                  delay: 0.25 + index * 0.08,
+                  delay: inView ? 0.25 + index * 0.08 : 0,
                   ease: [0.22, 1, 0.36, 1],
-                }}
-                whileHover={{
-                  y: -4,
-                  boxShadow: "0 12px 40px rgba(255, 107, 44, 0.12)",
+                  y: { duration: 0.2, ease: "easeOut" },
                 }}
               >
                 {/* Orange accent bar at top */}
