@@ -20,6 +20,13 @@ const support = {
   back: "חזרה",
   yourMessage: "ההודעה שלך",
   adminReply: "תגובת מנהל",
+  newConversation: "שלחו פנייה",
+  replyPlaceholder: "כתבו את התגובה שלכם...",
+  ticketClosed: "הפנייה נסגרה",
+  supportTeam: "צוות תמיכה",
+  you: "אתה",
+  justNow: "עכשיו",
+  sending: "שולח...",
 };
 
 export default support;
