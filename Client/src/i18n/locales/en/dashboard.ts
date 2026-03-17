@@ -28,6 +28,7 @@ const dashboard = {
   waitingForScan: "Waiting for scan...",
   refreshQr: "Refresh QR Code",
   connecting: "Connecting...",
+  connectTutorial: "Connect Tutorial",
 
   // Conversations Section
   conversationsTitle: "Active Chats",
@@ -131,6 +132,12 @@ const dashboard = {
   integrationsEmpty: "No integrations yet",
   integrationsEmptyDesc: "Add an API connection to use in your flow builder.",
   selectType: "Select type",
+
+  // Integration Test Connection
+  testConnection: "Test Connection",
+  testConnectionTesting: "Testing...",
+  testConnectionSuccess: "Connection verified",
+  testConnectionFailed: "Connection test failed",
 };
 
 export default dashboard;
