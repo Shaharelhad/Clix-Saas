@@ -168,7 +168,13 @@ const flow = {
   apiCallSelectOperation: "בחר פעולה...",
   apiCallInputHint: "תומך ב-{{variable}} משלבים קודמים",
   apiCallOutputVars: "משתני פלט",
+  apiCallHandleSuccess: "הצלחה",
+  apiCallHandleError: "שגיאה",
+  apiCallErrorVarHint: "זמין בנתיב שגיאה",
   integrationCloudbeds: "Cloudbeds",
+  cloudbeds_varUnit: "יחידה",
+  cloudbeds_varPrice: "מחיר",
+  cloudbeds_varCurrency: "מטבע",
   cloudbeds_opGetAvailableRooms: "בדוק חדרים פנויים",
   cloudbeds_opGetAvailableRoomsDesc: "חפש חדרים פנויים לפי טווח תאריכים",
   cloudbeds_fieldCheckIn: "תאריך כניסה",
@@ -176,7 +182,6 @@ const flow = {
   cloudbeds_fieldDateHint: "פורמט: YYYY-MM-DD או {{variable}}",
   cloudbeds_fieldAdults: "מספר אורחים",
   cloudbeds_fieldAdultsHint: "מספר מבוגרים או {{variable}}",
-  cloudbeds_varAvailableRooms: "available_rooms",
   cloudbeds_errorGetAvailableRooms: "לא הצלחנו לבדוק חדרים פנויים. נסה שוב מאוחר יותר.",
 
   // Start node management

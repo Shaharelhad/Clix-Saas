@@ -168,7 +168,13 @@ const flow = {
   apiCallSelectOperation: "Select operation...",
   apiCallInputHint: "Supports {{variable}} from previous steps",
   apiCallOutputVars: "Output Variables",
+  apiCallHandleSuccess: "Success",
+  apiCallHandleError: "Error",
+  apiCallErrorVarHint: "Available on error path",
   integrationCloudbeds: "Cloudbeds",
+  cloudbeds_varUnit: "Unit",
+  cloudbeds_varPrice: "Price",
+  cloudbeds_varCurrency: "Currency",
   cloudbeds_opGetAvailableRooms: "Check Available Rooms",
   cloudbeds_opGetAvailableRoomsDesc: "Search for available rooms by date range",
   cloudbeds_fieldCheckIn: "Check-in Date",
@@ -176,7 +182,6 @@ const flow = {
   cloudbeds_fieldDateHint: "Format: YYYY-MM-DD or {{variable}}",
   cloudbeds_fieldAdults: "Number of Guests",
   cloudbeds_fieldAdultsHint: "Number of adults or {{variable}}",
-  cloudbeds_varAvailableRooms: "available_rooms",
   cloudbeds_errorGetAvailableRooms: "Could not check room availability. Please try again later.",
 
   // Start node management

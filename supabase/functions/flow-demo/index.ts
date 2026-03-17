@@ -1,8 +1,8 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { getAuthenticatedUserId } from "../_shared/auth.ts";
-import { callLLMEngine, classifyTrigger, validateCollectInput, detectRefusal, translateMessage, translateButtonLabels, type TriggerInfo } from "../_shared/llm-engine.ts";
-import { findOperationById } from "../_shared/integration-catalog.ts";
+import { callLLMEngine, classifyTrigger, validateCollectInput, detectRefusal, translateMessage, translateButtonLabels, formatApiResponse, type TriggerInfo } from "../_shared/llm-engine.ts";
+import { findOperationById, resolveOperation } from "../_shared/integration-catalog.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -33,6 +33,9 @@ interface FlowNode {
     allowSkip?: boolean;
     // api_call
     integrationId?: string;
+    serviceType?: string;
+    operationId?: string;
+    inputValues?: Record<string, string>;
     endpoint?: string;
     method?: string;
     bodyTemplate?: string;
@@ -126,6 +129,31 @@ function resolveVariables(
   variables: Record<string, string>
 ): string {
   return text.replace(/\{\{(\w+)\}\}/g, (_, key) => variables[key] || "");
+}
+
+function isUrlSafe(urlString: string): boolean {
+  try {
+    const url = new URL(urlString);
+    if (!["https:", "http:"].includes(url.protocol)) return false;
+    const hostname = url.hostname.toLowerCase();
+    if (hostname === "localhost" || hostname === "127.0.0.1" || hostname === "0.0.0.0") return false;
+    if (hostname.startsWith("10.")) return false;
+    if (/^172\.(1[6-9]|2\d|3[01])\./.test(hostname)) return false;
+    if (hostname.startsWith("192.168.")) return false;
+    if (hostname.startsWith("169.254.")) return false;
+    if (hostname.endsWith(".internal") || hostname.endsWith(".local")) return false;
+    return true;
+  } catch { return false; }
+}
+
+function extractJsonPath(obj: unknown, path: string): unknown {
+  const parts = path.replace(/\[(\d+)\]/g, ".$1").split(".");
+  let current: unknown = obj;
+  for (const part of parts) {
+    if (current == null || typeof current !== "object") return undefined;
+    current = (current as Record<string, unknown>)[part];
+  }
+  return current;
 }
 
 
@@ -256,29 +284,140 @@ async function executeNodeDemo(
   }
 
   if (node.type === "api_call") {
-    // Operation mode: resolve from catalog
-    const opDef = node.data.serviceType && node.data.operationId
-      ? findOperationById(node.data.serviceType, node.data.operationId)
-      : undefined;
-
-    const mappings = opDef
-      ? opDef.responseMapping.map((m) => ({ jsonPath: m.jsonPath, variableName: m.variableName }))
-      : (node.data.responseMapping || []);
-
-    for (const mapping of mappings) {
-      variables[mapping.variableName] = `[mock:${mapping.variableName}]`;
+    const integrationId = node.data.integrationId;
+    if (!integrationId) {
+      const next = findNextNode(flow, node.id);
+      return { nextNodeId: next?.id || null, waitForInput: false };
     }
 
-    const displayLabel = opDef
-      ? opDef.labelKey
-      : `${node.data.method || "GET"} ${resolveVariables(node.data.endpoint || "/", variables)}`;
+    // Fetch integration credentials from DB
+    const { data: integration, error: intError } = await supabase
+      .from("integrations")
+      .select("*")
+      .eq("id", integrationId)
+      .single();
 
-    responses.push({
-      type: "text",
-      content: `🔗 ${displayLabel}\n→ ${mappings.length} variable(s) set`,
-    });
-    const next = findNextNode(flow, node.id);
-    return { nextNodeId: next?.id || null, waitForInput: false };
+    if (intError || !integration || integration.status !== "active") {
+      const next = findNextNode(flow, node.id);
+      return { nextNodeId: next?.id || null, waitForInput: false };
+    }
+
+    // Build URL and headers based on integration type
+    const config = integration.config as Record<string, string>;
+    let baseUrl = "";
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+
+    if (integration.integration_type === "cloudbeds") {
+      baseUrl = "https://api.cloudbeds.com";
+      headers["Authorization"] = `Bearer ${config.apiKey}`;
+    } else {
+      baseUrl = config.baseUrl || "";
+      if (config.authType === "bearer") {
+        headers["Authorization"] = `Bearer ${config.authValue}`;
+      } else if (config.authType === "api_key") {
+        headers["x-api-key"] = config.authValue;
+      }
+    }
+
+    // Resolve operation from catalog if in operation mode
+    let endpoint: string;
+    let method: string;
+    let bodyTemplate: string | undefined;
+    let responseMapping: Array<{ jsonPath: string; variableName: string }>;
+
+    if (node.data.operationId && node.data.serviceType) {
+      const mergedInputs: Record<string, string> = { ...(node.data.inputValues || {}) };
+      // Resolve variables in input values
+      for (const key of Object.keys(mergedInputs)) {
+        mergedInputs[key] = resolveVariables(mergedInputs[key], variables);
+      }
+      if (integration.integration_type === "cloudbeds" && config.propertyId) {
+        mergedInputs.propertyId = config.propertyId;
+      }
+      const resolved = resolveOperation(node.data.serviceType, node.data.operationId, mergedInputs);
+      if (!resolved) {
+        const next = findNextNode(flow, node.id);
+        return { nextNodeId: next?.id || null, waitForInput: false };
+      }
+      endpoint = resolveVariables(resolved.endpoint, variables);
+      method = resolved.method;
+      bodyTemplate = resolved.bodyTemplate;
+      responseMapping = resolved.responseMapping;
+    } else {
+      endpoint = resolveVariables(node.data.endpoint || "", variables);
+      method = (node.data.method || "GET").toUpperCase();
+      bodyTemplate = node.data.bodyTemplate;
+      responseMapping = node.data.responseMapping || [];
+    }
+
+    const url = `${baseUrl.replace(/\/$/, "")}/${endpoint.replace(/^\//, "")}`;
+
+    const fetchOptions: RequestInit = { method, headers };
+    if (method !== "GET" && bodyTemplate) {
+      fetchOptions.body = resolveVariables(bodyTemplate, variables);
+    }
+
+    try {
+      if (!isUrlSafe(url)) {
+        throw new Error("Blocked: URL targets a private or internal address");
+      }
+
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000);
+      fetchOptions.signal = controller.signal;
+
+      console.log("[flow-demo] api_call URL:", url);
+      const response = await fetch(url, fetchOptions);
+      clearTimeout(timeout);
+
+      if (!response.ok) {
+        const errorBody = await response.text();
+        console.error("[flow-demo] api_call HTTP error:", response.status, errorBody);
+        throw new Error(`HTTP ${response.status}: ${errorBody.substring(0, 200)}`);
+      }
+
+      const json = await response.json();
+      console.log("[flow-demo] api_call response keys:", Object.keys(json));
+
+      // Extract response fields and LLM-format structured data
+      let hasData = false;
+      for (const mapping of responseMapping) {
+        const value = extractJsonPath(json, mapping.jsonPath);
+        console.log("[flow-demo] extractJsonPath:", mapping.jsonPath, "→", typeof value, value === null ? "null" : value === undefined ? "undefined" : "has data");
+        const raw = typeof value === "object" && value !== null ? JSON.stringify(value) : String(value ?? "");
+        // Check if the extracted data is meaningful (non-empty array/object/string)
+        const isEmpty = !value || (Array.isArray(value) && value.length === 0);
+        if (!isEmpty) {
+          variables[mapping.variableName] = typeof value === "object" && value !== null
+            ? await formatApiResponse(raw, mapping.variableName)
+            : raw;
+          hasData = true;
+        } else {
+          variables[mapping.variableName] = "";
+        }
+      }
+
+      if (!hasData) {
+        variables.error = "Sorry, no available rooms were found for the selected dates. Please try different dates.";
+      }
+
+      // Route via success/error handle
+      let next = findNextNode(flow, node.id, hasData ? "success" : "error");
+      if (!next) next = findNextNode(flow, node.id); // fallback to default edge
+      return { nextNodeId: next?.id || null, waitForInput: false };
+    } catch (err: unknown) {
+      const errMessage = err instanceof Error ? err.message : String(err);
+      console.error("[flow-demo] api_call error:", errMessage);
+      variables.error = errMessage;
+      // Store empty values
+      for (const mapping of responseMapping) {
+        variables[mapping.variableName] = "";
+      }
+      // Route via error handle
+      let next = findNextNode(flow, node.id, "error");
+      if (!next) next = findNextNode(flow, node.id); // fallback to default edge
+      return { nextNodeId: next?.id || null, waitForInput: false };
+    }
   }
 
   if (node.type === "delay") {
@@ -363,7 +502,7 @@ Deno.serve(async (req) => {
     // Workflow paused — use LLM-only mode (no flow node execution)
     if (workflow.status !== "active") {
       const workflowRecord = (workflow.workflow_record as string) || undefined;
-      const botResponse = await callLLMFallback(user_id, message, convId, workflowRecord, variables?.language);
+      const botResponse = await callLLMFallback(user_id, message, convId, workflowRecord, session_state?.variables?.language);
       await supabase.from("demo_conversations").insert({
         user_id,
         conversation_id: convId,
@@ -380,7 +519,7 @@ Deno.serve(async (req) => {
     const workflowRecord = (workflow.workflow_record as string) || undefined;
 
     if (!flow?.nodes?.length) {
-      const botResponse = await callLLMFallback(user_id, message, convId, workflowRecord, variables?.language);
+      const botResponse = await callLLMFallback(user_id, message, convId, workflowRecord, session_state?.variables?.language);
       await supabase.from("demo_conversations").insert({
         user_id,
         conversation_id: convId,

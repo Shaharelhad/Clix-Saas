@@ -24,6 +24,10 @@ function ApiCallNode({ data, selected, id }: NodeProps<FlowNode>) {
       onDelete={() => {
         document.dispatchEvent(new CustomEvent("flow:delete-node", { detail: id }));
       }}
+      sourceHandles={[
+        { id: "success", label: t("apiCallHandleSuccess") },
+        { id: "error", label: t("apiCallHandleError") },
+      ]}
     >
       {operationDef ? (
         <>

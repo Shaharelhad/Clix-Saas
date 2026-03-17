@@ -603,6 +603,69 @@ Output: a JSON array of translated strings in the SAME order. Return ONLY the JS
   }
 }
 
+// ── API response formatter ───────────────────────────────────
+
+/**
+ * Format raw API response JSON into a clean, human-readable WhatsApp message.
+ * Falls back to raw JSON string on failure.
+ */
+export async function formatApiResponse(
+  rawJson: string,
+  variableName: string,
+): Promise<string> {
+  const openrouterKey = Deno.env.get("OPENROUTER_API_KEY");
+  if (!openrouterKey) return rawJson;
+
+  const systemPrompt = `You format API response data into clean, readable WhatsApp messages.
+
+Given raw JSON data from an API response stored in variable "${variableName}", format it into a concise, visually structured message.
+
+Rules:
+- Use emojis for visual structure (✅, 📅, 👥, 🏡, 💰, etc.)
+- Show only the most important details (names, dates, prices, quantities, status)
+- Keep it concise — this will be sent as a WhatsApp message
+- Use line breaks for readability
+- Format prices with currency symbols
+- Format dates in DD/MM/YYYY format
+- If the data is an array, summarize the best/first match
+- Output ONLY the formatted text, no explanations or markdown code fences
+- Do NOT wrap in quotes`;
+
+  try {
+    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${openrouterKey}`,
+      },
+      body: JSON.stringify({
+        model: "google/gemini-3-flash-preview",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: rawJson },
+        ],
+        max_tokens: 512,
+        temperature: 0.2,
+      }),
+    });
+
+    if (!res.ok) {
+      console.error("[formatApiResponse] API error:", res.status);
+      return rawJson;
+    }
+
+    const data = await res.json();
+    const text = data.choices?.[0]?.message?.content?.trim();
+    if (!text) return rawJson;
+
+    console.log("[formatApiResponse]", { variableName, formatted: text.substring(0, 100) });
+    return text;
+  } catch (err) {
+    console.error("[formatApiResponse] error:", err);
+    return rawJson;
+  }
+}
+
 // ── Follow-up message generator ──────────────────────────────
 
 /**

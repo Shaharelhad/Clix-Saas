@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { callLLMEngine, classifyTrigger, validateCollectInput, detectRefusal, translateMessage, translateButtonLabels, type TriggerInfo, type LLMResult } from "../_shared/llm-engine.ts";
+import { callLLMEngine, classifyTrigger, validateCollectInput, detectRefusal, translateMessage, translateButtonLabels, formatApiResponse, type TriggerInfo, type LLMResult } from "../_shared/llm-engine.ts";
 import { resolveOperation } from "../_shared/integration-catalog.ts";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -681,22 +681,42 @@ async function executeNode(
 
       const json = await response.json();
 
-      // Extract response fields per responseMapping
+      // Extract response fields per responseMapping and LLM-format structured data
+      let hasData = false;
       for (const mapping of responseMapping) {
         const value = extractJsonPath(json, mapping.jsonPath);
-        variables[mapping.variableName] = typeof value === "object" ? JSON.stringify(value) : String(value ?? "");
+        const raw = typeof value === "object" && value !== null ? JSON.stringify(value) : String(value ?? "");
+        const isEmpty = !value || (Array.isArray(value) && value.length === 0);
+        if (!isEmpty) {
+          variables[mapping.variableName] = typeof value === "object" && value !== null
+            ? await formatApiResponse(raw, mapping.variableName)
+            : raw;
+          hasData = true;
+        } else {
+          variables[mapping.variableName] = "";
+        }
       }
 
-      await logMessage(`API ${method} ${endpoint} → ${response.status}`, "api_call");
-      const next = findNextNode(flow, node.id);
+      if (!hasData) {
+        variables.error = "Sorry, no available rooms were found for the selected dates. Please try different dates.";
+      }
+
+      await logMessage(`API ${method} ${endpoint} → ${response.status} (data: ${hasData})`, "api_call");
+      // Route via success/error handle
+      let next = findNextNode(flow, node.id, hasData ? "success" : "error");
+      if (!next) next = findNextNode(flow, node.id); // fallback to default edge
       return { nextNodeId: next?.id || null, waitForInput: false };
     } catch (err: unknown) {
       const errMessage = err instanceof Error ? err.message : String(err);
       console.error("[flow] api_call error:", errMessage);
+      variables.error = errMessage;
       const resolvedErrMsg = resolveVariables(errorMsg, variables);
       await sendTextMessage(customerId, phone, resolvedErrMsg);
       await logMessage(`API error: ${errMessage}`, "api_call_error");
-      return { nextNodeId: null, waitForInput: false };
+      // Route via error handle
+      let next = findNextNode(flow, node.id, "error");
+      if (!next) next = findNextNode(flow, node.id); // fallback to default edge
+      return { nextNodeId: next?.id || null, waitForInput: false };
     }
   }
 

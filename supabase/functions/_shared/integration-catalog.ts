@@ -71,9 +71,19 @@ export const INTEGRATION_CATALOG: ServiceDefinition[] = [
         ],
         responseMapping: [
           {
-            jsonPath: "data",
-            variableName: "available_rooms",
-            labelKey: "cloudbeds_varAvailableRooms",
+            jsonPath: "data[0].propertyRooms[0].roomTypeName",
+            variableName: "unit",
+            labelKey: "cloudbeds_varUnit",
+          },
+          {
+            jsonPath: "data[0].propertyRooms[0].roomRate",
+            variableName: "price",
+            labelKey: "cloudbeds_varPrice",
+          },
+          {
+            jsonPath: "data[0].propertyCurrency.currencySymbol",
+            variableName: "currency",
+            labelKey: "cloudbeds_varCurrency",
           },
         ],
         errorMessageKey: "cloudbeds_errorGetAvailableRooms",
