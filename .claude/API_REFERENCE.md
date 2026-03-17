@@ -2,6 +2,8 @@
 
 > This replaces Green API. Use this reference when building or updating Supabase edge functions.
 
+**Github URL:**`https://github.com/okimchi123/W_app-gateway`
+
 **Base URL:** `https://wa.clixwapp.online`
 
 **Auth:** All `/api/*` endpoints require header: `x-api-key: <your-api-key>`
