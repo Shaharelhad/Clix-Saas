@@ -433,12 +433,14 @@ export default function FlowIntegrationsModal({ onClose }: FlowIntegrationsModal
                   disabled={!isFormValid || testStatus === "testing"}
                   className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#EDE6DD] text-xs font-bold text-[#2D2A26] hover:bg-[#FAF7F3] disabled:opacity-50 transition-colors cursor-pointer disabled:cursor-not-allowed"
                 >
-                  {testStatus === "testing" ? (
-                    <Loader2 className="w-3 h-3 animate-spin" />
-                  ) : (
-                    <Zap className="w-3 h-3" />
-                  )}
-                  {testStatus === "testing" ? t("testConnectionTesting") : t("testConnection")}
+                  <span key={testStatus} className="flex items-center justify-center gap-1.5 w-full">
+                    {testStatus === "testing" ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      <Zap className="w-3 h-3" />
+                    )}
+                    {testStatus === "testing" ? t("testConnectionTesting") : t("testConnection")}
+                  </span>
                 </button>
 
                 {/* Test result */}
