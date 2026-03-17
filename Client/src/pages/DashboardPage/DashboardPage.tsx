@@ -140,13 +140,6 @@ function BotStatusPill({ userId }: { userId: string }) {
     };
   }, [status, userId, refetchStatus]);
 
-  // Auto-show connect modal for first-time users who haven't connected yet
-  useEffect(() => {
-    if (status === "disconnected" && !sessionStorage.getItem("connectModalShown")) {
-      sessionStorage.setItem("connectModalShown", "1");
-      setConnectModalOpen(true);
-    }
-  }, [status]);
 
   const showFeedback = (type: "success" | "error", msg: string) => {
     setFeedback({ type, msg });
