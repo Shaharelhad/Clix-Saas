@@ -274,6 +274,7 @@ export function useFlowBuilder(): UseFlowBuilderReturn {
   const { data: loadedWorkflow } = useQuery({
     queryKey: ["workflow", activeWorkflowId],
     enabled: !!activeWorkflowId,
+    staleTime: 0, // Always refetch on remount so navigation back shows fresh data
     queryFn: async () => {
       const { data, error } = await supabase
         .from("workflows")

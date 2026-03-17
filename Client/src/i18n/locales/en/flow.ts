@@ -174,6 +174,8 @@ const flow = {
   cloudbeds_fieldCheckIn: "Check-in Date",
   cloudbeds_fieldCheckOut: "Check-out Date",
   cloudbeds_fieldDateHint: "Format: YYYY-MM-DD or {{variable}}",
+  cloudbeds_fieldAdults: "Number of Guests",
+  cloudbeds_fieldAdultsHint: "Number of adults or {{variable}}",
   cloudbeds_varAvailableRooms: "available_rooms",
   cloudbeds_errorGetAvailableRooms: "Could not check room availability. Please try again later.",
 
@@ -210,9 +212,6 @@ const flow = {
   settingsFlowLanguageHint: "The language your flow messages are written in",
   flowLangHe: "Hebrew",
   flowLangEn: "English",
-  buttonsVariableName: "Save Selection As",
-  buttonsVariableNameHint: "Store the clicked button in a variable (e.g., language)",
-
   // Language node
   nodeLanguage: "Language",
   nodeLanguageDesc: "Let customer choose language",

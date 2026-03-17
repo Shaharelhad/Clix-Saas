@@ -174,6 +174,8 @@ const flow = {
   cloudbeds_fieldCheckIn: "תאריך כניסה",
   cloudbeds_fieldCheckOut: "תאריך יציאה",
   cloudbeds_fieldDateHint: "פורמט: YYYY-MM-DD או {{variable}}",
+  cloudbeds_fieldAdults: "מספר אורחים",
+  cloudbeds_fieldAdultsHint: "מספר מבוגרים או {{variable}}",
   cloudbeds_varAvailableRooms: "available_rooms",
   cloudbeds_errorGetAvailableRooms: "לא הצלחנו לבדוק חדרים פנויים. נסה שוב מאוחר יותר.",
 
@@ -210,9 +212,6 @@ const flow = {
   settingsFlowLanguageHint: "השפה שבה כתובות הודעות התהליך",
   flowLangHe: "עברית",
   flowLangEn: "אנגלית",
-  buttonsVariableName: "שמור בחירה כ",
-  buttonsVariableNameHint: "שמור את הכפתור שנלחץ במשתנה (למשל: language)",
-
   // Language node
   nodeLanguage: "שפה",
   nodeLanguageDesc: "בחירת שפה ללקוח",

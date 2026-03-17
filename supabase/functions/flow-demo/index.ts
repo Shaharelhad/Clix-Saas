@@ -523,10 +523,6 @@ Deno.serve(async (req) => {
       }
       const matched = matchButton(buttons, matchMessage);
       if (matched) {
-        // Store button label in variable if variableName is set
-        if (currentNode.data.variableName) {
-          variables[currentNode.data.variableName] = matched.label;
-        }
         let nextNode = findNextNode(flow, currentNode.id, `btn-${matched.id}`);
         if (!nextNode) nextNode = findNextNode(flow, currentNode.id); // fallback: default edge
         if (nextNode?.type === "follow_up") {

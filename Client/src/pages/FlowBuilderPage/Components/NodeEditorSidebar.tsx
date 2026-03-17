@@ -173,22 +173,10 @@ export default function NodeEditorSidebar({ node, onUpdate, onClose, isLocked, s
 
         {/* Buttons list */}
         {data.type === "buttons" && (
-          <>
-            <ButtonsEditor
-              buttons={data.buttons ?? []}
-              onChange={(buttons) => update({ buttons })}
-            />
-            <Field label={t("buttonsVariableName")} hint={t("buttonsVariableNameHint")}>
-              <input
-                type="text"
-                value={data.variableName ?? ""}
-                onChange={(e) => update({ variableName: e.target.value })}
-                className="w-full rounded-md border border-[#EDE6DD] bg-white px-3 py-1.5 text-sm text-[#2D2A26] outline-none focus:border-[#FF7E47] transition-colors"
-                dir="ltr"
-                placeholder="language"
-              />
-            </Field>
-          </>
+          <ButtonsEditor
+            buttons={data.buttons ?? []}
+            onChange={(buttons) => update({ buttons })}
+          />
         )}
 
         {/* Open Bot info (read-only) */}
