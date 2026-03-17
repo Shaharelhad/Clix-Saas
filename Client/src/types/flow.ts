@@ -72,6 +72,8 @@ export interface FlowSettings {
   autoFollowUpEnabled: boolean;
   autoFollowUpDelayMinutes: number;
   autoFollowUpMaxCount: number;
+  autoFollowUpMode: "bot" | "custom";
+  autoFollowUpCustomMessages: string[];
   sessionResetEnabled: boolean;
   sessionResetMinutes: number;
   strictMode: boolean;
@@ -86,6 +88,8 @@ export const DEFAULT_FLOW_SETTINGS: FlowSettings = {
   autoFollowUpEnabled: false,
   autoFollowUpDelayMinutes: 120,
   autoFollowUpMaxCount: 1,
+  autoFollowUpMode: "bot",
+  autoFollowUpCustomMessages: [],
   sessionResetEnabled: false,
   sessionResetMinutes: 1440,
   strictMode: false,
