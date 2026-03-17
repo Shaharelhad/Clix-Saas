@@ -92,6 +92,19 @@ export default function NodeEditorSidebar({ node, onUpdate, onClose, isLocked, s
           </>
         )}
 
+        {/* Buttons — header field (optional) */}
+        {data.type === "buttons" && (
+          <Field label={t("buttonHeader")} hint={t("buttonHeaderHint")}>
+            <input
+              type="text"
+              value={data.buttonHeader ?? ""}
+              onChange={(e) => update({ buttonHeader: e.target.value })}
+              className="field-input"
+              dir="rtl"
+            />
+          </Field>
+        )}
+
         {/* Text / Image / Buttons / Collect Input — message field */}
         {["text", "image", "buttons"].includes(data.type) && (
           <Field label={t("message")} hint={t("messageHint")}>
@@ -99,6 +112,19 @@ export default function NodeEditorSidebar({ node, onUpdate, onClose, isLocked, s
               value={data.message ?? ""}
               onChange={(e) => update({ message: e.target.value })}
               className="field-input min-h-[80px] resize-y"
+              dir="rtl"
+            />
+          </Field>
+        )}
+
+        {/* Buttons — footer field (optional) */}
+        {data.type === "buttons" && (
+          <Field label={t("buttonFooter")} hint={t("buttonFooterHint")}>
+            <input
+              type="text"
+              value={data.buttonFooter ?? ""}
+              onChange={(e) => update({ buttonFooter: e.target.value })}
+              className="field-input"
               dir="rtl"
             />
           </Field>

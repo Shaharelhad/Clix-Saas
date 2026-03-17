@@ -22,6 +22,8 @@ interface FlowNode {
     message?: string;
     imageUrl?: string;
     buttons?: ButtonItem[];
+    buttonHeader?: string;
+    buttonFooter?: string;
     variableName?: string;
     expectedAnswer?: string;
     delayMinutes?: number;
@@ -258,10 +260,14 @@ async function executeNodeDemo(
 
   if (node.type === "buttons") {
     let msg = resolveVariables(node.data.message || "", variables);
+    let header = resolveVariables(node.data.buttonHeader || "", variables);
+    let footer = resolveVariables(node.data.buttonFooter || "", variables);
     const buttons = node.data.buttons || [];
     let displayButtons = buttons;
     if (shouldTranslate) {
       msg = await translateMessage(msg, flowLang, targetLang);
+      if (header) header = await translateMessage(header, flowLang, targetLang);
+      if (footer) footer = await translateMessage(footer, flowLang, targetLang);
       const translatedLabels = await translateButtonLabels(
         buttons.map((b) => b.label),
         flowLang,
@@ -272,7 +278,13 @@ async function executeNodeDemo(
         variables[`__btn_translated_${translatedLabels[i]?.trim().toLowerCase()}`] = buttons[i].label;
       }
     }
-    responses.push({ type: "buttons", content: msg, buttons: displayButtons });
+    responses.push({
+      type: "buttons",
+      content: msg,
+      buttons: displayButtons,
+      ...(header ? { header } : {}),
+      ...(footer ? { footer } : {}),
+    });
     return { nextNodeId: node.id, waitForInput: true };
   }
 

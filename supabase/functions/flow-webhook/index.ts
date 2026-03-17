@@ -52,6 +52,8 @@ interface FlowNode {
     message?: string;
     imageUrl?: string;
     buttons?: ButtonItem[];
+    buttonHeader?: string;
+    buttonFooter?: string;
     variableName?: string;
     expectedAnswer?: string;
     delayMinutes?: number;
@@ -397,7 +399,9 @@ async function sendButtonsMessage(
   customerId: string,
   to: string,
   message: string,
-  buttons: ButtonItem[]
+  buttons: ButtonItem[],
+  header?: string,
+  footer?: string,
 ) {
   const url = `${WA_GATEWAY_BASE}/api/session/send-buttons/${customerId}`;
   const wclixButtons = buttons.slice(0, 10).map((b) => ({
@@ -416,16 +420,22 @@ async function sendButtonsMessage(
         to,
         body: message,
         buttons: wclixButtons,
+        ...(header ? { header } : {}),
+        ...(footer ? { footer } : {}),
       }),
     });
     if (res.ok) return res.json();
   } catch { /* interactive buttons failed, fall through to text fallback */ }
 
   // Fallback: send as numbered text list if interactive buttons are not available
+  const parts: string[] = [];
+  if (header) parts.push(header);
+  parts.push(message);
+  if (footer) parts.push(footer);
   const buttonText = buttons
     .map((b, i) => `${i + 1}. ${b.label}`)
     .join("\n");
-  const fullMessage = `${message}\n\n${buttonText}`;
+  const fullMessage = `${parts.join("\n\n")}\n\n${buttonText}`;
   return sendTextMessage(customerId, to, fullMessage);
 }
 
@@ -549,10 +559,14 @@ async function executeNode(
 
   if (node.type === "buttons") {
     let msg = resolveVariables(node.data.message || "", variables);
+    let header = resolveVariables(node.data.buttonHeader || "", variables);
+    let footer = resolveVariables(node.data.buttonFooter || "", variables);
     const buttons = node.data.buttons || [];
     let displayButtons = buttons;
     if (shouldTranslate) {
       msg = await translateMessage(msg, fromLang, targetLang);
+      if (header) header = await translateMessage(header, fromLang, targetLang);
+      if (footer) footer = await translateMessage(footer, fromLang, targetLang);
       const translatedLabels = await translateButtonLabels(
         buttons.map((b) => b.label),
         fromLang,
@@ -564,7 +578,7 @@ async function executeNode(
         variables[`__btn_translated_${translatedLabels[i]?.trim().toLowerCase()}`] = buttons[i].label;
       }
     }
-    await sendButtonsMessage(customerId, phone, msg, displayButtons);
+    await sendButtonsMessage(customerId, phone, msg, displayButtons, header || undefined, footer || undefined);
     const buttonLabels = displayButtons.map((b) => b.label).join(", ");
     await logMessage(`${msg}\n[${buttonLabels}]`, "buttons");
     return { nextNodeId: node.id, waitForInput: true };

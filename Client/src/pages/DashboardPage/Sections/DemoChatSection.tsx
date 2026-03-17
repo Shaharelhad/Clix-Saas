@@ -98,7 +98,7 @@ export default function DemoChatSection({ resetKey = 0, workflowId }: DemoChatSe
       if (result.error) throw new Error(result.error);
 
       const data = result.data as {
-        responses?: { type: string; content: string; imageUrl?: string; buttons?: { id: string; label: string }[] }[];
+        responses?: { type: string; content: string; imageUrl?: string; buttons?: { id: string; label: string }[]; header?: string; footer?: string }[];
         response?: string;
         conversation_id?: string;
         session_state?: Record<string, unknown>;
@@ -116,6 +116,8 @@ export default function DemoChatSection({ resetKey = 0, workflowId }: DemoChatSe
           time: nowStamp(),
           ...(r.imageUrl ? { imageUrl: r.imageUrl } : {}),
           ...(r.buttons?.length ? { buttons: r.buttons } : {}),
+          ...(r.header ? { header: r.header } : {}),
+          ...(r.footer ? { footer: r.footer } : {}),
         }));
         setMessages((prev) => [...prev, ...botMessages]);
       } else if (data?.response) {
@@ -167,7 +169,7 @@ export default function DemoChatSection({ resetKey = 0, workflowId }: DemoChatSe
       if (result.error) throw new Error(result.error);
 
       const data = result.data as {
-        responses?: { type: string; content: string; imageUrl?: string; buttons?: { id: string; label: string }[] }[];
+        responses?: { type: string; content: string; imageUrl?: string; buttons?: { id: string; label: string }[]; header?: string; footer?: string }[];
         response?: string;
         conversation_id?: string;
         session_state?: Record<string, unknown>;
@@ -184,6 +186,8 @@ export default function DemoChatSection({ resetKey = 0, workflowId }: DemoChatSe
           time: nowStamp(),
           ...(r.imageUrl ? { imageUrl: r.imageUrl } : {}),
           ...(r.buttons?.length ? { buttons: r.buttons } : {}),
+          ...(r.header ? { header: r.header } : {}),
+          ...(r.footer ? { footer: r.footer } : {}),
         }));
         setMessages((prev) => [...prev, ...botMessages]);
       } else if (data?.response) {

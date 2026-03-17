@@ -11,6 +11,8 @@ export interface ChatMessage {
   time: string;
   imageUrl?: string;
   buttons?: { id: string; label: string }[];
+  header?: string;
+  footer?: string;
 }
 
 interface ChatPanelProps {
@@ -102,8 +104,12 @@ function ChatBubble({
             style={{ width: "calc(100% + 2rem)", maxWidth: "calc(100% + 2rem)", marginLeft: "-1rem", marginRight: "-1rem", marginTop: "-0.75rem" }}
           />
         )}
+        {/* Header */}
+        {msg.header && <p className="text-sm font-bold leading-relaxed">{msg.header}</p>}
         {/* Text */}
         {msg.text && <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.text}</p>}
+        {/* Footer */}
+        {msg.footer && <p className="text-[11px] opacity-60 mt-1">{msg.footer}</p>}
         {/* Buttons */}
         {msg.buttons && msg.buttons.length > 0 && (
           <div className="flex flex-wrap gap-1.5 mt-2.5">
