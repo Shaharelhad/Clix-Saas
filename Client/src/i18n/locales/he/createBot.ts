@@ -114,6 +114,8 @@ const createBot = {
   connectSuccess: "חיבור לוואטסאפ הצליח! הבוט שלך פעיל עכשיו.",
   connectError: "החיבור נכשל. נסה שוב.",
   alreadyConnected: "הבוט שלך כבר מחובר לוואטסאפ!",
+  skipToDashboard: "דלג",
+  skipForm: "דלג",
   logout: "התנתק",
 
   // Connect Section — Success Overlay

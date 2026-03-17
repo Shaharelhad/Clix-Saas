@@ -116,6 +116,8 @@ const createBot = {
   connectSuccess: "Successfully connected to WhatsApp! Your bot is now live.",
   connectError: "Failed to connect. Please try again.",
   alreadyConnected: "Your bot is already connected to WhatsApp!",
+  skipToDashboard: "Skip",
+  skipForm: "Skip",
   logout: "Logout",
 
   // Connect Section — Success Overlay
