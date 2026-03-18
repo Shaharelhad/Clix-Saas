@@ -242,6 +242,9 @@ const flow = {
   languagePromptHint: "Message shown above the language buttons",
   languageNodeInfo: "The customer will see English and Hebrew buttons. Their choice sets the language for all following messages in this flow.",
 
+  // Undo/redo
+  undo: "Undo",
+  redo: "Redo",
   // Misc
   deleteNode: "Delete Node",
   noNodeSelected: "Select a node to edit its properties",

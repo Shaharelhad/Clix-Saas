@@ -242,6 +242,9 @@ const flow = {
   languagePromptHint: "ההודעה שתוצג מעל כפתורי השפה",
   languageNodeInfo: "הלקוח יראה כפתורי אנגלית ועברית. הבחירה שלו תקבע את השפה לכל ההודעות הבאות בתהליך.",
 
+  // Undo/redo
+  undo: "בטל",
+  redo: "בצע שוב",
   // Misc
   deleteNode: "מחק נוד",
   noNodeSelected: "בחר נוד כדי לערוך את המאפיינים שלו",
