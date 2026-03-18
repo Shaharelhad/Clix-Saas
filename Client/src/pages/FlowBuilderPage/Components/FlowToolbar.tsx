@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { Loader2, Check, Upload, CircleStop, Settings, Plug, ChevronDown } from "lucide-react";
+import { Loader2, Check, Upload, CircleStop, Settings, Plug, ChevronDown, Undo2, Redo2 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import type { Workflow } from "@/types/flow";
 import FlowListDropdown from "./FlowListDropdown";
@@ -14,6 +14,11 @@ interface FlowToolbarProps {
   onOpenIntegrations: () => void;
   saveStatus: "idle" | "saving" | "saved" | "error";
   isLocked: boolean;
+  // Undo/redo
+  onUndo: () => void;
+  onRedo: () => void;
+  canUndo: boolean;
+  canRedo: boolean;
   // Multi-workflow
   workflows: Workflow[];
   activeWorkflowId: string | null;
@@ -31,6 +36,10 @@ export default function FlowToolbar({
   onOpenIntegrations,
   saveStatus,
   isLocked,
+  onUndo,
+  onRedo,
+  canUndo,
+  canRedo,
   workflows,
   activeWorkflowId,
   onSwitchWorkflow,
@@ -118,6 +127,26 @@ export default function FlowToolbar({
 
         {/* Right: actions */}
         <div className="flex items-center gap-2">
+          {/* Undo / Redo */}
+          <div className="flex items-center gap-0.5 border-e border-[#EDE6DD]/60 pe-2 me-1">
+            <button
+              onClick={onUndo}
+              disabled={!canUndo}
+              className="p-1.5 rounded hover:bg-[#EDE6DD]/40 disabled:opacity-30 disabled:cursor-default cursor-pointer transition-colors"
+              title={`${t("undo")} (Ctrl+Z)`}
+            >
+              <Undo2 className="w-4 h-4 text-[#7A7267]" />
+            </button>
+            <button
+              onClick={onRedo}
+              disabled={!canRedo}
+              className="p-1.5 rounded hover:bg-[#EDE6DD]/40 disabled:opacity-30 disabled:cursor-default cursor-pointer transition-colors"
+              title={`${t("redo")} (Ctrl+Shift+Z)`}
+            >
+              <Redo2 className="w-4 h-4 text-[#7A7267]" />
+            </button>
+          </div>
+
           {/* Auto-save indicator */}
           {saveStatus === "saving" && (
             <span className="flex items-center gap-1 text-[10px] text-[#A39B90]">
