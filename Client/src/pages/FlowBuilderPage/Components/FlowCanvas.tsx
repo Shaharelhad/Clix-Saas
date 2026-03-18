@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, type DragEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, type DragEvent } from "react";
 import {
   ReactFlow,
   Background,
@@ -51,6 +51,9 @@ interface FlowCanvasProps {
   onPaneClick: () => void;
   isLocked: boolean;
   onLockedClick: () => void;
+  onNodeDragStart: () => void;
+  onUndo: () => void;
+  onRedo: () => void;
 }
 
 export default function FlowCanvas({
@@ -64,6 +67,9 @@ export default function FlowCanvas({
   onPaneClick,
   isLocked,
   onLockedClick,
+  onNodeDragStart,
+  onUndo,
+  onRedo,
 }: FlowCanvasProps) {
   const { t } = useTranslation("flow");
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
@@ -92,6 +98,28 @@ export default function FlowCanvas({
     [screenToFlowPosition, onAddNode]
   );
 
+  // Keyboard shortcuts: Ctrl+Z undo, Ctrl+Shift+Z / Ctrl+Y redo
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (!e.ctrlKey && !e.metaKey) return;
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || (e.target as HTMLElement)?.isContentEditable) return;
+
+      const key = e.key.toLowerCase();
+      if (key === "z" && !e.shiftKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        onUndo();
+      } else if ((key === "z" && e.shiftKey) || key === "y") {
+        e.preventDefault();
+        e.stopPropagation();
+        onRedo();
+      }
+    };
+    document.addEventListener("keydown", handler, true);
+    return () => document.removeEventListener("keydown", handler, true);
+  }, [onUndo, onRedo]);
+
   return (
     <div ref={reactFlowWrapper} className="flex-1 h-full">
       <ReactFlow
@@ -105,6 +133,7 @@ export default function FlowCanvas({
           if (isLocked) onLockedClick();
           onPaneClick();
         }}
+        onNodeDragStart={onNodeDragStart}
         onDragOver={isLocked ? undefined : onDragOver}
         onDrop={isLocked ? undefined : onDrop}
         nodeTypes={nodeTypes}
