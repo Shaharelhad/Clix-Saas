@@ -16,6 +16,7 @@ interface CloudbedsConfig {
   clientSecret: string;
   apiKey: string;
   propertyId: string;
+  bookingUrl: string;
 }
 
 interface CustomApiConfig {
@@ -50,6 +51,7 @@ interface FormState {
   clientSecret: string;
   apiKey: string;
   propertyId: string;
+  bookingUrl: string;
   name: string;
   baseUrl: string;
   authType: "bearer" | "api_key";
@@ -62,6 +64,7 @@ const EMPTY_FORM: FormState = {
   clientSecret: "",
   apiKey: "",
   propertyId: "",
+  bookingUrl: "",
   name: "",
   baseUrl: "",
   authType: "bearer",
@@ -70,7 +73,7 @@ const EMPTY_FORM: FormState = {
 
 function formToConfig(form: FormState): IntegrationConfig {
   if (form.type === "cloudbeds") {
-    return { clientId: form.clientId, clientSecret: form.clientSecret, apiKey: form.apiKey, propertyId: form.propertyId };
+    return { clientId: form.clientId, clientSecret: form.clientSecret, apiKey: form.apiKey, propertyId: form.propertyId, bookingUrl: form.bookingUrl };
   }
   return {
     name: form.name,
@@ -83,7 +86,7 @@ function formToConfig(form: FormState): IntegrationConfig {
 function configToForm(type: IntegrationType, config: IntegrationConfig): FormState {
   if (type === "cloudbeds") {
     const c = config as CloudbedsConfig;
-    return { ...EMPTY_FORM, type, clientId: c.clientId, clientSecret: c.clientSecret, apiKey: c.apiKey, propertyId: c.propertyId || "" };
+    return { ...EMPTY_FORM, type, clientId: c.clientId, clientSecret: c.clientSecret, apiKey: c.apiKey, propertyId: c.propertyId || "", bookingUrl: c.bookingUrl || "" };
   }
   const c = config as CustomApiConfig;
   return {
@@ -365,6 +368,20 @@ export default function FlowIntegrationsModal({ onClose }: FlowIntegrationsModal
                       className={fieldCls}
                       dir="ltr"
                     />
+                  </div>
+                  <div className="mb-2">
+                    <label className="text-[10px] font-medium text-[#7A7267] mb-1 block">
+                      {t("integrationBookingUrl")}
+                    </label>
+                    <input
+                      type="url"
+                      value={form.bookingUrl}
+                      onChange={(e) => updateForm((f) => ({ ...f, bookingUrl: e.target.value }))}
+                      placeholder="https://us2.cloudbeds.com/en/reservation/xxxxx"
+                      className={`${fieldCls} placeholder:text-[#C5BDB3]`}
+                      dir="ltr"
+                    />
+                    <span className="text-[9px] text-[#A39888] mt-0.5 block">{t("integrationBookingUrlHint")}</span>
                   </div>
                 </>
               )}

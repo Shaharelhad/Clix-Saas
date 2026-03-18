@@ -538,7 +538,14 @@ function ApiCallEditor({ data, update }: { data: FlowNodeData; update: (patch: P
   };
 
   const handleOperationChange = (operationId: string) => {
-    update({ operationId, inputValues: {} });
+    const op = serviceDef ? findOperationById(serviceDef.id, operationId) : undefined;
+    const prefilled: Record<string, string> = {};
+    if (op) {
+      for (const field of op.inputFields) {
+        if (field.placeholder) prefilled[field.id] = field.placeholder;
+      }
+    }
+    update({ operationId, inputValues: prefilled });
   };
 
   const handleInputChange = (fieldId: string, value: string) => {
