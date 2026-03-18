@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
@@ -303,6 +303,9 @@ export default function AuthPage() {
     isLoading: authLoading,
   } = useAuth();
 
+  const initialLoadDone = useRef(false);
+  if (!authLoading) initialLoadDone.current = true;
+
   const [searchParams] = useSearchParams();
   const initialMode = searchParams.get("mode");
   const [mode, setMode] = useState<AuthMode>(
@@ -342,7 +345,7 @@ export default function AuthPage() {
   }, [isAuthenticated, isAdmin, isApproved, isPending, hasCompletedOnboarding, authLoading, navigate]);
 
   // Loading gate
-  if (authLoading) {
+  if (!initialLoadDone.current) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: "linear-gradient(170deg, #FDF8F2 0%, #F8F0E6 40%, #FBF5EE 100%)" }}>
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
