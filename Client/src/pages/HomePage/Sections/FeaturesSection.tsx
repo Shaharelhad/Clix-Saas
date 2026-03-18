@@ -88,12 +88,15 @@ const FeaturesSection = () => {
               <motion.div
                 key={key}
                 className={cn(
-                  "glass-card p-8 relative overflow-hidden cursor-default",
-                  "hover:border-[#FF6B2C]/40 transition-all duration-500",
+                  "p-8 relative overflow-hidden cursor-default rounded-[1.25rem]",
+                  "border border-white/60 hover:border-[#FF6B2C]/40",
+                  "transition-[border-color,box-shadow] duration-150",
+                  "hover:shadow-[0_12px_40px_rgba(0,0,0,0.12),0_4px_16px_rgba(255,107,44,0.08)]",
                   isLarge ? "col-span-2" : "col-span-2 sm:col-span-1",
                 )}
                 style={{
-                  boxShadow: "0 4px 24px rgba(0, 0, 0, 0.04)",
+                  background: "rgba(255, 255, 255, 0.7)",
+                  boxShadow: "0 4px 24px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.5)",
                 }}
                 initial={{ opacity: 0, y: 30 }}
                 animate={inView ? { opacity: 1, y: 0 } : {}}
