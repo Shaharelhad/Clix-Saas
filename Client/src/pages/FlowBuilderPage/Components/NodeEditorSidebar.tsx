@@ -197,12 +197,53 @@ export default function NodeEditorSidebar({ node, onUpdate, onClose, isLocked, s
           </div>
         )}
 
+        {/* Language toggle for text/image nodes with validation */}
+        {(data.type === "text" || data.type === "image") && (data.yesNoMode || data.expectedReply) && (
+          <Field label={t("outputLanguage")} hint={t("outputLanguageHint")}>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => update({ outputLanguage: "en" })}
+                className={`flex-1 px-3 py-1.5 rounded-lg text-xs font-medium border cursor-pointer transition-colors ${
+                  data.outputLanguage === "en"
+                    ? "bg-emerald-100 border-emerald-300 text-emerald-700"
+                    : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50"
+                }`}
+              >EN</button>
+              <button
+                type="button"
+                onClick={() => update({ outputLanguage: "he" })}
+                className={`flex-1 px-3 py-1.5 rounded-lg text-xs font-medium border cursor-pointer transition-colors ${
+                  (data.outputLanguage ?? "he") === "he"
+                    ? "bg-emerald-100 border-emerald-300 text-emerald-700"
+                    : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50"
+                }`}
+              >עב</button>
+            </div>
+          </Field>
+        )}
+
         {/* Buttons list */}
         {data.type === "buttons" && (
-          <ButtonsEditor
-            buttons={data.buttons ?? []}
-            onChange={(buttons) => update({ buttons })}
-          />
+          <>
+            <ButtonsEditor
+              buttons={data.buttons ?? []}
+              onChange={(buttons) => update({ buttons })}
+            />
+            {/* Global menu toggle */}
+            <div className="flex items-center justify-between px-1">
+              <span className="text-[10px] text-[#A39B90]">{t("globalMenuHint")}</span>
+              <label className="relative inline-flex items-center cursor-pointer shrink-0 ms-2">
+                <input
+                  type="checkbox"
+                  checked={data.isGlobalMenu ?? false}
+                  onChange={(e) => update({ isGlobalMenu: e.target.checked })}
+                  className="sr-only peer"
+                />
+                <div className="w-8 h-[18px] bg-[#EDE6DD] rounded-full peer peer-checked:bg-[#06b6d4] after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-[14px] after:w-[14px] after:transition-all peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full after:shadow-sm" />
+              </label>
+            </div>
+          </>
         )}
 
         {/* Open Bot info (read-only) */}
@@ -246,6 +287,18 @@ export default function NodeEditorSidebar({ node, onUpdate, onClose, isLocked, s
                 dir="rtl"
               />
             </Field>
+            {data.expectedAnswer && (
+              <Field label={t("outputFormat")} hint={t("outputFormatHint")}>
+                <input
+                  type="text"
+                  value={data.outputFormat ?? ""}
+                  onChange={(e) => update({ outputFormat: e.target.value })}
+                  className="field-input"
+                  dir="ltr"
+                  placeholder={t("outputFormatPlaceholder")}
+                />
+              </Field>
+            )}
             {/* Allow Skip */}
             <div className="flex items-center justify-between px-1">
               <span className="text-[10px] text-[#A39B90]">{t("allowSkipHint")}</span>
@@ -259,6 +312,31 @@ export default function NodeEditorSidebar({ node, onUpdate, onClose, isLocked, s
                 <div className="w-8 h-[18px] bg-[#EDE6DD] rounded-full peer peer-checked:bg-[#06b6d4] after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-[14px] after:w-[14px] after:transition-all peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full after:shadow-sm" />
               </label>
             </div>
+            {/* Language toggle for nudge messages */}
+            {data.expectedAnswer && (
+              <Field label={t("outputLanguage")} hint={t("outputLanguageHint")}>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => update({ outputLanguage: "en" })}
+                    className={`flex-1 px-3 py-1.5 rounded-lg text-xs font-medium border cursor-pointer transition-colors ${
+                      data.outputLanguage === "en"
+                        ? "bg-emerald-100 border-emerald-300 text-emerald-700"
+                        : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50"
+                    }`}
+                  >EN</button>
+                  <button
+                    type="button"
+                    onClick={() => update({ outputLanguage: "he" })}
+                    className={`flex-1 px-3 py-1.5 rounded-lg text-xs font-medium border cursor-pointer transition-colors ${
+                      (data.outputLanguage ?? "he") === "he"
+                        ? "bg-emerald-100 border-emerald-300 text-emerald-700"
+                        : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50"
+                    }`}
+                  >עב</button>
+                </div>
+              </Field>
+            )}
           </>
         )}
 
@@ -635,6 +713,58 @@ function ApiCallEditor({ data, update }: { data: FlowNodeData; update: (patch: P
                   </p>
                   <p className="text-[9px] text-gray-400 mt-1">{t("apiCallErrorVarHint")}</p>
                 </div>
+              )}
+
+              {/* Currency toggle for Cloudbeds room availability */}
+              {operationDef.id === "getAvailableRoomTypes" && (
+                <Field label={t("outputCurrency")} hint={t("outputCurrencyHint")}>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => update({ outputCurrency: "USD" })}
+                      className={`flex-1 px-3 py-1.5 rounded-lg text-xs font-medium border cursor-pointer transition-colors ${
+                        (data.outputCurrency ?? "USD") === "USD"
+                          ? "bg-amber-100 border-amber-300 text-amber-700"
+                          : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50"
+                      }`}
+                    >$ USD</button>
+                    <button
+                      type="button"
+                      onClick={() => update({ outputCurrency: "ILS" })}
+                      className={`flex-1 px-3 py-1.5 rounded-lg text-xs font-medium border cursor-pointer transition-colors ${
+                        data.outputCurrency === "ILS"
+                          ? "bg-blue-100 border-blue-300 text-blue-700"
+                          : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50"
+                      }`}
+                    >₪ ILS</button>
+                  </div>
+                </Field>
+              )}
+
+              {/* Language toggle for Cloudbeds room availability */}
+              {operationDef.id === "getAvailableRoomTypes" && (
+                <Field label={t("outputLanguage")} hint={t("outputLanguageHint")}>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => update({ outputLanguage: "en" })}
+                      className={`flex-1 px-3 py-1.5 rounded-lg text-xs font-medium border cursor-pointer transition-colors ${
+                        (data.outputLanguage ?? "en") === "en"
+                          ? "bg-emerald-100 border-emerald-300 text-emerald-700"
+                          : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50"
+                      }`}
+                    >EN</button>
+                    <button
+                      type="button"
+                      onClick={() => update({ outputLanguage: "he" })}
+                      className={`flex-1 px-3 py-1.5 rounded-lg text-xs font-medium border cursor-pointer transition-colors ${
+                        data.outputLanguage === "he"
+                          ? "bg-emerald-100 border-emerald-300 text-emerald-700"
+                          : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50"
+                      }`}
+                    >עב</button>
+                  </div>
+                </Field>
               )}
             </>
           )}
