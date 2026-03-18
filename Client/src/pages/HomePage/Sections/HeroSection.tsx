@@ -320,66 +320,55 @@ const HeroSection = () => {
 
             {/* ── Secondary card: Smart Bot badge (top-right) ── */}
             <motion.div
-              className="glass-card absolute -top-4 -right-4 lg:-top-6 lg:-right-10 px-4 py-3 z-10"
+              className="absolute -top-4 -right-4 lg:-top-6 lg:-right-10 px-4 py-3 z-10 rounded-[1.25rem] border border-white/60"
+              style={{ background: "rgba(255,255,255,0.7)", boxShadow: "0 8px 32px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.5)" }}
               initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.9, duration: 0.5 }}
+              animate={{ opacity: 1, y: [0, -5, 0] }}
+              transition={{
+                opacity: { delay: 0.9, duration: 0.5 },
+                y: { delay: 0.9, duration: 6, repeat: Infinity, ease: "easeInOut" },
+              }}
             >
-              <motion.div
-                animate={{ y: [0, -5, 0] }}
-                transition={{
-                  duration: 4,
-                  repeat: Infinity,
-                  ease: "easeInOut",
-                }}
-              >
-                <div className="flex items-center gap-2.5">
-                  <div
-                    className="w-8 h-8 rounded-lg flex items-center justify-center"
-                    style={{
-                      background: `linear-gradient(135deg, ${ORANGE}20, ${ORANGE}40)`,
-                    }}
-                  >
-                    <Zap className="w-4 h-4" style={{ color: ORANGE }} />
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500">בוט חכם</p>
-                    <p className="text-lg font-bold text-gray-800">AI</p>
-                  </div>
+              <div className="flex items-center gap-2.5">
+                <div
+                  className="w-8 h-8 rounded-lg flex items-center justify-center"
+                  style={{
+                    background: `linear-gradient(135deg, ${ORANGE}20, ${ORANGE}40)`,
+                  }}
+                >
+                  <Zap className="w-4 h-4" style={{ color: ORANGE }} />
                 </div>
-              </motion.div>
+                <div>
+                  <p className="text-xs text-gray-500">בוט חכם</p>
+                  <p className="text-lg font-bold text-gray-800">AI</p>
+                </div>
+              </div>
             </motion.div>
 
             {/* ── Tertiary card: Personal AI Bot (bottom-right) ── */}
             <motion.div
-              className="glass-card absolute -bottom-3 -left-3 lg:-bottom-5 lg:-left-8 px-3 py-2.5 z-10 hidden sm:block"
+              className="absolute -bottom-3 -left-3 lg:-bottom-5 lg:-left-8 px-3 py-2.5 z-10 hidden sm:block rounded-[1.25rem] border border-white/60"
+              style={{ background: "rgba(255,255,255,0.7)", boxShadow: "0 8px 32px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.5)" }}
               initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 1.3, duration: 0.5 }}
+              animate={{ opacity: 1, y: [0, 4, 0] }}
+              transition={{
+                opacity: { delay: 1.3, duration: 0.5 },
+                y: { delay: 1.3, duration: 7, repeat: Infinity, ease: "easeInOut" },
+              }}
             >
-              <motion.div
-                animate={{ y: [0, 4, 0] }}
-                transition={{
-                  duration: 5,
-                  repeat: Infinity,
-                  ease: "easeInOut",
-                  delay: 1,
-                }}
-              >
-                <div className="flex items-center gap-2">
-                  <div
-                    className="w-7 h-7 rounded-full flex items-center justify-center"
-                    style={{
-                      background: `linear-gradient(135deg, ${ORANGE}, ${ORANGE_DARK})`,
-                    }}
-                  >
-                    <Bot className="w-3.5 h-3.5 text-white" />
-                  </div>
-                  <p className="text-sm font-semibold text-gray-700">
-                    הבוט האישי שלך
-                  </p>
+              <div className="flex items-center gap-2">
+                <div
+                  className="w-7 h-7 rounded-full flex items-center justify-center"
+                  style={{
+                    background: `linear-gradient(135deg, ${ORANGE}, ${ORANGE_DARK})`,
+                  }}
+                >
+                  <Bot className="w-3.5 h-3.5 text-white" />
                 </div>
-              </motion.div>
+                <p className="text-sm font-semibold text-gray-700">
+                  הבוט האישי שלך
+                </p>
+              </div>
             </motion.div>
           </div>
         </motion.div>

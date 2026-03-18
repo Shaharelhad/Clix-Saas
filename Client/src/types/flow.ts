@@ -36,11 +36,13 @@ export interface FlowNodeData extends Record<string, unknown> {
   buttons?: ButtonItem[];
   buttonHeader?: string;
   buttonFooter?: string;
+  isGlobalMenu?: boolean;
   // text / image — yes/no question mode
   yesNoMode?: boolean;
   // collect_input
   variableName?: string;
   expectedAnswer?: string;
+  outputFormat?: string;
   // text (expectedReply) & collect_input — allow customer to refuse answering
   allowSkip?: boolean;
   // delay
@@ -49,6 +51,8 @@ export interface FlowNodeData extends Record<string, unknown> {
   linkedButtonId?: string;
   linkedNodeId?: string;
   // api_call
+  outputCurrency?: "USD" | "ILS";
+  outputLanguage?: "en" | "he";
   integrationId?: string;
   endpoint?: string;
   method?: string;

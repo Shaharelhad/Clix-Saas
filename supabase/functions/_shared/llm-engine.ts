@@ -376,11 +376,30 @@ export async function validateCollectInput(
   question: string,
   expectedAnswer: string,
   userResponse: string,
-): Promise<"valid" | "invalid" | "refused"> {
-  if (!expectedAnswer.trim()) return "valid";
+  outputFormat?: string,
+): Promise<{ result: "valid" | "invalid" | "refused"; formatted?: string }> {
+  if (!expectedAnswer.trim()) return { result: "valid" };
 
   const openrouterKey = Deno.env.get("OPENROUTER_API_KEY");
-  if (!openrouterKey) return "valid"; // fail open if no API key
+  if (!openrouterKey) return { result: "valid" }; // fail open if no API key
+
+  const todayISO = new Date().toISOString().split("T")[0];
+  const currentYear = new Date().getFullYear();
+  const formatInstruction = outputFormat
+    ? `\nToday's date is ${todayISO} (current year: ${currentYear}).
+If the response is valid and you can convert it to the format "${outputFormat}", include a "formatted" field.
+IMPORTANT date parsing rules:
+- Users may write dates in ANY format: DD/MM/YY, YY/MM/DD, MM/DD/YY, DD-MM-YYYY, DD.MM.YY, "March 26", etc.
+- For 2-digit years, assume 2000s (e.g., "25" → 2025, "26" → 2026).
+- The formatted date MUST be a valid calendar date (month 1-12, day 1-31).
+- CRITICAL: This is for hotel booking dates which are ALWAYS in the future. The result MUST be a future date (after ${todayISO}). If one interpretation gives a past date and another gives a future date, you MUST pick the future date.
+- Try all valid interpretations (DD/MM/YY, YY/MM/DD, MM/DD/YY) and pick the one that gives a valid future date.
+- Example: "26/03/24" today being ${todayISO}:
+  - DD/MM/YY → 2024-03-26 (PAST — reject)
+  - YY/MM/DD → 2026-03-24 (FUTURE — use this!)
+  - Result: {"result":"valid","formatted":"2026-03-24"}
+If you cannot convert it, just return {"result":"valid"} without a formatted field.`
+    : "";
 
   const systemPrompt = `You validate user responses in a WhatsApp chatbot.
 The bot asked the customer: "${question}"
@@ -395,8 +414,8 @@ Determine if the customer's response is:
 Be lenient with valid answers — accept reasonable variations, different formats, and different languages.
 For example: if expecting "a name", accept "John", "מיכאל", "sarah cohen" etc.
 If expecting "phone number", accept "0501234567", "050-123-4567", "+972501234567" etc.
-
-Respond with ONLY valid JSON: {"result":"valid"}, {"result":"invalid"}, or {"result":"refused"}`;
+${formatInstruction}
+Respond with ONLY valid JSON.`;
 
   try {
     const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -411,32 +430,32 @@ Respond with ONLY valid JSON: {"result":"valid"}, {"result":"invalid"}, or {"res
           { role: "system", content: systemPrompt },
           { role: "user", content: userResponse },
         ],
-        max_tokens: 20,
+        max_tokens: 100,
         temperature: 0,
       }),
     });
 
     if (!res.ok) {
       console.error("[validateCollectInput] API error:", res.status);
-      return "valid"; // fail open
+      return { result: "valid" }; // fail open
     }
 
     const data = await res.json();
     const text = data.choices?.[0]?.message?.content?.trim();
-    if (!text) return "valid";
+    if (!text) return { result: "valid" };
 
     const cleanText = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
-    console.log("[validateCollectInput]", { question, expectedAnswer, userResponse, result: cleanText });
+    console.log("[validateCollectInput]", { question, expectedAnswer, userResponse, outputFormat, result: cleanText });
 
     const parsed = JSON.parse(cleanText);
-    if (parsed?.result === "refused") return "refused";
-    if (parsed?.result === "valid") return "valid";
+    if (parsed?.result === "refused") return { result: "refused" };
+    if (parsed?.result === "valid") return { result: "valid", formatted: parsed.formatted || undefined };
     // Legacy format support ({"valid":true/false})
-    if (parsed?.valid === true) return "valid";
-    return "invalid";
+    if (parsed?.valid === true) return { result: "valid" };
+    return { result: "invalid" };
   } catch (err) {
     console.error("[validateCollectInput] error:", err);
-    return "valid"; // fail open
+    return { result: "valid" }; // fail open
   }
 }
 

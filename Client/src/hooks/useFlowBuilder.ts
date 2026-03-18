@@ -16,6 +16,7 @@ import { useAuth } from "@/hooks/useAuth";
 import type { FlowNode, FlowEdge, FlowJSON, FlowNodeData, FlowSettings, Workflow, ButtonItem } from "@/types/flow";
 import { NODE_DEFAULTS, DEFAULT_FLOW_SETTINGS } from "@/types/flow";
 import { FLOW_TEMPLATES } from "@/data/flow-templates";
+import { useFlowHistory } from "@/hooks/useFlowHistory";
 
 // ── Generate workflow_record on publish ───────────────────────
 function describeNodeType(type: string): string {
@@ -107,11 +108,13 @@ function syncOpenBotNodes(
   for (let i = 0; i < newButtons.length; i++) {
     const btn = newButtons[i];
     const handleId = `btn-${btn.id}`;
-    const existingEdge = edges.find((e) => e.source === parentNodeId && e.sourceHandle === handleId);
-    const targetNode = existingEdge ? nodes.find((n) => n.id === existingEdge.target) : null;
-    const hasOpenBotNode = targetNode?.data.type === "open_bot";
 
-    if (btn.openBot && !hasOpenBotNode) {
+    // Find existing open_bot node by linkedButtonId (reliable, edge-independent)
+    const existingOpenBot = nodes.find(
+      (n) => n.data.type === "open_bot" && n.data.linkedButtonId === btn.id && n.data.linkedNodeId === parentNodeId,
+    );
+
+    if (btn.openBot && !existingOpenBot) {
       // Remove any existing edge from this handle
       edges = edges.filter((e) => !(e.source === parentNodeId && e.sourceHandle === handleId));
       // Create open_bot node
@@ -135,27 +138,21 @@ function syncOpenBotNodes(
         type: "smoothstep",
         animated: true,
       });
-    } else if (!btn.openBot && hasOpenBotNode && existingEdge) {
-      // Remove the open_bot node and its edge
-      nodes = nodes.filter((n) => n.id !== existingEdge.target);
-      edges = edges.filter((e) => e.target !== existingEdge.target && e.source !== existingEdge.target);
+    } else if (!btn.openBot && existingOpenBot) {
+      // Remove the open_bot node and ALL its edges
+      nodes = nodes.filter((n) => n.id !== existingOpenBot.id);
+      edges = edges.filter((e) => e.target !== existingOpenBot.id && e.source !== existingOpenBot.id);
     }
   }
 
   // Clean up open_bot nodes for buttons that were removed
   const btnIds = new Set(newButtons.map((b) => b.id));
-  const orphanEdges = edges.filter(
-    (e) =>
-      e.source === parentNodeId &&
-      e.sourceHandle?.startsWith("btn-") &&
-      !btnIds.has(e.sourceHandle.slice(4)),
+  const orphanOpenBots = nodes.filter(
+    (n) => n.data.type === "open_bot" && n.data.linkedNodeId === parentNodeId && n.data.linkedButtonId && !btnIds.has(n.data.linkedButtonId),
   );
-  for (const oe of orphanEdges) {
-    const targetIsOpenBot = nodes.find((n) => n.id === oe.target)?.data.type === "open_bot";
-    if (targetIsOpenBot) {
-      nodes = nodes.filter((n) => n.id !== oe.target);
-      edges = edges.filter((e) => e.target !== oe.target && e.source !== oe.target);
-    }
+  for (const orphan of orphanOpenBots) {
+    nodes = nodes.filter((n) => n.id !== orphan.id);
+    edges = edges.filter((e) => e.target !== orphan.id && e.source !== orphan.id);
   }
 
   return { nodes, edges };
@@ -203,6 +200,12 @@ interface UseFlowBuilderReturn {
   createFromTemplate: (templateId: string) => void;
   // Toast
   toastMsg: string | null;
+  // Undo/redo
+  undo: () => void;
+  redo: () => void;
+  canUndo: boolean;
+  canRedo: boolean;
+  onNodeDragStart: () => void;
   // Multi-workflow
   switchWorkflow: (id: string) => void;
   deleteWorkflow: (id: string) => void;
@@ -227,6 +230,16 @@ export function useFlowBuilder(): UseFlowBuilderReturn {
 
   const [nodes, setNodes, rawOnNodesChange] = useNodesState<FlowNode>([]);
   const [edges, setEdges, rawOnEdgesChange] = useEdgesState<FlowEdge>([]);
+
+  // Undo/redo history
+  const {
+    pushSnapshot,
+    undo: historyUndo,
+    redo: historyRedo,
+    canUndo,
+    canRedo,
+    resetHistory,
+  } = useFlowHistory();
 
   // Auto-save refs
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -308,6 +321,7 @@ export function useFlowBuilder(): UseFlowBuilderReturn {
     const loadedSettings = { ...DEFAULT_FLOW_SETTINGS, ...flowJson?.settings };
     setFlowSettings(loadedSettings);
     setSelectedNodeId(null);
+    resetHistory();
 
     // Snapshot for auto-save comparison (prevents save-on-load)
     lastSavedJsonRef.current = JSON.stringify({
@@ -316,7 +330,7 @@ export function useFlowBuilder(): UseFlowBuilderReturn {
       name: loadedWorkflow.name,
       settings: loadedSettings,
     });
-  }, [loadedWorkflow, setNodes, setEdges]);
+  }, [loadedWorkflow, setNodes, setEdges, resetHistory]);
 
   // Auto-select first workflow (no longer auto-creates — template picker handles that)
   useEffect(() => {
@@ -577,11 +591,12 @@ export function useFlowBuilder(): UseFlowBuilderReturn {
       // Block manual connections to open_bot nodes (auto-managed only)
       const targetNode = nodes.find((n) => n.id === connection.target);
       if (targetNode?.data.type === "open_bot") return;
+      pushSnapshot(nodes, edges);
       setEdges((eds) =>
         addEdge({ ...connection, type: "smoothstep", animated: true }, eds)
       );
     },
-    [isLocked, notifyLocked, setEdges, nodes]
+    [isLocked, notifyLocked, setEdges, nodes, edges, pushSnapshot]
   );
 
   // ── Guarded workflow name setter ─────────────────────────────
@@ -601,6 +616,7 @@ export function useFlowBuilder(): UseFlowBuilderReturn {
         showToast(t("cannotAddStartStrictMode"));
         return;
       }
+      pushSnapshot(nodes, edges);
       const id = `${type}-${Date.now()}`;
       const newNode: FlowNode = {
         id,
@@ -610,7 +626,7 @@ export function useFlowBuilder(): UseFlowBuilderReturn {
       };
       setNodes((nds) => [...nds, newNode]);
     },
-    [isLocked, notifyLocked, setNodes, flowSettings.strictMode, showToast, t]
+    [isLocked, notifyLocked, setNodes, flowSettings.strictMode, showToast, t, pushSnapshot, nodes, edges]
   );
 
   // ── Update node data ────────────────────────────────────────
@@ -632,34 +648,27 @@ export function useFlowBuilder(): UseFlowBuilderReturn {
         }
       }
 
-      let pendingEdges: FlowEdge[] | null = null;
+      pushSnapshot(nodes, edges, true);
 
-      setNodes((nds) => {
-        const updated = nds.map((n) =>
-          n.id === nodeId ? { ...n, data: { ...n.data, ...data } } : n
-        );
-
-        // Sync open_bot nodes when buttons change
-        if (data.buttons) {
-          const targetNode = updated.find((n) => n.id === nodeId);
-          if (targetNode?.data.type === "buttons") {
-            const result = syncOpenBotNodes(nodeId, data.buttons!, updated, edgesRef.current);
-            pendingEdges = result.edges;
-            return result.nodes;
-          }
+      // Handle buttons change specially — sync open_bot nodes + edges together
+      if (data.buttons) {
+        const targetNode = nodes.find((n) => n.id === nodeId);
+        if (targetNode?.data.type === "buttons") {
+          const updatedNodes = nodes.map((n) =>
+            n.id === nodeId ? { ...n, data: { ...n.data, ...data } } : n
+          );
+          const result = syncOpenBotNodes(nodeId, data.buttons!, updatedNodes, edges);
+          setNodes(result.nodes);
+          setEdges(result.edges);
+          requestAnimationFrame(() => updateNodeInternals(nodeId));
+          return;
         }
-
-        return updated;
-      });
-
-      // Wait for React to commit nodes to DOM, then force handle measurement before setting edges
-      if (pendingEdges) {
-        const newEdges = pendingEdges;
-        requestAnimationFrame(() => {
-          updateNodeInternals(nodeId);
-          setEdges(newEdges);
-        });
       }
+
+      // Normal (non-buttons) node data update
+      setNodes((nds) =>
+        nds.map((n) => n.id === nodeId ? { ...n, data: { ...n.data, ...data } } : n)
+      );
 
       // Migrate edges when yesNoMode is toggled
       if (data.yesNoMode === true) {
@@ -686,7 +695,7 @@ export function useFlowBuilder(): UseFlowBuilderReturn {
         requestAnimationFrame(() => updateNodeInternals(nodeId));
       }
     },
-    [isLocked, notifyLocked, setNodes, setEdges, updateNodeInternals, nodes, showToast, t]
+    [isLocked, notifyLocked, setNodes, setEdges, updateNodeInternals, nodes, edges, showToast, t, pushSnapshot]
   );
 
   // ── Delete node ──────────────────────────────────────────────
@@ -705,6 +714,8 @@ export function useFlowBuilder(): UseFlowBuilderReturn {
           return;
         }
       }
+
+      pushSnapshot(nodes, edges);
 
       setNodes((nds) => {
         const deletedNode = nds.find((n) => n.id === nodeId);
@@ -731,13 +742,15 @@ export function useFlowBuilder(): UseFlowBuilderReturn {
       setEdges((eds) => eds.filter((e) => e.source !== nodeId && e.target !== nodeId));
       if (selectedNodeId === nodeId) setSelectedNodeId(null);
     },
-    [isLocked, notifyLocked, setNodes, setEdges, selectedNodeId, nodes, showToast, t]
+    [isLocked, notifyLocked, setNodes, setEdges, selectedNodeId, nodes, edges, showToast, t, pushSnapshot]
   );
 
   // ── Delete edge ──────────────────────────────────────────────
   const deleteEdge = useCallback(
     (edgeId: string) => {
       if (isLocked) { notifyLocked(); return; }
+
+      pushSnapshot(nodes, edges);
 
       const edge = edgesRef.current.find((e) => e.id === edgeId);
 
@@ -759,7 +772,7 @@ export function useFlowBuilder(): UseFlowBuilderReturn {
 
       setEdges((eds) => eds.filter((e) => e.id !== edgeId));
     },
-    [isLocked, notifyLocked, setEdges, setNodes]
+    [isLocked, notifyLocked, setEdges, setNodes, nodes, edges, pushSnapshot]
   );
 
   // ── Update flow settings ────────────────────────────────────
@@ -778,6 +791,27 @@ export function useFlowBuilder(): UseFlowBuilderReturn {
     },
     [nodes, showToast, t]
   );
+
+  // ── Undo / Redo ─────────────────────────────────────────────
+  const onNodeDragStart = useCallback(() => {
+    pushSnapshot(nodes, edges);
+  }, [pushSnapshot, nodes, edges]);
+
+  const handleUndo = useCallback(() => {
+    if (isLocked) { notifyLocked(); return; }
+    const restored = historyUndo(nodes, edges, setNodes, setEdges);
+    if (restored && selectedNodeId && !restored.nodes.some((n) => n.id === selectedNodeId)) {
+      setSelectedNodeId(null);
+    }
+  }, [isLocked, notifyLocked, historyUndo, nodes, edges, setNodes, setEdges, selectedNodeId]);
+
+  const handleRedo = useCallback(() => {
+    if (isLocked) { notifyLocked(); return; }
+    const restored = historyRedo(nodes, edges, setNodes, setEdges);
+    if (restored && selectedNodeId && !restored.nodes.some((n) => n.id === selectedNodeId)) {
+      setSelectedNodeId(null);
+    }
+  }, [isLocked, notifyLocked, historyRedo, nodes, edges, setNodes, setEdges, selectedNodeId]);
 
   // ── Selected node ────────────────────────────────────────────
   const selectedNode = selectedNodeId
@@ -811,6 +845,11 @@ export function useFlowBuilder(): UseFlowBuilderReturn {
     },
     saveStatus,
     toastMsg,
+    undo: handleUndo,
+    redo: handleRedo,
+    canUndo: canUndo && !isLocked,
+    canRedo: canRedo && !isLocked,
+    onNodeDragStart,
     isLocked,
     showLockedBanner,
     notifyLocked,

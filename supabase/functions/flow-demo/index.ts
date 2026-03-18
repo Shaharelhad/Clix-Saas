@@ -91,7 +91,12 @@ function findStartNodeById(flow: FlowJSON, nodeId: string): FlowNode | undefined
 }
 
 function findCatchAllStart(flow: FlowJSON): FlowNode | undefined {
-  return flow.nodes.find((n) => n.type === "start" && !n.data.disabled && !n.data.triggerText?.trim());
+  return flow.nodes.find((n) => {
+    if (n.type !== "start" || n.data.disabled) return false;
+    if (Array.isArray(n.data.triggerKeywords) && n.data.triggerKeywords.some((k: string) => k?.trim())) return false;
+    if (n.data.triggerText?.trim()) return false;
+    return true;
+  });
 }
 
 function findNodeById(flow: FlowJSON, id: string): FlowNode | undefined {
@@ -427,7 +432,29 @@ async function executeNodeDemo(
       }
 
       if (!hasData) {
-        variables.error = "Sorry, no available rooms were found for the selected dates. Please try different dates.";
+        variables.error = node.data.outputLanguage === "he"
+          ? "מצטערים, לא נמצאו חדרים פנויים לתאריכים שנבחרו. נסה תאריכים אחרים."
+          : "Sorry, no available rooms were found for the selected dates. Please try different dates.";
+      }
+
+      // Convert price to ILS if requested
+      if (integration.integration_type === "cloudbeds"
+          && node.data.outputCurrency === "ILS"
+          && variables.price
+          && hasData) {
+        const priceNum = parseFloat(variables.price);
+        if (!isNaN(priceNum) && variables.currency !== "₪") {
+          const fromCode = variables.currency === "$" ? "USD" : variables.currency === "€" ? "EUR" : "USD";
+          try {
+            const rateRes = await fetch(`https://open.er-api.com/v6/latest/${fromCode}`);
+            const rateData = await rateRes.json();
+            const ilsRate = rateData.rates?.ILS;
+            if (ilsRate) {
+              variables.price = String(Math.round(priceNum * ilsRate));
+              variables.currency = "₪";
+            }
+          } catch { /* keep original if conversion fails */ }
+        }
       }
 
       // Route via success/error handle
@@ -668,13 +695,79 @@ Deno.serve(async (req) => {
 
     let nextNodeId: string | null = null;
 
+    // Global menu check — match buttons on isGlobalMenu nodes from anywhere in the flow
+    // Skip for purely numeric input to avoid false numeric button matches
+    const isNumericOnly = /^\d+$/.test(message.trim());
+    if (!isNumericOnly && !(currentNode.type === "buttons" && currentNode.data.isGlobalMenu)) {
+      const menuNodes = flow.nodes.filter(
+        (n) => n.type === "buttons" && n.data.isGlobalMenu === true && n.id !== currentNode.id,
+      );
+      for (const menuNode of menuNodes) {
+        const menuButtons = menuNode.data.buttons || [];
+        const menuMatch = matchButton(menuButtons, message);
+        if (menuMatch) {
+          let targetNode = findNextNode(flow, menuNode.id, `btn-${menuMatch.id}`);
+          if (targetNode) {
+            console.log("[flow-demo] Global menu match:", menuMatch.label, "→", targetNode.id);
+            let jumpNodeId: string | null = targetNode.id;
+            let maxSteps = 20;
+            while (jumpNodeId && maxSteps > 0) {
+              maxSteps--;
+              const node = findNodeById(flow, jumpNodeId);
+              if (!node) break;
+              if (node.type === "open_bot") { jumpNodeId = node.id; break; }
+              if (node.type === "ai_agent") {
+                const next = findNextNode(flow, node.id);
+                jumpNodeId = next?.id || null;
+                if (!jumpNodeId) break;
+                continue;
+              }
+              const result = await executeNode(node, variables, flow, responses);
+              if (result.waitForInput) { jumpNodeId = result.nextNodeId; break; }
+              jumpNodeId = result.nextNodeId;
+              if (!jumpNodeId) break;
+            }
+            return new Response(
+              JSON.stringify({
+                response: responses,
+                conversation_id: convId,
+                session_state: {
+                  current_node_id: jumpNodeId,
+                  variables,
+                  status: jumpNodeId ? "active" : "completed",
+                },
+              }),
+              { headers: { ...cors, "Content-Type": "application/json" } }
+            );
+          }
+        }
+      }
+    }
+
     // Language node — set language variable and advance
     if (currentNode.type === "language") {
       const langMap: Record<string, string> = {
         "english": "English", "אנגלית": "English",
         "עברית": "עברית", "hebrew": "עברית",
       };
-      const picked = langMap[message.trim().toLowerCase()] || message.trim();
+      const picked = langMap[message.trim().toLowerCase()];
+      if (!picked) {
+        // Invalid input — resend language buttons
+        const msg = resolveVariables(currentNode.data.message || "Choose your language:", variables);
+        const langButtons = [
+          { id: "lang-en", label: "English" },
+          { id: "lang-he", label: "עברית" },
+        ];
+        responses.push({ type: "buttons", content: msg, buttons: langButtons });
+        return new Response(
+          JSON.stringify({
+            response: responses,
+            conversation_id: convId,
+            session_state: { current_node_id: currentNode.id, variables, status: "active" },
+          }),
+          { headers: { ...cors, "Content-Type": "application/json" } }
+        );
+      }
       variables.language = picked;
       const nextNode = findNextNode(flow, currentNode.id);
       nextNodeId = nextNode?.id || null;
@@ -698,11 +791,10 @@ Deno.serve(async (req) => {
         }
         nextNodeId = nextNode?.id || null;
       } else {
-        // Re-send buttons
-        responses.push({ type: "buttons", content: "לא הבנתי, בחר אפשרות:", buttons });
-        const resultState: SessionState = { current_node_id: currentNodeId, variables, status: "active" };
+        // Re-send the current buttons node (with proper translation)
+        await executeNode(currentNode, variables, flow, responses);
         return new Response(
-          JSON.stringify({ responses, conversation_id: convId, session_state: resultState }),
+          JSON.stringify({ response: responses, conversation_id: convId, session_state: { current_node_id: currentNodeId, variables, status: "active" } }),
           { headers: { ...cors, "Content-Type": "application/json" } }
         );
       }
@@ -722,7 +814,12 @@ Deno.serve(async (req) => {
         } else {
           // Unclear answer — re-ask
           if (strictMode) {
-            return strictNudgeResponse(`לא הבנתי. ${currentNode.data.message || "אנא נסה שוב."}`, currentNodeId);
+            return strictNudgeResponse(
+              (currentNode.data.outputLanguage || "he") === "he"
+                ? `לא הבנתי. ${currentNode.data.message || "אנא נסה שוב."}`
+                : `I didn't understand. ${currentNode.data.message || "Please try again."}`,
+              currentNodeId,
+            );
           }
           return llmFallbackResponse(currentNodeId);
         }
@@ -748,10 +845,20 @@ Deno.serve(async (req) => {
               const nextNode = findNextNode(flow, currentNode.id);
               nextNodeId = nextNode?.id || null;
             } else {
-              return strictNudgeResponse(`לא הבנתי. ${currentNode.data.message || "אנא נסה שוב."}`, currentNodeId);
+              return strictNudgeResponse(
+              (currentNode.data.outputLanguage || "he") === "he"
+                ? `לא הבנתי. ${currentNode.data.message || "אנא נסה שוב."}`
+                : `I didn't understand. ${currentNode.data.message || "Please try again."}`,
+              currentNodeId,
+            );
             }
           } else if (strictMode) {
-            return strictNudgeResponse(`לא הבנתי. ${currentNode.data.message || "אנא נסה שוב."}`, currentNodeId);
+            return strictNudgeResponse(
+              (currentNode.data.outputLanguage || "he") === "he"
+                ? `לא הבנתי. ${currentNode.data.message || "אנא נסה שוב."}`
+                : `I didn't understand. ${currentNode.data.message || "Please try again."}`,
+              currentNodeId,
+            );
           } else {
             return llmFallbackResponse(currentNodeId);
           }
@@ -763,21 +870,24 @@ Deno.serve(async (req) => {
       }
     } else if (currentNode.type === "collect_input") {
       let collectSkipped = false;
+      let formattedValue: string | undefined;
       // Validate input if expectedAnswer is set
       if (currentNode.data.expectedAnswer) {
         const validationResult = await validateCollectInput(
           currentNode.data.message || "",
           currentNode.data.expectedAnswer,
           message,
+          currentNode.data.outputFormat || undefined,
         );
-        if (validationResult === "refused" && currentNode.data.allowSkip) {
+        formattedValue = validationResult.formatted;
+        if (validationResult.result === "refused" && currentNode.data.allowSkip) {
           // User refused and allowSkip is on — skip, store empty
           collectSkipped = true;
           const varName = currentNode.data.variableName || "answer";
           variables[varName] = "";
           const nextNode = findNextNode(flow, currentNode.id);
           nextNodeId = nextNode?.id || null;
-        } else if (validationResult !== "valid" && currentNode.data.allowSkip) {
+        } else if (validationResult.result !== "valid" && currentNode.data.allowSkip) {
           // Validation returned "invalid" but allowSkip is on — fallback refusal check
           const isRefusal = await detectRefusal(message);
           if (isRefusal) {
@@ -788,14 +898,24 @@ Deno.serve(async (req) => {
             nextNodeId = nextNode?.id || null;
           } else {
             if (strictMode) {
-              return strictNudgeResponse(`לא הבנתי. ${currentNode.data.message || "אנא נסה שוב."}`, currentNodeId);
+              return strictNudgeResponse(
+              (currentNode.data.outputLanguage || "he") === "he"
+                ? `לא הבנתי. ${currentNode.data.message || "אנא נסה שוב."}`
+                : `I didn't understand. ${currentNode.data.message || "Please try again."}`,
+              currentNodeId,
+            );
             }
             return llmFallbackResponse(currentNodeId);
           }
-        } else if (validationResult !== "valid") {
+        } else if (validationResult.result !== "valid") {
           // Invalid or refused without allowSkip — re-ask
           if (strictMode) {
-            return strictNudgeResponse(`לא הבנתי. ${currentNode.data.message || "אנא נסה שוב."}`, currentNodeId);
+            return strictNudgeResponse(
+              (currentNode.data.outputLanguage || "he") === "he"
+                ? `לא הבנתי. ${currentNode.data.message || "אנא נסה שוב."}`
+                : `I didn't understand. ${currentNode.data.message || "Please try again."}`,
+              currentNodeId,
+            );
           }
           return llmFallbackResponse(currentNodeId);
         }
@@ -812,7 +932,7 @@ Deno.serve(async (req) => {
       }
       if (!collectSkipped) {
         const varName = currentNode.data.variableName || "answer";
-        variables[varName] = message;
+        variables[varName] = formattedValue || message;
         const nextNode = findNextNode(flow, currentNode.id);
         nextNodeId = nextNode?.id || null;
       }

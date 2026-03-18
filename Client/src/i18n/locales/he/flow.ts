@@ -69,6 +69,15 @@ const flow = {
   variableNameHint: "שם המשתנה לשמירת התשובה (באנגלית, למשל: name)",
   expectedAnswer: "תשובה צפויה",
   expectedAnswerHint: "תאר את התשובה הצפויה (למשל: שם, מספר טלפון, תאריך)",
+  globalMenu: "תפריט גלובלי",
+  globalMenuHint: "כפתורים נגישים מכל מקום בתהליך",
+  outputCurrency: "מטבע פלט",
+  outputCurrencyHint: "בחר את המטבע להצגת מחירים",
+  outputLanguage: "שפת פלט",
+  outputLanguageHint: "שפה להודעות שגיאה",
+  outputFormat: "פורמט פלט",
+  outputFormatHint: "הפורמט לשמירת הערך (למשל: YYYY-MM-DD לתאריכים)",
+  outputFormatPlaceholder: "YYYY-MM-DD",
   delayMinutes: "השהייה (דקות)",
   delayMinutesHint: "כמה זמן להמתין (1-1440)",
   buttons: "כפתורים",
@@ -242,6 +251,9 @@ const flow = {
   languagePromptHint: "ההודעה שתוצג מעל כפתורי השפה",
   languageNodeInfo: "הלקוח יראה כפתורי אנגלית ועברית. הבחירה שלו תקבע את השפה לכל ההודעות הבאות בתהליך.",
 
+  // Undo/redo
+  undo: "בטל",
+  redo: "בצע שוב",
   // Misc
   deleteNode: "מחק נוד",
   noNodeSelected: "בחר נוד כדי לערוך את המאפיינים שלו",
