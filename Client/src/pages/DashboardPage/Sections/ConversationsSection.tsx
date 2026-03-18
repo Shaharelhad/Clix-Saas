@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   MessageSquare,
   Phone,
@@ -9,6 +9,8 @@ import {
   ArrowLeft,
   MessageCircle,
   Users,
+  RotateCcw,
+  AlertTriangle,
 } from "lucide-react";
 import { supabase } from "@/services/supabase";
 import { useAuth } from "@/hooks/useAuth";
@@ -112,7 +114,10 @@ function MessageBubble({ msg }: { msg: Message }) {
 export default function ConversationsSection() {
   const { t } = useTranslation("dashboard");
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [resetting, setResetting] = useState(false);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
 
   /* ── Query: user's active_flow_id ── */
@@ -173,6 +178,25 @@ export default function ConversationsSection() {
   }, [messages]);
 
   const selectedSession = sessions.find((s) => s.id === effectiveSelectedId);
+
+  /* ── Reset session handler ── */
+  const handleResetSession = async () => {
+    if (!effectiveSelectedId) return;
+    setResetting(true);
+    try {
+      const { error } = await supabase.rpc("reset_conversation_session" as never, {
+        p_session_id: effectiveSelectedId,
+      } as never);
+      if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: ["active_sessions"] });
+      queryClient.invalidateQueries({ queryKey: ["session_messages", effectiveSelectedId] });
+    } catch (err) {
+      console.error("Reset session error:", err);
+    } finally {
+      setResetting(false);
+      setShowResetConfirm(false);
+    }
+  };
 
   /* ═══════════════════════ RENDER ═══════════════════════════ */
 
@@ -267,7 +291,7 @@ export default function ConversationsSection() {
               <div className="w-8 h-8 rounded-full bg-[#2D2A26] flex items-center justify-center">
                 <Phone className="w-3.5 h-3.5 text-white" />
               </div>
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <p className="text-[13px] font-bold text-[#2D2A26] font-mono truncate">
                   {formatPhone(selectedSession.phone)}
                 </p>
@@ -275,6 +299,13 @@ export default function ConversationsSection() {
                   {relativeTime(selectedSession.last_message_at)}
                 </span>
               </div>
+              <button
+                onClick={() => setShowResetConfirm(true)}
+                className="p-1.5 rounded-lg hover:bg-red-50 transition-colors cursor-pointer group"
+                title={t("resetSession")}
+              >
+                <RotateCcw className="w-4 h-4 text-[#A39B90] group-hover:text-red-500 transition-colors" />
+              </button>
             </div>
           ) : (
             <div className="px-4 sm:px-5 py-3 border-b border-[#EDE6DD]/40 bg-[#FDFBF8] shrink-0">
@@ -318,6 +349,55 @@ export default function ConversationsSection() {
           </div>
         </div>
       </div>
+
+      {/* Reset Confirmation Modal */}
+      <AnimatePresence>
+        {showResetConfirm && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4"
+            onClick={() => setShowResetConfirm(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm space-y-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center">
+                  <AlertTriangle className="w-5 h-5 text-red-500" />
+                </div>
+                <h3 className="text-base font-bold text-[#2D2A26]">
+                  {t("resetSession")}
+                </h3>
+              </div>
+              <p className="text-sm text-[#7A7267]">
+                {t("resetSessionConfirm")}
+              </p>
+              <div className="flex gap-3 pt-1">
+                <button
+                  onClick={() => setShowResetConfirm(false)}
+                  className="flex-1 px-4 py-2.5 rounded-xl border border-[#EDE6DD] text-sm font-semibold text-[#7A7267] hover:bg-[#FAF7F3] transition-colors cursor-pointer"
+                >
+                  {t("cancel")}
+                </button>
+                <button
+                  onClick={handleResetSession}
+                  disabled={resetting}
+                  className="flex-1 px-4 py-2.5 rounded-xl bg-red-500 text-white text-sm font-semibold hover:bg-red-600 transition-colors disabled:opacity-50 cursor-pointer"
+                >
+                  {resetting ? "..." : t("resetSessionAction")}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }
