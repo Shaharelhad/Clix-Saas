@@ -108,11 +108,13 @@ function syncOpenBotNodes(
   for (let i = 0; i < newButtons.length; i++) {
     const btn = newButtons[i];
     const handleId = `btn-${btn.id}`;
-    const existingEdge = edges.find((e) => e.source === parentNodeId && e.sourceHandle === handleId);
-    const targetNode = existingEdge ? nodes.find((n) => n.id === existingEdge.target) : null;
-    const hasOpenBotNode = targetNode?.data.type === "open_bot";
 
-    if (btn.openBot && !hasOpenBotNode) {
+    // Find existing open_bot node by linkedButtonId (reliable, edge-independent)
+    const existingOpenBot = nodes.find(
+      (n) => n.data.type === "open_bot" && n.data.linkedButtonId === btn.id && n.data.linkedNodeId === parentNodeId,
+    );
+
+    if (btn.openBot && !existingOpenBot) {
       // Remove any existing edge from this handle
       edges = edges.filter((e) => !(e.source === parentNodeId && e.sourceHandle === handleId));
       // Create open_bot node
@@ -136,27 +138,21 @@ function syncOpenBotNodes(
         type: "smoothstep",
         animated: true,
       });
-    } else if (!btn.openBot && hasOpenBotNode && existingEdge) {
-      // Remove the open_bot node and its edge
-      nodes = nodes.filter((n) => n.id !== existingEdge.target);
-      edges = edges.filter((e) => e.target !== existingEdge.target && e.source !== existingEdge.target);
+    } else if (!btn.openBot && existingOpenBot) {
+      // Remove the open_bot node and ALL its edges
+      nodes = nodes.filter((n) => n.id !== existingOpenBot.id);
+      edges = edges.filter((e) => e.target !== existingOpenBot.id && e.source !== existingOpenBot.id);
     }
   }
 
   // Clean up open_bot nodes for buttons that were removed
   const btnIds = new Set(newButtons.map((b) => b.id));
-  const orphanEdges = edges.filter(
-    (e) =>
-      e.source === parentNodeId &&
-      e.sourceHandle?.startsWith("btn-") &&
-      !btnIds.has(e.sourceHandle.slice(4)),
+  const orphanOpenBots = nodes.filter(
+    (n) => n.data.type === "open_bot" && n.data.linkedNodeId === parentNodeId && n.data.linkedButtonId && !btnIds.has(n.data.linkedButtonId),
   );
-  for (const oe of orphanEdges) {
-    const targetIsOpenBot = nodes.find((n) => n.id === oe.target)?.data.type === "open_bot";
-    if (targetIsOpenBot) {
-      nodes = nodes.filter((n) => n.id !== oe.target);
-      edges = edges.filter((e) => e.target !== oe.target && e.source !== oe.target);
-    }
+  for (const orphan of orphanOpenBots) {
+    nodes = nodes.filter((n) => n.id !== orphan.id);
+    edges = edges.filter((e) => e.target !== orphan.id && e.source !== orphan.id);
   }
 
   return { nodes, edges };
@@ -654,34 +650,25 @@ export function useFlowBuilder(): UseFlowBuilderReturn {
 
       pushSnapshot(nodes, edges, true);
 
-      let pendingEdges: FlowEdge[] | null = null;
-
-      setNodes((nds) => {
-        const updated = nds.map((n) =>
-          n.id === nodeId ? { ...n, data: { ...n.data, ...data } } : n
-        );
-
-        // Sync open_bot nodes when buttons change
-        if (data.buttons) {
-          const targetNode = updated.find((n) => n.id === nodeId);
-          if (targetNode?.data.type === "buttons") {
-            const result = syncOpenBotNodes(nodeId, data.buttons!, updated, edgesRef.current);
-            pendingEdges = result.edges;
-            return result.nodes;
-          }
+      // Handle buttons change specially — sync open_bot nodes + edges together
+      if (data.buttons) {
+        const targetNode = nodes.find((n) => n.id === nodeId);
+        if (targetNode?.data.type === "buttons") {
+          const updatedNodes = nodes.map((n) =>
+            n.id === nodeId ? { ...n, data: { ...n.data, ...data } } : n
+          );
+          const result = syncOpenBotNodes(nodeId, data.buttons!, updatedNodes, edges);
+          setNodes(result.nodes);
+          setEdges(result.edges);
+          requestAnimationFrame(() => updateNodeInternals(nodeId));
+          return;
         }
-
-        return updated;
-      });
-
-      // Wait for React to commit nodes to DOM, then force handle measurement before setting edges
-      if (pendingEdges) {
-        const newEdges = pendingEdges;
-        requestAnimationFrame(() => {
-          updateNodeInternals(nodeId);
-          setEdges(newEdges);
-        });
       }
+
+      // Normal (non-buttons) node data update
+      setNodes((nds) =>
+        nds.map((n) => n.id === nodeId ? { ...n, data: { ...n.data, ...data } } : n)
+      );
 
       // Migrate edges when yesNoMode is toggled
       if (data.yesNoMode === true) {
