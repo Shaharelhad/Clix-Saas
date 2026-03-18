@@ -643,8 +643,9 @@ async function executeNode(
     if (node.data.operationId && node.data.serviceType) {
       // Merge integration config values (e.g., propertyId) into input values
       const mergedInputs: Record<string, string> = { ...(node.data.inputValues || {}) };
-      if (integration.integration_type === "cloudbeds" && config.propertyId) {
-        mergedInputs.propertyId = config.propertyId;
+      if (integration.integration_type === "cloudbeds") {
+        if (config.propertyId) mergedInputs.propertyId = config.propertyId;
+        if (config.bookingUrl) mergedInputs.bookingUrl = config.bookingUrl;
       }
       const resolved = resolveOperation(
         node.data.serviceType,
@@ -657,6 +658,26 @@ async function executeNode(
         await logMessage(msg, "api_call_error");
         return { nextNodeId: null, waitForInput: false };
       }
+
+      // constructUrl mode: skip API call, return resolved template as URL
+      if (resolved.constructUrl) {
+        const constructedUrl = resolveVariables(resolved.endpoint, variables);
+        if (!constructedUrl || constructedUrl.startsWith("?") || constructedUrl.includes("{{")) {
+          variables.error = "Booking URL not configured. Add it in integration settings.";
+          await logMessage("constructUrl failed: missing bookingUrl in config", "api_call_error");
+          let next = findNextNode(flow, node.id, "error");
+          if (!next) next = findNextNode(flow, node.id);
+          return { nextNodeId: next?.id || null, waitForInput: false };
+        }
+        for (const mapping of resolved.responseMapping) {
+          variables[mapping.variableName] = constructedUrl;
+        }
+        await logMessage(`Constructed URL: ${constructedUrl}`, "api_call");
+        let next = findNextNode(flow, node.id, "success");
+        if (!next) next = findNextNode(flow, node.id);
+        return { nextNodeId: next?.id || null, waitForInput: false };
+      }
+
       endpoint = resolveVariables(resolved.endpoint, variables);
       method = resolved.method;
       bodyTemplate = resolved.bodyTemplate;

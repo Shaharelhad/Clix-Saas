@@ -125,6 +125,8 @@ const dashboard = {
   integrationBaseUrl: "Base URL",
   integrationAuthType: "Auth Type",
   integrationAuthValue: "Auth Value",
+  integrationBookingUrl: "Booking Engine URL",
+  integrationBookingUrlHint: "Your Cloudbeds booking page URL (optional, for booking links)",
   integrationName: "Name",
   integrationSaved: "Integration saved",
   integrationDeleted: "Integration removed",

@@ -192,7 +192,14 @@ const flow = {
   cloudbeds_fieldDateHint: "פורמט: YYYY-MM-DD או {{variable}}",
   cloudbeds_fieldAdults: "מספר אורחים",
   cloudbeds_fieldAdultsHint: "מספר מבוגרים או {{variable}}",
+  cloudbeds_varRoomTypeId: "מזהה סוג חדר",
   cloudbeds_errorGetAvailableRooms: "לא הצלחנו לבדוק חדרים פנויים. נסה שוב מאוחר יותר.",
+  cloudbeds_opGetBookingLink: "יצירת קישור הזמנה",
+  cloudbeds_opGetBookingLinkDesc: "בנה קישור הזמנה עם חדר ותאריכים מוכנים",
+  cloudbeds_fieldRoomTypeId: "מזהה סוג חדר",
+  cloudbeds_fieldRoomTypeIdHint: "סוג חדר מבדיקת זמינות או {{variable}}",
+  cloudbeds_varBookingLink: "קישור הזמנה",
+  cloudbeds_errorGetBookingLink: "לא הצלחנו ליצור קישור הזמנה.",
 
   // Start node management
   startNodeDisabled: "מושבת",

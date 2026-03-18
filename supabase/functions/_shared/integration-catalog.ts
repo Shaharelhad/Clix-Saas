@@ -18,6 +18,7 @@ export interface OperationDefinition {
   method: "GET" | "POST" | "PUT";
   endpointTemplate: string;
   bodyTemplate?: string;
+  constructUrl?: boolean;
   inputFields: OperationInputField[];
   responseMapping: Array<{ jsonPath: string; variableName: string; labelKey: string }>;
   errorMessageKey: string;
@@ -85,8 +86,64 @@ export const INTEGRATION_CATALOG: ServiceDefinition[] = [
             variableName: "currency",
             labelKey: "cloudbeds_varCurrency",
           },
+          {
+            jsonPath: "data[0].propertyRooms[0].roomTypeID",
+            variableName: "room_type_id",
+            labelKey: "cloudbeds_varRoomTypeId",
+          },
         ],
         errorMessageKey: "cloudbeds_errorGetAvailableRooms",
+      },
+      {
+        id: "getBookingLink",
+        labelKey: "cloudbeds_opGetBookingLink",
+        descriptionKey: "cloudbeds_opGetBookingLinkDesc",
+        method: "GET",
+        constructUrl: true,
+        endpointTemplate:
+          "{{bookingUrl}}?checkin={{startDate}}&checkout={{endDate}}&adults={{adults}}&room={{roomTypeId}}",
+        inputFields: [
+          {
+            id: "startDate",
+            labelKey: "cloudbeds_fieldCheckIn",
+            hintKey: "cloudbeds_fieldDateHint",
+            required: true,
+            type: "text",
+            placeholder: "{{checkin_date}}",
+          },
+          {
+            id: "endDate",
+            labelKey: "cloudbeds_fieldCheckOut",
+            hintKey: "cloudbeds_fieldDateHint",
+            required: true,
+            type: "text",
+            placeholder: "{{checkout_date}}",
+          },
+          {
+            id: "adults",
+            labelKey: "cloudbeds_fieldAdults",
+            hintKey: "cloudbeds_fieldAdultsHint",
+            required: true,
+            type: "text",
+            placeholder: "{{number_of_guests}}",
+          },
+          {
+            id: "roomTypeId",
+            labelKey: "cloudbeds_fieldRoomTypeId",
+            hintKey: "cloudbeds_fieldRoomTypeIdHint",
+            required: true,
+            type: "text",
+            placeholder: "{{room_type_id}}",
+          },
+        ],
+        responseMapping: [
+          {
+            jsonPath: "__constructedUrl",
+            variableName: "booking_link",
+            labelKey: "cloudbeds_varBookingLink",
+          },
+        ],
+        errorMessageKey: "cloudbeds_errorGetBookingLink",
       },
     ],
   },
@@ -113,6 +170,7 @@ export function resolveOperation(
   method: string;
   endpoint: string;
   bodyTemplate?: string;
+  constructUrl?: boolean;
   responseMapping: Array<{ jsonPath: string; variableName: string }>;
   errorMessageKey: string;
 } | null {
@@ -137,5 +195,6 @@ export function resolveOperation(
       variableName: m.variableName,
     })),
     errorMessageKey: op.errorMessageKey,
+    constructUrl: op.constructUrl,
   };
 }

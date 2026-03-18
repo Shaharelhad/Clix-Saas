@@ -192,7 +192,14 @@ const flow = {
   cloudbeds_fieldDateHint: "Format: YYYY-MM-DD or {{variable}}",
   cloudbeds_fieldAdults: "Number of Guests",
   cloudbeds_fieldAdultsHint: "Number of adults or {{variable}}",
+  cloudbeds_varRoomTypeId: "Room Type ID",
   cloudbeds_errorGetAvailableRooms: "Could not check room availability. Please try again later.",
+  cloudbeds_opGetBookingLink: "Generate Booking Link",
+  cloudbeds_opGetBookingLinkDesc: "Build a reservation URL with pre-filled room and dates",
+  cloudbeds_fieldRoomTypeId: "Room Type ID",
+  cloudbeds_fieldRoomTypeIdHint: "Room type from availability check or {{variable}}",
+  cloudbeds_varBookingLink: "Booking Link",
+  cloudbeds_errorGetBookingLink: "Could not generate booking link.",
 
   // Start node management
   startNodeDisabled: "Disabled",

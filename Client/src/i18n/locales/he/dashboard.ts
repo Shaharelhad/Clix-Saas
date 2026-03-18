@@ -124,6 +124,8 @@ const dashboard = {
   integrationBaseUrl: "כתובת בסיס",
   integrationAuthType: "סוג אימות",
   integrationAuthValue: "ערך אימות",
+  integrationBookingUrl: "קישור מנוע הזמנות",
+  integrationBookingUrlHint: "כתובת עמוד ההזמנות של Cloudbeds (אופציונלי, לקישורי הזמנה)",
   integrationName: "שם",
   integrationSaved: "האינטגרציה נשמרה",
   integrationDeleted: "האינטגרציה הוסרה",
