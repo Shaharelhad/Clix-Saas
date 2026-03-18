@@ -138,7 +138,12 @@ function findStartNodeById(flow: FlowJSON, nodeId: string): FlowNode | undefined
 }
 
 function findCatchAllStart(flow: FlowJSON): FlowNode | undefined {
-  return flow.nodes.find((n) => n.type === "start" && !n.data.disabled && !n.data.triggerText?.trim());
+  return flow.nodes.find((n) => {
+    if (n.type !== "start" || n.data.disabled) return false;
+    if (Array.isArray(n.data.triggerKeywords) && n.data.triggerKeywords.some((k: string) => k?.trim())) return false;
+    if (n.data.triggerText?.trim()) return false;
+    return true;
+  });
 }
 
 function findNodeById(flow: FlowJSON, id: string): FlowNode | undefined {
@@ -173,6 +178,11 @@ function matchButton(
   // Exact label match
   const exact = buttons.find((b) => b.label.trim().toLowerCase() === normalized);
   if (exact) return exact;
+  // Partial match — WhatsApp truncates button text to 25 chars
+  const partial = buttons.find(
+    (b) => b.label.length > 25 && b.label.trim().toLowerCase().startsWith(normalized)
+  );
+  if (partial) return partial;
   // Numeric match (user sends "1", "2", etc.)
   const num = parseInt(normalized);
   if (!isNaN(num) && num >= 1 && num <= buttons.length) {
@@ -262,10 +272,11 @@ async function callOpenLLM(
   const conversationHistory: { role: string; content: string }[] = [];
   if (history) {
     for (const row of history) {
-      conversationHistory.push({
-        role: row.direction === "inbound" ? "user" : "assistant",
-        content: row.content,
-      });
+      const role = row.direction === "inbound" ? "user" : "assistant";
+      // Skip consecutive duplicate messages (prevents echo loops in history)
+      const prev = conversationHistory[conversationHistory.length - 1];
+      if (prev && prev.role === role && prev.content === row.content) continue;
+      conversationHistory.push({ role, content: row.content });
     }
   }
 
@@ -733,7 +744,29 @@ async function executeNode(
       }
 
       if (!hasData) {
-        variables.error = "Sorry, no available rooms were found for the selected dates. Please try different dates.";
+        variables.error = node.data.outputLanguage === "he"
+          ? "מצטערים, לא נמצאו חדרים פנויים לתאריכים שנבחרו. נסה תאריכים אחרים."
+          : "Sorry, no available rooms were found for the selected dates. Please try different dates.";
+      }
+
+      // Convert price to ILS if requested
+      if (integration.integration_type === "cloudbeds"
+          && node.data.outputCurrency === "ILS"
+          && variables.price
+          && hasData) {
+        const priceNum = parseFloat(variables.price);
+        if (!isNaN(priceNum) && variables.currency !== "₪") {
+          const fromCode = variables.currency === "$" ? "USD" : variables.currency === "€" ? "EUR" : "USD";
+          try {
+            const rateRes = await fetch(`https://open.er-api.com/v6/latest/${fromCode}`);
+            const rateData = await rateRes.json();
+            const ilsRate = rateData.rates?.ILS;
+            if (ilsRate) {
+              variables.price = String(Math.round(priceNum * ilsRate));
+              variables.currency = "₪";
+            }
+          } catch { /* keep original if conversion fails */ }
+        }
       }
 
       await logMessage(`API ${method} ${endpoint} → ${response.status} (data: ${hasData})`, "api_call");
@@ -1216,7 +1249,7 @@ Deno.serve(async (req) => {
     if (settings.deduplicateMessages) {
       // Check 1: Same inbound message recently processed for this session
       {
-        const dedupWindow = new Date(Date.now() - 30_000).toISOString();
+        const dedupWindow = new Date(Date.now() - 5_000).toISOString();
         const { data: recentInbound } = await supabase
           .from("flow_message_log")
           .select("id")
@@ -1236,7 +1269,7 @@ Deno.serve(async (req) => {
       // Check 2: Echo prevention — skip if the bot just sent this exact text
       // (prevents feedback loops where outgoing messages echo back as incoming)
       {
-        const echoWindow = new Date(Date.now() - 15_000).toISOString();
+        const echoWindow = new Date(Date.now() - 5_000).toISOString();
         const { data: recentOutbound } = await supabase
           .from("flow_message_log")
           .select("id")
@@ -1331,17 +1364,66 @@ Deno.serve(async (req) => {
 
     // If session completed and message matches a trigger, restart the flow
     if (session.status === "completed") {
+      // Check global menu first before restarting
+      const isNumericOnly0 = /^\d+$/.test(userMessage.trim());
+      if (!isNumericOnly0) {
+        const menuNodes0 = flow.nodes.filter(
+          (n) => n.type === "buttons" && n.data.isGlobalMenu === true,
+        );
+        for (const menuNode of menuNodes0) {
+          const menuButtons = menuNode.data.buttons || [];
+          const menuMatch = matchButton(menuButtons, userMessage, buttonClickId);
+          if (menuMatch) {
+            const targetNode = findNextNode(flow, menuNode.id, `btn-${menuMatch.id}`);
+            if (targetNode) {
+              console.log("[flow] Completed session — global menu match:", menuMatch.label, "→", targetNode.id);
+              let jumpNodeId: string | null = targetNode.id;
+              let maxSteps = 20;
+              while (jumpNodeId && maxSteps > 0) {
+                maxSteps--;
+                const node = findNodeById(flow, jumpNodeId);
+                if (!node) break;
+                if (node.type === "open_bot") { jumpNodeId = node.id; break; }
+                if (node.type === "ai_agent") {
+                  const next = findNextNode(flow, node.id);
+                  jumpNodeId = next?.id || null;
+                  if (!jumpNodeId) break;
+                  continue;
+                }
+                const result = await executeNode(node, customerId, phone, variables, flow, session.id, workflow.id);
+                if (result.waitForInput) { jumpNodeId = result.nextNodeId; break; }
+                jumpNodeId = result.nextNodeId;
+                if (!jumpNodeId) break;
+              }
+              const menuStatus = jumpNodeId ? "active" : "completed";
+              await updateSessionDirect(session.id, {
+                current_node_id: jumpNodeId,
+                variables,
+                status: menuStatus,
+                last_message_at: new Date().toISOString(),
+              });
+              if (jumpNodeId && findNodeById(flow, jumpNodeId)?.type === "open_bot") {
+                await callOpenLLM(profile.id, userMessage, session.id, workflow.id, customerId, phone, workflowRecord, langPref);
+              }
+              return new Response(
+                JSON.stringify({ ok: true, action: "global_menu_completed", current_node: jumpNodeId }),
+                { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+              );
+            }
+          }
+        }
+      }
+
       const matchedNodeId1 = await classifyTrigger(triggers, userMessage);
-      let triggerStartNode = matchedNodeId1 ? findStartNodeById(flow, matchedNodeId1) : undefined;
-      if (!triggerStartNode) triggerStartNode = findCatchAllStart(flow);
+      const triggerStartNode = matchedNodeId1 ? findStartNodeById(flow, matchedNodeId1) : undefined;
+
       if (triggerStartNode) {
-        // Atomic lock: only one concurrent request can restart the session.
-        // The WHERE status='completed' ensures only the first request wins.
+        // Explicit trigger match — restart the flow from that trigger
         const { data: claimed } = await supabase
           .from("subscriber_sessions")
           .update({
             current_node_id: triggerStartNode.id,
-            variables: { phone },
+            variables: { ...variables, phone },
             status: "active",
             last_message_at: new Date().toISOString(),
           })
@@ -1351,16 +1433,58 @@ Deno.serve(async (req) => {
           .single();
 
         if (!claimed) {
-          // Another request already claimed this session — skip duplicate
           return new Response(JSON.stringify({ ok: true, skipped: "already_claimed" }), {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
         }
         currentNodeId = triggerStartNode.id;
-        variables = { phone };
+        variables = { ...variables, phone };
       } else {
-        // No trigger match on completed session — fall back to open LLM
-        return await reactivateAndFallbackToLLM();
+        // No trigger match — resend global menu if user has collected data, otherwise restart via catch-all
+        const hasCollectedData = Object.keys(variables).some((k) => k !== "phone" && !k.startsWith("__"));
+        const globalMenuNode = hasCollectedData
+          ? flow.nodes.find((n) => n.type === "buttons" && n.data.isGlobalMenu === true)
+          : undefined;
+        if (globalMenuNode) {
+          // Resend the global menu buttons
+          await executeNode(globalMenuNode, customerId, phone, variables, flow, session.id, workflow.id);
+          await updateSessionDirect(session.id, {
+            current_node_id: globalMenuNode.id,
+            variables,
+            status: "active",
+            last_message_at: new Date().toISOString(),
+          });
+          return new Response(
+            JSON.stringify({ ok: true, action: "global_menu_resend", current_node: globalMenuNode.id }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        // No global menu — try catch-all start or LLM fallback
+        const catchAll = findCatchAllStart(flow);
+        if (catchAll) {
+          const { data: claimed } = await supabase
+            .from("subscriber_sessions")
+            .update({
+              current_node_id: catchAll.id,
+              variables: { ...variables, phone },
+              status: "active",
+              last_message_at: new Date().toISOString(),
+            })
+            .eq("id", session.id)
+            .eq("status", "completed")
+            .select("id")
+            .single();
+          if (claimed) {
+            currentNodeId = catchAll.id;
+            variables = { ...variables, phone };
+          } else {
+            return new Response(JSON.stringify({ ok: true, skipped: "already_claimed" }), {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+        } else {
+          return await reactivateAndFallbackToLLM();
+        }
       }
     }
 
@@ -1399,11 +1523,24 @@ Deno.serve(async (req) => {
     const langPref = updatedVariables.language || undefined;
     let nextNodeId: string | null = null;
 
-    // Check if message matches a trigger — restart flow even if session is active
-    // Allow trigger restart from ANY state so the user can always restart the flow
-    const matchedNodeId3 = await classifyTrigger(triggers, userMessage);
-    const triggerNode = matchedNodeId3 ? findStartNodeById(flow, matchedNodeId3) : undefined;
-    if (triggerNode && currentNode.type !== "start") {
+    // Translation check for nudge messages
+    const nudgeFlowSettings = getFlowSettings(flow);
+    const shouldTranslateNudge = updatedVariables.language
+      && updatedVariables.language.toLowerCase() !== (nudgeFlowSettings.flowLanguage || "he").toLowerCase();
+    const nudgeFromLang = nudgeFlowSettings.flowLanguage || "he";
+    const nudgeTargetLang = updatedVariables.language || nudgeFromLang;
+
+    // Check if message EXACTLY matches a trigger keyword — restart flow
+    // Use exact match (not semantic LLM) to avoid false restarts mid-flow
+    const normalizedMsg = userMessage.trim().toLowerCase();
+    let triggerNode: FlowNode | undefined;
+    for (const t of triggers) {
+      if (t.trigger.trim().toLowerCase() === normalizedMsg) {
+        triggerNode = findStartNodeById(flow, t.id);
+        if (triggerNode) break;
+      }
+    }
+    if (triggerNode && currentNode.type !== "start" && currentNode.type !== "buttons") {
         // Atomic lock: claim the session by changing current_node_id.
         // Only the first request to update from the current node wins.
         const { data: claimed } = await supabase
@@ -1423,7 +1560,7 @@ Deno.serve(async (req) => {
           });
         }
 
-        updatedVariables = { phone };
+        updatedVariables = { ...updatedVariables, phone };
         currentNodeId = triggerNode.id;
 
         const next = findNextNode(flow, triggerNode.id);
@@ -1477,6 +1614,58 @@ Deno.serve(async (req) => {
         );
     }
 
+    // Global menu check — match buttons on isGlobalMenu nodes from anywhere in the flow
+    // Skip for purely numeric input (e.g., "2" for guest count) to avoid false numeric button matches
+    const isNumericOnly = /^\d+$/.test(userMessage.trim());
+    if (!isNumericOnly && !(currentNode.type === "buttons" && currentNode.data.isGlobalMenu)) {
+      const menuNodes = flow.nodes.filter(
+        (n) => n.type === "buttons" && n.data.isGlobalMenu === true && n.id !== currentNode.id,
+      );
+      for (const menuNode of menuNodes) {
+        const menuButtons = menuNode.data.buttons || [];
+        const menuMatch = matchButton(menuButtons, userMessage, buttonClickId);
+        if (menuMatch) {
+          let targetNode = findNextNode(flow, menuNode.id, `btn-${menuMatch.id}`);
+          if (targetNode) {
+            // Jump to the menu button's target — execute chain from there
+            console.log("[flow] Global menu match:", menuMatch.label, "→", targetNode.id);
+            let jumpNodeId: string | null = targetNode.id;
+            let maxSteps = 20;
+            while (jumpNodeId && maxSteps > 0) {
+              maxSteps--;
+              const node = findNodeById(flow, jumpNodeId);
+              if (!node) break;
+              if (node.type === "open_bot") { jumpNodeId = node.id; break; }
+              if (node.type === "ai_agent") {
+                const next = findNextNode(flow, node.id);
+                jumpNodeId = next?.id || null;
+                if (!jumpNodeId) break;
+                continue;
+              }
+              const result = await executeNode(node, customerId, phone, updatedVariables, flow, session.id, workflow.id);
+              if (result.waitForInput) { jumpNodeId = result.nextNodeId; break; }
+              jumpNodeId = result.nextNodeId;
+              if (!jumpNodeId) break;
+            }
+            const menuStatus = jumpNodeId ? "active" : "completed";
+            await updateSessionDirect(session.id, {
+              current_node_id: jumpNodeId,
+              variables: updatedVariables,
+              status: menuStatus,
+              last_message_at: new Date().toISOString(),
+            });
+            if (jumpNodeId && findNodeById(flow, jumpNodeId)?.type === "open_bot") {
+              await callOpenLLM(profile.id, userMessage, session.id, workflow.id, customerId, phone, workflowRecord, langPref);
+            }
+            return new Response(
+              JSON.stringify({ ok: true, action: "global_menu", current_node: jumpNodeId }),
+              { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+        }
+      }
+    }
+
     // Legacy ai_agent node — use LLM fallback
     if (currentNode.type === "ai_agent") {
       await callOpenLLM(profile.id, userMessage, session.id, workflow.id, customerId, phone, workflowRecord, langPref);
@@ -1511,7 +1700,22 @@ Deno.serve(async (req) => {
         "english": "English", "אנגלית": "English",
         "עברית": "עברית", "hebrew": "עברית",
       };
-      const picked = langMap[userMessage.trim().toLowerCase()] || userMessage.trim();
+      const picked = langMap[userMessage.trim().toLowerCase()];
+      if (!picked) {
+        // Invalid input — resend language buttons
+        const msg = resolveVariables(currentNode.data.message || "Choose your language:", updatedVariables);
+        const langButtons = [
+          { id: "lang-en", label: "English" },
+          { id: "lang-he", label: "עברית" },
+        ];
+        await sendButtonsMessage(customerId, phone, msg, langButtons);
+        await supabase.from("subscriber_sessions")
+          .update({ last_message_at: new Date().toISOString() })
+          .eq("id", session.id);
+        return new Response(JSON.stringify({ ok: true, action: "language_retry" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
       updatedVariables.language = picked;
       const nextNode = findNextNode(flow, currentNode.id);
       nextNodeId = nextNode?.id || null;
@@ -1536,22 +1740,13 @@ Deno.serve(async (req) => {
         }
         nextNodeId = nextNode?.id || null;
       } else {
-        // Non-button text — stay on buttons node
-        if (settings.strictMode) {
-          const nudge = "אנא בחר אחת מהאפשרויות:";
-          await sendTextMessage(customerId, phone, nudge);
-          await supabase.from("flow_message_log").insert({
-            workflow_id: workflow.id, session_id: session.id,
-            direction: "outbound", message_type: "text", content: nudge,
-          });
-        } else {
-          await callOpenLLM(profile.id, userMessage, session.id, workflow.id, customerId, phone, workflowRecord, langPref);
-        }
+        // Non-button text — resend the current buttons
+        await executeNode(currentNode, customerId, phone, updatedVariables, flow, session.id, workflow.id);
         await supabase
           .from("subscriber_sessions")
           .update({ last_message_at: new Date().toISOString() })
           .eq("id", session.id);
-        return new Response(JSON.stringify({ ok: true, action: settings.strictMode ? "strict_nudge" : "llm_response" }), {
+        return new Response(JSON.stringify({ ok: true, action: "buttons_resend" }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
@@ -1573,7 +1768,11 @@ Deno.serve(async (req) => {
         } else {
           // Unclear answer — re-ask
           if (settings.strictMode) {
-            const nudge = `לא הבנתי. ${currentNode.data.message || "אנא נסה שוב."}`;
+            const nudgeLang = currentNode.data.outputLanguage || "he";
+            let nudge = nudgeLang === "he"
+              ? `לא הבנתי. ${currentNode.data.message || "אנא נסה שוב."}`
+              : `I didn't understand. ${currentNode.data.message || "Please try again."}`;
+            if (shouldTranslateNudge) nudge = await translateMessage(nudge, nudgeFromLang, nudgeTargetLang);
             await sendTextMessage(customerId, phone, nudge);
             await supabase.from("flow_message_log").insert({
               workflow_id: workflow.id, session_id: session.id,
@@ -1617,7 +1816,11 @@ Deno.serve(async (req) => {
               nextNodeId = nextNode?.id || null;
             } else {
               // Not a refusal, re-ask
-              const nudge = `לא הבנתי. ${currentNode.data.message || "אנא נסה שוב."}`;
+              const nudgeLang = currentNode.data.outputLanguage || "he";
+              let nudge = nudgeLang === "he"
+                ? `לא הבנתי. ${currentNode.data.message || "אנא נסה שוב."}`
+                : `I didn't understand. ${currentNode.data.message || "Please try again."}`;
+              if (shouldTranslateNudge) nudge = await translateMessage(nudge, nudgeFromLang, nudgeTargetLang);
               await sendTextMessage(customerId, phone, nudge);
               await supabase.from("flow_message_log").insert({
                 workflow_id: workflow.id, session_id: session.id,
@@ -1634,7 +1837,11 @@ Deno.serve(async (req) => {
           } else {
             // No allowSkip — stay on same node for flow
             if (settings.strictMode) {
-              const nudge = `לא הבנתי. ${currentNode.data.message || "אנא נסה שוב."}`;
+              const nudgeLang = currentNode.data.outputLanguage || "he";
+              let nudge = nudgeLang === "he"
+                ? `לא הבנתי. ${currentNode.data.message || "אנא נסה שוב."}`
+                : `I didn't understand. ${currentNode.data.message || "Please try again."}`;
+              if (shouldTranslateNudge) nudge = await translateMessage(nudge, nudgeFromLang, nudgeTargetLang);
               await sendTextMessage(customerId, phone, nudge);
               await supabase.from("flow_message_log").insert({
                 workflow_id: workflow.id, session_id: session.id,
@@ -1669,14 +1876,17 @@ Deno.serve(async (req) => {
       nextNodeId = nextNode?.id || null;
     } else if (currentNode.type === "collect_input") {
       let collectSkipped = false;
+      let formattedValue: string | undefined;
       // Validate input if expectedAnswer is set
       if (currentNode.data.expectedAnswer) {
         const validationResult = await validateCollectInput(
           currentNode.data.message || "",
           currentNode.data.expectedAnswer,
           userMessage,
+          currentNode.data.outputFormat || undefined,
         );
-        if (validationResult === "refused" && currentNode.data.allowSkip) {
+        formattedValue = validationResult.formatted;
+        if (validationResult.result === "refused" && currentNode.data.allowSkip) {
           // User refused and allowSkip is on — skip this node, store empty
           console.log("[flow] allowSkip: user refused collect_input, skipping node", currentNode.id);
           collectSkipped = true;
@@ -1684,7 +1894,7 @@ Deno.serve(async (req) => {
           updatedVariables[varName] = "";
           const nextNode = findNextNode(flow, currentNode.id);
           nextNodeId = nextNode?.id || null;
-        } else if (validationResult !== "valid" && currentNode.data.allowSkip) {
+        } else if (validationResult.result !== "valid" && currentNode.data.allowSkip) {
           // Validation returned "invalid" but allowSkip is on — fallback refusal check
           const isRefusal = await detectRefusal(userMessage);
           if (isRefusal) {
@@ -1696,7 +1906,11 @@ Deno.serve(async (req) => {
             nextNodeId = nextNode?.id || null;
           } else {
             if (settings.strictMode) {
-              const nudge = `לא הבנתי. ${currentNode.data.message || "אנא נסה שוב."}`;
+              const nudgeLang = currentNode.data.outputLanguage || "he";
+              let nudge = nudgeLang === "he"
+                ? `לא הבנתי. ${currentNode.data.message || "אנא נסה שוב."}`
+                : `I didn't understand. ${currentNode.data.message || "Please try again."}`;
+              if (shouldTranslateNudge) nudge = await translateMessage(nudge, nudgeFromLang, nudgeTargetLang);
               await sendTextMessage(customerId, phone, nudge);
               await supabase.from("flow_message_log").insert({
                 workflow_id: workflow.id, session_id: session.id,
@@ -1713,10 +1927,14 @@ Deno.serve(async (req) => {
               headers: { ...corsHeaders, "Content-Type": "application/json" },
             });
           }
-        } else if (validationResult !== "valid") {
+        } else if (validationResult.result !== "valid") {
           // Invalid or refused without allowSkip — re-ask
           if (settings.strictMode) {
-            const nudge = `לא הבנתי. ${currentNode.data.message || "אנא נסה שוב."}`;
+            const nudgeLang = currentNode.data.outputLanguage || "he";
+            let nudge = nudgeLang === "he"
+              ? `לא הבנתי. ${currentNode.data.message || "אנא נסה שוב."}`
+              : `I didn't understand. ${currentNode.data.message || "Please try again."}`;
+            if (shouldTranslateNudge) nudge = await translateMessage(nudge, nudgeFromLang, nudgeTargetLang);
             await sendTextMessage(customerId, phone, nudge);
             await supabase.from("flow_message_log").insert({
               workflow_id: workflow.id, session_id: session.id,
@@ -1747,7 +1965,7 @@ Deno.serve(async (req) => {
       }
       if (!collectSkipped) {
         const varName = currentNode.data.variableName || "answer";
-        updatedVariables[varName] = userMessage;
+        updatedVariables[varName] = formattedValue || userMessage;
         const nextNode = findNextNode(flow, currentNode.id);
         nextNodeId = nextNode?.id || null;
       }
@@ -1791,6 +2009,7 @@ Deno.serve(async (req) => {
 
     // Execute chain of nodes until we need to wait
     console.log("[flow] Starting chain execution, nextNodeId:", nextNodeId);
+    let nodesExecuted = 0;
     let maxSteps = 20; // Safety limit
     while (nextNodeId && maxSteps > 0) {
       maxSteps--;
@@ -1821,6 +2040,7 @@ Deno.serve(async (req) => {
         session.id,
         workflow.id
       );
+      nodesExecuted++;
 
       if (result.waitForInput) {
         nextNodeId = result.nextNodeId;
@@ -1870,7 +2090,7 @@ Deno.serve(async (req) => {
     }
 
     // Empty flow fallback — Start node matched but no children → use LLM
-    if (!nextNodeId && !workflow.strict_mode) {
+    if (!nextNodeId && !workflow.strict_mode && nodesExecuted === 0) {
       console.log("[flow] Empty flow fallback — using LLM response");
       await updateSessionDirect(session.id, {
         current_node_id: null,
