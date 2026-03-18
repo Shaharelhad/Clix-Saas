@@ -56,7 +56,8 @@ const CtaSection = () => {
       {/* Central glass container */}
       <div ref={ref} className="relative z-10 max-w-3xl mx-auto">
         <motion.div
-          className="glass-card text-center py-20 px-10 sm:px-16 relative"
+          className="text-center py-20 px-10 sm:px-16 relative rounded-[1.25rem] border border-white/60"
+          style={{ background: "rgba(255,255,255,0.7)", boxShadow: "0 8px 32px rgba(0,0,0,0.08), 0 2px 8px rgba(0,0,0,0.04), inset 0 1px 0 rgba(255,255,255,0.5)" }}
           initial={{ opacity: 0, y: 40, scale: 0.95 }}
           animate={inView ? { opacity: 1, y: 0, scale: 1 } : {}}
           transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
@@ -104,52 +105,50 @@ const CtaSection = () => {
 
         {/* Floating stat badge — top-right */}
         <motion.div
-          className="glass-card absolute -top-5 -right-3 sm:-right-16 px-4 py-3 z-20 hidden sm:block"
+          className="absolute -top-5 -right-3 sm:-right-16 px-4 py-3 z-20 hidden sm:block rounded-[1.25rem] border border-white/60"
+          style={{ background: "rgba(255,255,255,0.7)", boxShadow: "0 8px 32px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.5)" }}
           initial={{ opacity: 0, y: 20 }}
-          animate={inView ? { opacity: 1, y: 0 } : {}}
-          transition={{ delay: 0.5, duration: 0.5 }}
+          animate={{ opacity: 1, y: [0, -5, 0] }}
+          transition={{
+            opacity: { delay: 0.9, duration: 0.5 },
+            y: { delay: 0.9, duration: 6, repeat: Infinity, ease: "easeInOut" },
+          }}
         >
-          <motion.div
-            animate={{ y: [0, -5, 0] }}
-            transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-          >
-            <div className="flex items-center gap-2.5">
-              <div
-                className="w-8 h-8 rounded-lg flex items-center justify-center"
-                style={{ background: `linear-gradient(135deg, ${ORANGE}20, ${ORANGE}40)` }}
-              >
-                <Clock className="w-4 h-4" style={{ color: ORANGE }} />
-              </div>
-              <p className="text-sm font-semibold text-[#1A1A1A]/70">
-                {t("ctaStatSetup")}
-              </p>
+          <div className="flex items-center gap-2.5">
+            <div
+              className="w-8 h-8 rounded-lg flex items-center justify-center"
+              style={{ background: `linear-gradient(135deg, ${ORANGE}20, ${ORANGE}40)` }}
+            >
+              <Clock className="w-4 h-4" style={{ color: ORANGE }} />
             </div>
-          </motion.div>
+            <div>
+              <p className="text-sm font-semibold text-gray-700">{t("ctaStatSetup")}</p>
+            </div>
+          </div>
         </motion.div>
 
         {/* Floating stat badge — bottom-left */}
         <motion.div
-          className="glass-card absolute -bottom-5 -left-3 sm:-left-14 px-4 py-3 z-20 hidden sm:block"
+          className="absolute -bottom-5 -left-3 sm:-left-14 px-3 py-2.5 z-20 hidden sm:block rounded-[1.25rem] border border-white/60"
+          style={{ background: "rgba(255,255,255,0.7)", boxShadow: "0 8px 32px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.5)" }}
           initial={{ opacity: 0, y: 20 }}
-          animate={inView ? { opacity: 1, y: 0 } : {}}
-          transition={{ delay: 0.7, duration: 0.5 }}
+          animate={{ opacity: 1, y: [0, 4, 0] }}
+          transition={{
+            opacity: { delay: 1.3, duration: 0.5 },
+            y: { delay: 1.3, duration: 7, repeat: Infinity, ease: "easeInOut" },
+          }}
         >
-          <motion.div
-            animate={{ y: [0, 5, 0] }}
-            transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay: 1 }}
-          >
-            <div className="flex items-center gap-2.5">
-              <div
-                className="w-8 h-8 rounded-lg flex items-center justify-center"
-                style={{ background: `linear-gradient(135deg, ${ORANGE}20, ${ORANGE}40)` }}
-              >
-                <Headphones className="w-4 h-4" style={{ color: ORANGE }} />
-              </div>
-              <p className="text-sm font-semibold text-[#1A1A1A]/70">
-                {t("ctaStat247")}
-              </p>
+          <div className="flex items-center gap-2">
+            <div
+              className="w-7 h-7 rounded-full flex items-center justify-center"
+              style={{ background: `linear-gradient(135deg, ${ORANGE}, ${ORANGE_DARK})` }}
+            >
+              <Headphones className="w-3.5 h-3.5 text-white" />
             </div>
-          </motion.div>
+            <p className="text-sm font-semibold text-gray-700">
+              {t("ctaStat247")}
+            </p>
+          </div>
         </motion.div>
       </div>
     </section>
