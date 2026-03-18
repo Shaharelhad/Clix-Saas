@@ -68,6 +68,10 @@ function FlowBuilderContent() {
         onSwitchWorkflow={fb.switchWorkflow}
         onDeleteWorkflow={fb.deleteWorkflow}
         onNewFlow={fb.openTemplatePicker}
+        onUndo={fb.undo}
+        onRedo={fb.redo}
+        canUndo={fb.canUndo}
+        canRedo={fb.canRedo}
       />
 
       {/* Main 3-panel layout */}
@@ -93,6 +97,9 @@ function FlowBuilderContent() {
           onPaneClick={() => fb.setSelectedNodeId(null)}
           isLocked={fb.isLocked}
           onLockedClick={fb.notifyLocked}
+          onNodeDragStart={fb.onNodeDragStart}
+          onUndo={fb.undo}
+          onRedo={fb.redo}
         />
 
         {/* Node palette (left in RTL = visually right) */}
