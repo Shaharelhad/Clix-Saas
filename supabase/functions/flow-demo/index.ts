@@ -343,14 +343,31 @@ async function executeNodeDemo(
       for (const key of Object.keys(mergedInputs)) {
         mergedInputs[key] = resolveVariables(mergedInputs[key], variables);
       }
-      if (integration.integration_type === "cloudbeds" && config.propertyId) {
-        mergedInputs.propertyId = config.propertyId;
+      if (integration.integration_type === "cloudbeds") {
+        if (config.propertyId) mergedInputs.propertyId = config.propertyId;
+        if (config.bookingUrl) mergedInputs.bookingUrl = config.bookingUrl;
       }
       const resolved = resolveOperation(node.data.serviceType, node.data.operationId, mergedInputs);
       if (!resolved) {
         const next = findNextNode(flow, node.id);
         return { nextNodeId: next?.id || null, waitForInput: false };
       }
+
+      // constructUrl mode: skip API call, return resolved template as URL
+      if (resolved.constructUrl) {
+        const constructedUrl = resolveVariables(resolved.endpoint, variables);
+        if (!constructedUrl || constructedUrl.startsWith("?") || constructedUrl.includes("{{")) {
+          variables.error = "Booking URL not configured. Add it in integration settings.";
+          const next = findNextNode(flow, node.id, "error");
+          return { nextNodeId: next?.id || null, waitForInput: false };
+        }
+        for (const mapping of resolved.responseMapping) {
+          variables[mapping.variableName] = constructedUrl;
+        }
+        const next = findNextNode(flow, node.id, "success");
+        return { nextNodeId: next?.id || null, waitForInput: false };
+      }
+
       endpoint = resolveVariables(resolved.endpoint, variables);
       method = resolved.method;
       bodyTemplate = resolved.bodyTemplate;
