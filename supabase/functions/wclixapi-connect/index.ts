@@ -61,6 +61,30 @@ Deno.serve(async (req) => {
         .update({ bot_status: "not_created" })
         .eq("id", user_id);
 
+      // Reset all active sessions so stale conversations don't block the next connection
+      const { data: userWorkflows } = await supabase
+        .from("workflows")
+        .select("id")
+        .eq("user_id", user_id);
+
+      if (userWorkflows?.length) {
+        const workflowIds = userWorkflows.map((w: { id: string }) => w.id);
+        const { data: activeSessions } = await supabase
+          .from("subscriber_sessions")
+          .select("id")
+          .in("workflow_id", workflowIds)
+          .neq("status", "completed");
+
+        if (activeSessions?.length) {
+          await Promise.allSettled(
+            activeSessions.map((s: { id: string }) =>
+              supabase.rpc("reset_conversation_session", { p_session_id: s.id })
+            )
+          );
+          console.log("[wclixapi-connect] Reset", activeSessions.length, "active sessions on disconnect");
+        }
+      }
+
       return new Response(JSON.stringify(delData), {
         headers: { ...cors, "Content-Type": "application/json" },
       });

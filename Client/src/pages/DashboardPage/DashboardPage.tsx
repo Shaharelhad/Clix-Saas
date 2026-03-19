@@ -11,6 +11,7 @@ import {
   ChevronDown,
   ShieldBan,
   BookOpen,
+  Phone,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
@@ -81,6 +82,7 @@ function BotStatusPill({ userId }: { userId: string }) {
 
   const [showConfirmDisconnect, setShowConfirmDisconnect] = useState(false);
   const [connectModalOpen, setConnectModalOpen] = useState(false);
+  const [connectedPhone, setConnectedPhone] = useState<string | null>(null);
 
   // Query bot_status from profiles
   const {
@@ -115,7 +117,12 @@ function BotStatusPill({ userId }: { userId: string }) {
 
     const check = async () => {
       const result = await callWClixAPIConnect({ user_id: userId, action: "status" });
-      const gw = (result.data as { status?: string })?.status;
+      const gwData = result.data as { status?: string; phoneNumber?: string };
+      const gw = gwData?.status;
+
+      // Capture connected phone number from gateway
+      if (gwData?.phoneNumber) setConnectedPhone(gwData.phoneNumber);
+      else if (gw !== "connected" && gw !== "connecting") setConnectedPhone(null);
 
       if (!cancelled) {
         if (gw === "connected" || gw === "connecting") {
@@ -211,6 +218,7 @@ function BotStatusPill({ userId }: { userId: string }) {
         return;
       }
       await refetchStatus();
+      setConnectedPhone(null);
       showFeedback("success", t("disconnectSuccess"));
     } catch {
       showFeedback("error", t("disconnectError"));
@@ -278,6 +286,14 @@ function BotStatusPill({ userId }: { userId: string }) {
           >
             {status === "connected" && (
               <>
+                {connectedPhone && (
+                  <div className="flex items-center gap-3 px-4 py-3 border-b border-[#EDE6DD]/50">
+                    <Phone className="w-4 h-4 text-emerald-500" />
+                    <span className="text-sm font-medium text-[#2D2A26] direction-ltr" dir="ltr">
+                      +{connectedPhone}
+                    </span>
+                  </div>
+                )}
                 <button
                   onClick={(e) => { e.stopPropagation(); handlePause(); }}
                   className="w-full flex items-center gap-3 px-4 py-3 text-sm text-[#4A4640] hover:bg-amber-50 transition-colors cursor-pointer"

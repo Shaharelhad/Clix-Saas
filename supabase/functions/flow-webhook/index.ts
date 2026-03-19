@@ -261,11 +261,13 @@ async function callOpenLLM(
     return;
   }
 
-  // Fetch conversation history
+  // Fetch conversation history — only customer messages and LLM responses
+  // (excludes flow text node outputs, buttons, images, nudges that pollute context)
   const { data: history } = await supabase
     .from("flow_message_log")
     .select("direction, content")
     .eq("session_id", sessionId)
+    .or("direction.eq.inbound,message_type.eq.llm_response")
     .order("created_at", { ascending: true })
     .limit(20);
 
@@ -277,6 +279,15 @@ async function callOpenLLM(
       const prev = conversationHistory[conversationHistory.length - 1];
       if (prev && prev.role === role && prev.content === row.content) continue;
       conversationHistory.push({ role, content: row.content });
+    }
+  }
+
+  // Remove duplicate current message — it was already logged to flow_message_log
+  // before callOpenLLM was called, so it appears in history AND as userMessage param
+  if (conversationHistory.length > 0) {
+    const last = conversationHistory[conversationHistory.length - 1];
+    if (last.role === "user" && last.content === userMessage) {
+      conversationHistory.pop();
     }
   }
 
