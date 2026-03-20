@@ -15,6 +15,7 @@ import EditBotPage from "./pages/DashboardPage/Sections/EditBotPage";
 import FlowBuilderPage from "./pages/FlowBuilderPage/FlowBuilderPage";
 import DashboardSection from "./pages/AdminPage/Sections/DashboardSection";
 import AdminTicketsSection from "./pages/AdminPage/Sections/AdminTicketsSection";
+import ProfilePage from "./pages/ProfilePage";
 
 function App() {
   return (
@@ -22,7 +23,7 @@ function App() {
       <Route path="/" element={<HomePage />} />
       <Route path="/auth" element={<AuthPage />} />
       <Route path="/pending" element={<PendingPage />} />
-      <Route path="/profile" element={<Navigate to="/dashboard" replace />} />
+{/* /profile redirects into dashboard layout */}
       <Route path="/create-bot" element={<AuthGuard><CreateBotPage /></AuthGuard>} />
 
       {/* User dashboard routes */}
@@ -37,6 +38,7 @@ function App() {
         <Route index element={<DashboardPage />} />
         <Route path="edit-bot" element={<EditBotPage />} />
         <Route path="flow-builder" element={<FlowBuilderPage />} />
+        <Route path="profile" element={<ProfilePage />} />
       </Route>
 
       {/* Admin routes */}
