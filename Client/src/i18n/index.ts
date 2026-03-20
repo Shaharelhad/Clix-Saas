@@ -17,6 +17,7 @@ const ns = [
   "dashboard",
   "flow",
   "rag",
+  "profile",
 ] as const;
 
 i18n
