@@ -9,6 +9,7 @@ import {
   GitBranch,
   BookOpen,
   Headphones,
+  UserCircle,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/services/supabase";
@@ -112,10 +113,13 @@ export default function UserLayout() {
               <span className="hidden sm:inline">{t("support")}</span>
             </button>
             {user && (
-              <div className="hidden sm:block text-end">
-                <p className="text-xs font-semibold text-[#2D2A26]">{user.full_name}</p>
-                <p className="text-[11px] text-[#A39B90]">{user.email}</p>
-              </div>
+              <button
+                onClick={() => navigate("/dashboard/profile")}
+                className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-[#7A7267] hover:text-[#2D2A26] hover:bg-[#EDE6DD]/40 transition-all duration-200 cursor-pointer"
+              >
+                <UserCircle className="w-4 h-4 shrink-0" />
+                <span>{user.full_name}</span>
+              </button>
             )}
             <button
               onClick={handleSignOut}
