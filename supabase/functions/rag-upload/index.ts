@@ -1,6 +1,6 @@
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { getAuthenticatedUserId } from "../_shared/auth.ts";
-import { embedTexts } from "../_shared/embeddings.ts";
+import { embedTexts, lastEmbedError } from "../_shared/embeddings.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 /**
@@ -124,6 +124,12 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Sanitize extracted text — remove null bytes and invalid Unicode escape sequences
+    const sanitizedText = extracted_text
+      .replace(/\u0000/g, "")
+      .replace(/\\u0000/g, "")
+      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, "");
+
     // 1. Delete existing document if any (CASCADE deletes chunks)
     const { data: existing } = await supabase
       .from("user_documents")
@@ -160,7 +166,7 @@ Deno.serve(async (req) => {
     documentId = docRow.id;
 
     // 3. Chunk the text
-    const chunks = chunkText(extracted_text);
+    const chunks = chunkText(sanitizedText);
 
     if (chunks.length === 0) {
       await supabase
@@ -182,13 +188,15 @@ Deno.serve(async (req) => {
     // Check that at least some embeddings succeeded
     const validCount = embeddings.filter((e) => e !== null).length;
     if (validCount === 0) {
+      const reason = lastEmbedError || "Unknown embedding error";
+      console.error("[rag-upload] All embeddings failed:", reason);
       await supabase
         .from("user_documents")
-        .update({ status: "error", error_message: "Embedding generation failed" })
+        .update({ status: "error", error_message: `Embedding failed: ${reason}` })
         .eq("id", documentId);
 
       return new Response(
-        JSON.stringify({ error: "Failed to generate embeddings" }),
+        JSON.stringify({ error: `Failed to generate embeddings: ${reason}` }),
         { status: 500, headers: { ...cors, "Content-Type": "application/json" } },
       );
     }

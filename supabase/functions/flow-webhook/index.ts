@@ -183,10 +183,12 @@ function matchButton(
     (b) => b.label.length > 25 && b.label.trim().toLowerCase().startsWith(normalized)
   );
   if (partial) return partial;
-  // Numeric match (user sends "1", "2", etc.)
-  const num = parseInt(normalized);
-  if (!isNaN(num) && num >= 1 && num <= buttons.length) {
-    return buttons[num - 1];
+  // Numeric match (user sends "1", "2", etc.) — only for purely numeric input
+  if (/^\d+$/.test(normalized)) {
+    const num = parseInt(normalized);
+    if (num >= 1 && num <= buttons.length) {
+      return buttons[num - 1];
+    }
   }
   return undefined;
 }
@@ -1142,7 +1144,7 @@ Deno.serve(async (req) => {
         const resetState = {
           current_node_id: null,
           variables: { phone },
-          status: "completed" as const,
+          status: "active" as const,
           follow_up_count: 0,
           conversation_stage: null,
         };
@@ -1451,11 +1453,8 @@ Deno.serve(async (req) => {
         currentNodeId = triggerStartNode.id;
         variables = { ...variables, phone };
       } else {
-        // No trigger match — resend global menu if user has collected data, otherwise restart via catch-all
-        const hasCollectedData = Object.keys(variables).some((k) => k !== "phone" && !k.startsWith("__"));
-        const globalMenuNode = hasCollectedData
-          ? flow.nodes.find((n) => n.type === "buttons" && n.data.isGlobalMenu === true)
-          : undefined;
+        // No trigger match — resend global menu if one exists, otherwise restart via catch-all
+        const globalMenuNode = flow.nodes.find((n) => n.type === "buttons" && n.data.isGlobalMenu === true);
         if (globalMenuNode) {
           // Resend the global menu buttons
           await executeNode(globalMenuNode, customerId, phone, variables, flow, session.id, workflow.id);
@@ -1693,6 +1692,30 @@ Deno.serve(async (req) => {
 
     // Open Bot node — free AI conversation (bypass strict mode)
     if (currentNode.type === "open_bot") {
+      // Menu-intent keyword check — navigate back to the parent menu
+      const MENU_KEYWORDS = ["menu", "תפריט", "tafrit", "main menu", "תפריט ראשי", "back to menu", "חזרה לתפריט", "back"];
+      const normalizedForMenu = userMessage.trim().toLowerCase();
+      const isMenuRequest = MENU_KEYWORDS.some(kw => normalizedForMenu === kw || normalizedForMenu.includes(kw));
+
+      if (isMenuRequest && currentNode.data.linkedNodeId) {
+        const parentMenuNode = findNodeById(flow, currentNode.data.linkedNodeId);
+        if (parentMenuNode) {
+          console.log("[flow] Menu keyword on open_bot — returning to parent menu:", parentMenuNode.id);
+          await executeNode(parentMenuNode, customerId, phone, updatedVariables, flow, session.id, workflow.id);
+          await updateSessionDirect(session.id, {
+            current_node_id: parentMenuNode.id,
+            variables: updatedVariables,
+            status: "active",
+            last_message_at: new Date().toISOString(),
+          });
+          return new Response(
+            JSON.stringify({ ok: true, action: "menu_keyword_to_parent", current_node: parentMenuNode.id }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      }
+
+      // No menu request or no linked parent — continue with LLM
       await callOpenLLM(profile.id, userMessage, session.id, workflow.id, customerId, phone, workflowRecord, langPref);
       await updateSessionDirect(session.id, {
         current_node_id: currentNode.id,
