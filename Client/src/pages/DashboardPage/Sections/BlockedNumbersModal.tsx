@@ -194,8 +194,10 @@ export default function BlockedNumbersModal({
               </p>
             </div>
             <button
+              type="button"
               onClick={onClose}
               className="p-1.5 rounded-lg hover:bg-[#FAF7F3] transition-colors cursor-pointer"
+              aria-label="Close"
             >
               <X className="w-5 h-5 text-[#7A7267]" />
             </button>
@@ -217,6 +219,7 @@ export default function BlockedNumbersModal({
                 className="flex-1 border border-[#EDE6DD] rounded-xl px-4 py-2.5 text-sm text-[#2D2A26] placeholder:text-[#C5BDB3] focus:outline-none focus:border-[#FF7E47] focus:ring-1 focus:ring-[#FF7E47]/20 transition-colors"
               />
               <button
+                type="button"
                 onClick={handleAdd}
                 disabled={!input.trim() || addMutation.isPending}
                 className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-[#FF7E47] hover:bg-[#E86B38] disabled:opacity-50 text-white text-sm font-bold transition-colors cursor-pointer disabled:cursor-not-allowed"
@@ -278,10 +281,12 @@ export default function BlockedNumbersModal({
                       {formatPhone(phone)}
                     </span>
                     <button
+                      type="button"
                       onClick={() => removeMutation.mutate(phone)}
                       disabled={removeMutation.isPending}
                       className="p-1.5 rounded-lg text-[#C5BDB3] hover:text-red-500 hover:bg-red-50 transition-colors cursor-pointer opacity-0 group-hover:opacity-100"
                       title={t("blockedNumbersRemove")}
+                      aria-label={t("blockedNumbersRemove")}
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
