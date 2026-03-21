@@ -1,5 +1,31 @@
 @import "tailwindcss";
 
+/* ── Global UX base resets ── */
+@layer base {
+  button, [role="button"] {
+    cursor: pointer;
+  }
+
+  :focus-visible {
+    outline: 2px solid rgba(255, 107, 44, 0.5);
+    outline-offset: 2px;
+  }
+
+  :focus:not(:focus-visible) {
+    outline: none;
+  }
+
+  ::selection {
+    background: rgba(255, 107, 44, 0.2);
+    color: inherit;
+  }
+
+  button:disabled, [role="button"][aria-disabled="true"] {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+}
+
 html,
 body {
   width: 100%;
@@ -45,6 +71,10 @@ body {
   background: #E85D04;
   transform: scale(1.03);
   box-shadow: 0 6px 32px rgba(255, 107, 44, 0.35);
+}
+
+.clix-btn:active {
+  transform: scale(0.98);
 }
 
 .clix-btn:hover::before {
