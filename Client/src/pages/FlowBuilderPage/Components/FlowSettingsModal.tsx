@@ -21,7 +21,7 @@ export default function FlowSettingsModal({ settings, onUpdate, onClose }: FlowS
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-[#EDE6DD]/40">
           <span className="text-sm font-bold text-[#2D2A26]">{t("settingsTitle")}</span>
-          <button onClick={onClose} className="p-1 rounded hover:bg-[#EDE6DD]/40 cursor-pointer">
+          <button type="button" onClick={onClose} className="p-1 rounded hover:bg-[#EDE6DD]/40 cursor-pointer" aria-label="Close">
             <X className="w-4 h-4 text-[#7A7267]" />
           </button>
         </div>
@@ -122,6 +122,7 @@ export default function FlowSettingsModal({ settings, onUpdate, onClose }: FlowS
                   <div className="flex items-center gap-2">
                     {(["bot", "custom"] as const).map((mode) => (
                       <button
+                        type="button"
                         key={mode}
                         onClick={() => onUpdate({ autoFollowUpMode: mode })}
                         className={`flex-1 px-2.5 py-1.5 rounded text-[10px] font-medium border cursor-pointer transition-colors ${
@@ -211,6 +212,7 @@ export default function FlowSettingsModal({ settings, onUpdate, onClose }: FlowS
         {/* Footer */}
         <div className="px-5 py-3 border-t border-[#EDE6DD]/40">
           <button
+            type="button"
             onClick={onClose}
             className="w-full py-2 rounded-lg bg-[#FF7E47] text-white text-sm font-semibold hover:bg-[#e56e3a] transition-colors cursor-pointer"
           >
@@ -293,6 +295,7 @@ function MinutesPresetInput({
       <div className="flex items-center gap-2 mb-2">
         {presets.map((preset) => (
           <button
+            type="button"
             key={preset.value}
             onClick={() => onChange(preset.value)}
             className={`px-2.5 py-1 rounded text-[10px] font-medium border cursor-pointer transition-colors ${
