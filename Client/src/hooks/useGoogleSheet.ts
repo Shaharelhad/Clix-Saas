@@ -78,7 +78,7 @@ export function useGoogleSheet() {
           return;
         }
 
-        await queryClient.invalidateQueries({
+        await queryClient.refetchQueries({
           queryKey: ["google-sheet-document", user.id],
         });
       } catch {
