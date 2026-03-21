@@ -57,8 +57,10 @@ export default function FlowNodeWrapper({
         </div>
         {onDelete && (
           <button
+            type="button"
             onClick={(e) => { e.stopPropagation(); onDelete(); }}
             className="p-1 rounded hover:bg-red-100 text-[#A39B90] hover:text-red-500 transition-colors cursor-pointer"
+            aria-label="Delete node"
           >
             <Trash2 className="w-3 h-3" />
           </button>
