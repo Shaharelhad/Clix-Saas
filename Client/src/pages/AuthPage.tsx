@@ -454,7 +454,7 @@ export default function AuthPage() {
 
       {/* ── Right panel — Form (warm cream) ── */}
       <div
-        className="flex flex-col items-center justify-center px-6 sm:px-10 relative overflow-y-auto"
+        className="flex flex-col items-center justify-center px-4 sm:px-6 md:px-10 relative overflow-y-auto"
         style={{
           background: "linear-gradient(170deg, #FDF8F2 0%, #F8F0E6 40%, #FBF5EE 100%)",
         }}
