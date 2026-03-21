@@ -20,6 +20,7 @@ import {
   sendImageMessage,
   type ButtonItem,
 } from "../_shared/wa-messaging.ts";
+import { parseSheetId, fetchSheetData, processAndStoreChunks } from "../_shared/sheets-helpers.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -827,11 +828,6 @@ const syncGoogleSheets = inngest.createFunction(
     for (const sheet of sheets) {
       await step.run(`sync-sheet-${sheet.id}`, async () => {
         try {
-          // Dynamic import to avoid loading sheets-helpers at module level
-          const { parseSheetId, fetchSheetData, processAndStoreChunks } = await import(
-            "../_shared/sheets-helpers.ts"
-          );
-
           const sourceUrl = sheet.source_url as string;
           const config = (sheet.source_config || {}) as Record<string, unknown>;
           const sheetId = parseSheetId(sourceUrl);
