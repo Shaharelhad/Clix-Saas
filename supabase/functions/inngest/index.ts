@@ -823,10 +823,10 @@ const syncGoogleSheets = inngest.createFunction(
 
     if (sheets.length === 0) return { checked: 0, updated: 0 };
 
-    let updated = 0;
+    const results: boolean[] = [];
 
     for (const sheet of sheets) {
-      await step.run(`sync-sheet-${sheet.id}`, async () => {
+      const didUpdate = await step.run(`sync-sheet-${sheet.id}`, async () => {
         try {
           const sourceUrl = sheet.source_url as string;
           const config = (sheet.source_config || {}) as Record<string, unknown>;
@@ -834,13 +834,26 @@ const syncGoogleSheets = inngest.createFunction(
 
           if (!sheetId) {
             console.error(`[sheets-cron] Invalid URL for doc ${sheet.id}`);
-            return;
+            return false;
           }
 
           const sheetData = await fetchSheetData(sheetId);
 
-          // Skip if unchanged
-          if (config.last_row_hash === sheetData.contentHash) return;
+          // No changes — still update last_synced_at so the UI reflects the check ran
+          if (config.last_row_hash === sheetData.contentHash) {
+            await supabase
+              .from("user_documents")
+              .update({
+                source_config: {
+                  ...config,
+                  last_synced_at: new Date().toISOString(),
+                  row_count: sheetData.rowCount,
+                },
+                updated_at: new Date().toISOString(),
+              })
+              .eq("id", sheet.id);
+            return false;
+          }
 
           console.log(`[sheets-cron] Changes detected for doc ${sheet.id}, re-syncing...`);
 
@@ -882,7 +895,7 @@ const syncGoogleSheets = inngest.createFunction(
             })
             .eq("id", sheet.id);
 
-          updated++;
+          return true;
         } catch (err) {
           console.error(`[sheets-cron] Failed to sync sheet ${sheet.id}:`, err);
           await supabase
@@ -892,10 +905,14 @@ const syncGoogleSheets = inngest.createFunction(
               error_message: `Auto-sync failed: ${(err as Error).message}`,
             })
             .eq("id", sheet.id);
+          return false;
         }
       });
+
+      results.push(didUpdate);
     }
 
+    const updated = results.filter(Boolean).length;
     return { checked: sheets.length, updated };
   },
 );
