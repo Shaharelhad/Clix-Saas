@@ -258,6 +258,11 @@ const flow = {
   deleteNode: "מחק נוד",
   noNodeSelected: "בחר נוד כדי לערוך את המאפיינים שלו",
   flowList: "התהליכים שלי",
+
+  // Desktop-only gate
+  desktopOnlyTitle: "למסך גדול בלבד",
+  desktopOnlyDesc: "בונה התהליכים דורש מסך רחב יותר. אנא פתח אותו במחשב או בטאבלט במצב אופקי.",
+  desktopOnlyBack: "חזרה ללוח בקרה",
 };
 
 export default flow;
