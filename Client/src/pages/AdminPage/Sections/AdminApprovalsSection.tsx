@@ -123,6 +123,7 @@ export default function AdminApprovalsSection() {
             {/* Actions */}
             <div className="flex items-center gap-2 shrink-0">
               <button
+                type="button"
                 onClick={() =>
                   statusMutation.mutate({ id: user.id, status: "rejected" })
                 }
@@ -142,6 +143,7 @@ export default function AdminApprovalsSection() {
               </button>
 
               <button
+                type="button"
                 onClick={() =>
                   statusMutation.mutate({ id: user.id, status: "approved" })
                 }
