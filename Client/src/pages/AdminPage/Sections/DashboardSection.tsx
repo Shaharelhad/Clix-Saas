@@ -262,8 +262,9 @@ export default function DashboardSection() {
                   {t("approvalsTitle")}
                 </p>
                 <button
+                  type="button"
                   onClick={() => navigate("/admin/approvals")}
-                  className="text-[10px] text-[#D8723C] font-medium hover:underline cursor-pointer"
+                  className="text-[10px] text-[#D8723C] font-medium hover:underline cursor-pointer transition-all"
                 >
                   {t("navApprovals")}
                 </button>
@@ -299,6 +300,7 @@ export default function DashboardSection() {
                         </div>
                         <div className="flex items-center gap-1 shrink-0">
                           <button
+                            type="button"
                             onClick={() =>
                               statusMutation.mutate({
                                 id: u.id,
@@ -307,7 +309,7 @@ export default function DashboardSection() {
                             }
                             disabled={processingId === u.id}
                             className={cn(
-                              "w-7 h-7 rounded-lg border border-red-200 bg-red-50 text-red-500",
+                              "w-9 h-9 rounded-lg border border-red-200 bg-red-50 text-red-500",
                               "hover:bg-red-100 transition-colors flex items-center justify-center cursor-pointer",
                               processingId === u.id &&
                                 "opacity-40 pointer-events-none"
@@ -320,6 +322,7 @@ export default function DashboardSection() {
                             )}
                           </button>
                           <button
+                            type="button"
                             onClick={() =>
                               statusMutation.mutate({
                                 id: u.id,
@@ -328,7 +331,7 @@ export default function DashboardSection() {
                             }
                             disabled={processingId === u.id}
                             className={cn(
-                              "w-7 h-7 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-600",
+                              "w-9 h-9 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-600",
                               "hover:bg-emerald-100 transition-colors flex items-center justify-center cursor-pointer",
                               processingId === u.id &&
                                 "opacity-40 pointer-events-none"
