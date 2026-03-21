@@ -90,6 +90,7 @@ export default function FlowHelpAssistant() {
       <AnimatePresence>
         {!isOpen && (
           <motion.button
+            type="button"
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             exit={{ scale: 0 }}
@@ -127,16 +128,20 @@ export default function FlowHelpAssistant() {
               headerAction={
                 <div className="flex items-center gap-1">
                   <button
+                    type="button"
                     onClick={handleReset}
                     className="p-1.5 rounded-xl hover:bg-[#FAF7F3] transition-colors cursor-pointer"
                     title={t("helpReset")}
+                    aria-label={t("helpReset")}
                   >
                     <RotateCcw className="w-3.5 h-3.5 text-[#A39B90] hover:text-[#FF7E47]" />
                   </button>
                   <button
+                    type="button"
                     onClick={() => setIsOpen(false)}
                     className="p-1.5 rounded-xl hover:bg-[#FAF7F3] transition-colors cursor-pointer"
                     title={t("helpClose")}
+                    aria-label={t("helpClose")}
                   >
                     <X className="w-3.5 h-3.5 text-[#A39B90] hover:text-[#FF7E47]" />
                   </button>
