@@ -150,6 +150,7 @@ export function FileUploadZone({
                   type="button"
                   className="h-8 w-8 shrink-0 flex items-center justify-center rounded-lg text-[#B8AFA4] hover:text-red-400 hover:bg-red-50 transition-colors"
                   onClick={() => onRemove(item.id)}
+                  aria-label="Remove file"
                 >
                   <X className="w-4 h-4" />
                 </button>
