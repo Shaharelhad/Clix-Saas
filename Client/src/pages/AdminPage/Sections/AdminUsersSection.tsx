@@ -114,6 +114,7 @@ export default function AdminUsersSection() {
           {/* Status filters */}
           {statusFilters.map((s) => (
             <button
+              type="button"
               key={s}
               onClick={() => setStatusFilter(s)}
               className={cn(
@@ -132,6 +133,7 @@ export default function AdminUsersSection() {
           {/* Bot status filters */}
           {botFilters.map((b) => (
             <button
+              type="button"
               key={b}
               onClick={() => setBotFilter(b)}
               className={cn(
