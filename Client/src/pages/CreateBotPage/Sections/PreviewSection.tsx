@@ -227,11 +227,13 @@ const PreviewSection = ({ onNext }: PreviewSectionProps) => {
             variant="demo"
             headerAction={
               <motion.button
+                type="button"
                 whileHover={{ scale: 1.08, rotate: -15 }}
                 whileTap={{ scale: 0.92 }}
                 onClick={handleNewConversation}
                 className="p-1.5 rounded-xl hover:bg-[#FAF7F3] transition-colors group cursor-pointer"
                 title={t("newConversation")}
+                aria-label={t("newConversation")}
               >
                 <RotateCcw className="w-3.5 h-3.5 text-[#A39B90] group-hover:text-[#FF7E47] transition-colors" />
               </motion.button>
@@ -260,6 +262,7 @@ const PreviewSection = ({ onNext }: PreviewSectionProps) => {
       {/* ── Let's Go Button ── */}
       <motion.div variants={fadeUp} className="flex justify-center pt-2 pb-4">
         <motion.button
+          type="button"
           onClick={onNext}
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
