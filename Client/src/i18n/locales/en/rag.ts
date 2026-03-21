@@ -42,6 +42,7 @@ const rag = {
   sheetsLastSync: "Last synced",
   sheetsRowCount: "Rows",
   sheetsNoChanges: "Sheet is up to date, no changes detected.",
+  sheetsSyncSuccess: "Sheet synced successfully!",
   sheetsErrorUrl:
     "Invalid Google Sheet URL. Make sure it's a valid public sheet link.",
   sheetsErrorFetch:
