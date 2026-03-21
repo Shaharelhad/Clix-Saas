@@ -115,6 +115,7 @@ function ChatBubble({
           <div className="flex flex-wrap gap-1.5 mt-2.5">
             {msg.buttons.map((btn) => (
               <button
+                type="button"
                 key={btn.id}
                 onClick={() => onButtonClick?.(btn.label)}
                 disabled={buttonsDisabled}
@@ -288,6 +289,7 @@ const ChatPanel = ({
               }`}
             />
             <motion.button
+              type="button"
               whileHover={{ scale: 1.08 }}
               whileTap={{ scale: 0.9 }}
               onClick={onSend}

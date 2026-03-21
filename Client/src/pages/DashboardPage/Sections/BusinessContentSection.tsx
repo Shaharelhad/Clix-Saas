@@ -271,6 +271,7 @@ function CategoryCard({
           >
             <div className="flex items-center justify-end gap-3 px-6 py-3 border-t border-[#EDE6DD]/40 bg-[#FEFCFA]">
               <button
+                type="button"
                 onClick={onReset}
                 disabled={saving}
                 className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-[#7A7267] hover:text-[#2D2A26] hover:bg-[#EDE6DD]/40 transition-colors cursor-pointer"
@@ -279,6 +280,7 @@ function CategoryCard({
                 {t("cancelChanges")}
               </button>
               <button
+                type="button"
                 onClick={onSave}
                 disabled={saving}
                 className="flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-bold bg-[#FF7E47] hover:bg-[#E86B38] text-white transition-colors shadow-[0_2px_12px_rgba(255,126,71,0.25)] cursor-pointer disabled:opacity-60"
@@ -589,6 +591,7 @@ export default function BusinessContentSection() {
         <FileText className="w-12 h-12 text-[#A39B90] mb-4" />
         <p className="text-[#7A7267] text-sm mb-4">{t("noFormData")}</p>
         <button
+          type="button"
           onClick={() => navigate("/create-bot")}
           className="px-6 py-2.5 bg-[#FF7E47] hover:bg-[#E86B38] text-white font-bold rounded-xl transition-colors"
         >

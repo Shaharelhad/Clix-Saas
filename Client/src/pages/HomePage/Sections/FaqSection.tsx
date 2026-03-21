@@ -78,7 +78,7 @@ const FaqSection = () => {
             >
               <AccordionItem
                 value={`faq-${n}`}
-                className="rounded-xl bg-white/60 backdrop-blur-sm border border-white/80 shadow-[0_4px_16px_rgba(0,0,0,0.04)] px-7 py-1 transition-all duration-300 data-[state=open]:border-r-2 data-[state=open]:border-r-[#FF6B2C] data-[state=open]:shadow-[0_8px_32px_rgba(255,107,44,0.08)]"
+                className="rounded-xl bg-white/60 backdrop-blur-sm border border-white/80 border-r-2 border-r-transparent shadow-[0_4px_16px_rgba(0,0,0,0.04)] px-4 sm:px-7 py-1 transition-all duration-300 data-[state=open]:border-r-[#FF6B2C] data-[state=open]:shadow-[0_8px_32px_rgba(255,107,44,0.08)]"
               >
                 <AccordionTrigger className="text-[#1A1A1A] text-base sm:text-lg font-medium hover:no-underline hover:text-[#FF6B2C]/80 transition-colors">
                   {t(`faqQ${n}`)}

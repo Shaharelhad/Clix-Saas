@@ -36,7 +36,7 @@ export default function AdminPage() {
     >
       {/* Top Navbar */}
       <header className="shrink-0 border-b border-black/[0.07] bg-white/80 backdrop-blur-xl">
-        <div className="flex items-center justify-between px-6 h-14">
+        <div className="flex items-center justify-between px-3 sm:px-6 h-14">
           {/* Logo */}
           <div className="flex items-center gap-2.5">
             <img
@@ -78,6 +78,7 @@ export default function AdminPage() {
               </span>
             )}
             <button
+              type="button"
               onClick={handleSignOut}
               className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-[#999999] hover:text-[#444444] hover:bg-black/[0.04] transition-all duration-200 cursor-pointer"
             >

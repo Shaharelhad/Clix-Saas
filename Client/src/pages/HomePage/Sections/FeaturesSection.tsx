@@ -81,14 +81,14 @@ const FeaturesSection = () => {
         </div>
 
         {/* Bento grid */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
           {FEATURES.map(({ key, icon: Icon }, index) => {
             const isLarge = index < 2;
             return (
               <motion.div
                 key={key}
                 className={cn(
-                  "p-8 relative overflow-hidden cursor-default rounded-[1.25rem]",
+                  "p-5 sm:p-8 relative overflow-hidden cursor-default rounded-[1.25rem]",
                   "border border-white/60 hover:border-[#FF6B2C]/40",
                   "transition-[border-color,box-shadow] duration-150",
                   "hover:shadow-[0_12px_40px_rgba(0,0,0,0.12),0_4px_16px_rgba(255,107,44,0.08)]",

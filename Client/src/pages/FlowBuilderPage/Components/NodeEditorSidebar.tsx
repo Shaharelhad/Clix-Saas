@@ -37,7 +37,7 @@ export default function NodeEditorSidebar({ node, onUpdate, onClose, isLocked, s
         <span className="text-sm font-bold text-[#2D2A26]">
           {t(`node${capitalize(data.type)}`)}
         </span>
-        <button onClick={onClose} className="p-1 rounded hover:bg-[#EDE6DD]/40 cursor-pointer">
+        <button type="button" onClick={onClose} className="p-1 rounded hover:bg-[#EDE6DD]/40 cursor-pointer" aria-label="Close">
           <X className="w-4 h-4 text-[#7A7267]" />
         </button>
       </div>
@@ -449,6 +449,7 @@ function ButtonsEditor({ buttons, onChange }: { buttons: ButtonItem[]; onChange:
               dir="rtl"
             />
             <button
+              type="button"
               onClick={() => toggleOpenBot(btn.id)}
               className={`p-1.5 rounded cursor-pointer transition-colors ${
                 btn.openBot
@@ -460,6 +461,7 @@ function ButtonsEditor({ buttons, onChange }: { buttons: ButtonItem[]; onChange:
               <Bot className="w-3 h-3" />
             </button>
             <button
+              type="button"
               onClick={() => removeButton(btn.id)}
               className="p-1.5 rounded hover:bg-red-50 text-[#A39B90] hover:text-red-500 cursor-pointer"
             >
@@ -470,6 +472,7 @@ function ButtonsEditor({ buttons, onChange }: { buttons: ButtonItem[]; onChange:
       </div>
       {buttons.length < 10 ? (
         <button
+          type="button"
           onClick={addButton}
           className="flex items-center gap-1 mt-2 text-xs text-[#FF7E47] hover:text-[#E86B38] cursor-pointer"
         >
@@ -878,6 +881,7 @@ function ResponseMappingEditor({
               dir="ltr"
             />
             <button
+              type="button"
               onClick={() => removeMapping(i)}
               className="flex items-center gap-1 text-[10px] text-red-400 hover:text-red-600 cursor-pointer"
             >
@@ -888,6 +892,7 @@ function ResponseMappingEditor({
       </div>
       {mappings.length < 10 ? (
         <button
+          type="button"
           onClick={addMapping}
           className="flex items-center gap-1 mt-2 text-xs text-[#FF7E47] hover:text-[#E86B38] cursor-pointer"
         >
@@ -937,6 +942,7 @@ function KeywordsEditor({ keywords, disabled, onChange }: { keywords: string[]; 
             />
             {keywords.length > 1 && (
               <button
+                type="button"
                 onClick={() => removeKeyword(i)}
                 className="p-1.5 rounded hover:bg-red-50 text-[#A39B90] hover:text-red-500 cursor-pointer shrink-0"
               >
@@ -947,6 +953,7 @@ function KeywordsEditor({ keywords, disabled, onChange }: { keywords: string[]; 
         ))}
       </div>
       <button
+        type="button"
         onClick={addKeyword}
         className="flex items-center gap-1 mt-2 text-xs text-[#FF7E47] hover:text-[#E86B38] cursor-pointer"
       >

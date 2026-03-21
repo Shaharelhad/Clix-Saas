@@ -247,6 +247,7 @@ export default function ConversationsSection() {
               <AnimatePresence>
                 {sessions.map((session) => (
                   <motion.button
+                    type="button"
                     key={session.id}
                     initial={{ opacity: 0, x: -8 }}
                     animate={{ opacity: 1, x: 0 }}
@@ -261,7 +262,7 @@ export default function ConversationsSection() {
                     <div className="flex items-center justify-between mb-1.5">
                       <div className="flex items-center gap-2">
                         <Phone className="w-3.5 h-3.5 text-[#A39B90] group-hover:text-[#FF7E47] transition-colors" />
-                        <span className="text-[13px] font-bold text-[#2D2A26] tracking-tight font-mono">
+                        <span className="text-[13px] font-bold text-[#2D2A26] tracking-tight font-mono truncate">
                           {formatPhone(session.phone)}
                         </span>
                       </div>
@@ -283,6 +284,7 @@ export default function ConversationsSection() {
           {selectedSession ? (
             <div className="px-4 sm:px-5 py-3 border-b border-[#EDE6DD]/40 bg-[#FDFBF8] flex items-center gap-3 shrink-0">
               <button
+                type="button"
                 onClick={() => setSelectedId(null)}
                 className="lg:hidden p-1 rounded-lg hover:bg-[#FAF7F3] transition-colors cursor-pointer"
               >
@@ -300,6 +302,7 @@ export default function ConversationsSection() {
                 </span>
               </div>
               <button
+                type="button"
                 onClick={() => setShowResetConfirm(true)}
                 className="p-1.5 rounded-lg hover:bg-red-50 transition-colors cursor-pointer group"
                 title={t("resetSession")}
@@ -381,12 +384,14 @@ export default function ConversationsSection() {
               </p>
               <div className="flex gap-3 pt-1">
                 <button
+                  type="button"
                   onClick={() => setShowResetConfirm(false)}
                   className="flex-1 px-4 py-2.5 rounded-xl border border-[#EDE6DD] text-sm font-semibold text-[#7A7267] hover:bg-[#FAF7F3] transition-colors cursor-pointer"
                 >
                   {t("cancel")}
                 </button>
                 <button
+                  type="button"
                   onClick={handleResetSession}
                   disabled={resetting}
                   className="flex-1 px-4 py-2.5 rounded-xl bg-red-500 text-white text-sm font-semibold hover:bg-red-600 transition-colors disabled:opacity-50 cursor-pointer"

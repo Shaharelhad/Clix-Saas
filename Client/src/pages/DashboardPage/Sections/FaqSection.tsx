@@ -200,6 +200,7 @@ export default function FaqSection() {
               {/* Active toggle */}
               <div className="flex justify-center">
                 <button
+                  type="button"
                   onClick={() => toggleActive(entry.id)}
                   className={`w-10 h-5.5 rounded-full relative transition-colors duration-200 cursor-pointer ${
                     entry.is_active ? "bg-[#FF7E47]" : "bg-[#D9D4CE]"
@@ -215,6 +216,7 @@ export default function FaqSection() {
 
               {/* Delete */}
               <button
+                type="button"
                 onClick={() => deleteEntry(entry.id)}
                 className="p-1.5 rounded-lg text-[#C5BDB4] hover:text-red-500 hover:bg-red-50 transition-colors opacity-0 group-hover:opacity-100 cursor-pointer"
               >
@@ -236,6 +238,7 @@ export default function FaqSection() {
         {/* Add Row Button */}
         <div className="px-5 py-3 border-t border-[#EDE6DD]/40">
           <button
+            type="button"
             onClick={addEntry}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium text-[#FF7E47] hover:bg-[#FF7E47]/10 transition-colors cursor-pointer"
           >
@@ -259,6 +262,7 @@ export default function FaqSection() {
       {entries.length > 0 && (
         <motion.div variants={fadeUp} className="flex justify-center pt-6 pb-4">
           <motion.button
+            type="button"
             onClick={handleSave}
             disabled={saving || !dirty}
             whileHover={dirty ? { scale: 1.02 } : {}}

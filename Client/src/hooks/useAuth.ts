@@ -110,6 +110,21 @@ export function useAuth() {
     return { data, error };
   };
 
+  const updateProfile = async (fields: { full_name?: string; phone?: string; language?: string }) => {
+    if (!session?.user?.id) return { error: { message: "Not authenticated" } };
+    const { error } = await supabase
+      .from("profiles")
+      .update(fields)
+      .eq("id", session.user.id);
+    if (!error) await fetchProfile();
+    return { error };
+  };
+
+  const updatePassword = async (newPassword: string) => {
+    const { data, error } = await supabase.auth.updateUser({ password: newPassword });
+    return { data, error };
+  };
+
   return {
     user,
     session,
@@ -123,6 +138,8 @@ export function useAuth() {
     signIn,
     signOut,
     resetPassword,
+    updateProfile,
+    updatePassword,
     refreshProfile: fetchProfile,
   };
 }

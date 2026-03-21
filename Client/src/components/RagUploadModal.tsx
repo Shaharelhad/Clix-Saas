@@ -108,8 +108,10 @@ export default function RagUploadModal({ isOpen, onClose }: RagUploadModalProps)
                 {t("uploadTitle")}
               </h2>
               <button
+                type="button"
                 onClick={handleClose}
                 className="p-1.5 rounded-lg text-[#A39B90] hover:text-[#2D2A26] hover:bg-[#EDE6DD]/40 transition-colors cursor-pointer"
+                aria-label="Close"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -169,6 +171,7 @@ export default function RagUploadModal({ isOpen, onClose }: RagUploadModalProps)
                   {/* Action buttons */}
                   <div className="flex items-center gap-2">
                     <button
+                      type="button"
                       onClick={() => fileInputRef.current?.click()}
                       className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium text-[#FF7E47] bg-[#FF7E47]/10 hover:bg-[#FF7E47]/20 transition-colors cursor-pointer"
                     >
@@ -176,6 +179,7 @@ export default function RagUploadModal({ isOpen, onClose }: RagUploadModalProps)
                       {t("replaceFile")}
                     </button>
                     <button
+                      type="button"
                       onClick={() =>
                         confirmDelete ? handleDelete() : setConfirmDelete(true)
                       }

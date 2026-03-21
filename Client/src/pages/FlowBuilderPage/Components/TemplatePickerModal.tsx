@@ -19,6 +19,7 @@ export default function TemplatePickerModal({ onSelect, onClose }: TemplatePicke
       <div className="text-center mb-8">
         {isModal && (
           <button
+            type="button"
             onClick={onClose}
             className="absolute top-4 start-4 p-2 rounded-lg hover:bg-[#EDE6DD]/40 cursor-pointer"
           >
@@ -42,6 +43,7 @@ export default function TemplatePickerModal({ onSelect, onClose }: TemplatePicke
 
           return (
             <motion.button
+              type="button"
               key={template.id}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}

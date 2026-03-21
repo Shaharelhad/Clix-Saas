@@ -56,7 +56,7 @@ const CtaSection = () => {
       {/* Central glass container */}
       <div ref={ref} className="relative z-10 max-w-3xl mx-auto">
         <motion.div
-          className="text-center py-20 px-10 sm:px-16 relative rounded-[1.25rem] border border-white/60"
+          className="text-center py-12 sm:py-20 px-6 sm:px-10 md:px-16 relative rounded-[1.25rem] border border-white/60"
           style={{ background: "rgba(255,255,255,0.7)", boxShadow: "0 8px 32px rgba(0,0,0,0.08), 0 2px 8px rgba(0,0,0,0.04), inset 0 1px 0 rgba(255,255,255,0.5)" }}
           initial={{ opacity: 0, y: 40, scale: 0.95 }}
           animate={inView ? { opacity: 1, y: 0, scale: 1 } : {}}
@@ -95,8 +95,9 @@ const CtaSection = () => {
             transition={{ duration: 0.6, delay: 0.35, ease: [0.22, 1, 0.36, 1] }}
           >
             <button
+              type="button"
               onClick={() => navigate("/auth?mode=signup")}
-              className="clix-btn cta-glow-pulse text-xl px-12 py-5 rounded-xl"
+              className="clix-btn cta-glow-pulse text-base sm:text-xl px-8 sm:px-12 py-4 sm:py-5 rounded-xl"
             >
               {t("ctaBtn")}
             </button>

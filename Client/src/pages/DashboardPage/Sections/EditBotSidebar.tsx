@@ -1,9 +1,9 @@
 import { useTranslation } from "react-i18next";
 import { motion } from "framer-motion";
-import { Sparkles, FileText, HelpCircle } from "lucide-react";
+import { Sparkles, FileText, HelpCircle, BookOpen } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
-export type EditBotCategory = "edit" | "content" | "faq";
+export type EditBotCategory = "edit" | "content" | "faq" | "knowledge-base";
 
 interface EditBotSidebarProps {
   activeCategory: EditBotCategory;
@@ -20,6 +20,7 @@ const categories: CategoryItem[] = [
   { id: "edit", icon: Sparkles, labelKey: "editBot" },
   { id: "content", icon: FileText, labelKey: "businessContent" },
   { id: "faq", icon: HelpCircle, labelKey: "faq" },
+  { id: "knowledge-base", icon: BookOpen, labelKey: "knowledgeBase" },
 ];
 
 export default function EditBotSidebar({
@@ -39,6 +40,7 @@ export default function EditBotSidebar({
 
             return (
               <button
+                type="button"
                 key={cat.id}
                 onClick={() => onCategoryChange(cat.id)}
                 className={`
@@ -68,13 +70,14 @@ export default function EditBotSidebar({
 
       {/* ── Mobile: horizontal pill tabs ── */}
       <nav className="lg:hidden">
-        <div className="flex gap-2 overflow-x-auto bg-white/80 backdrop-blur-sm rounded-xl shadow-[0_2px_24px_rgba(45,42,38,0.05)] border border-[#EDE6DD]/50 p-2">
+        <div className="flex gap-1.5 sm:gap-2 overflow-x-auto bg-white/80 backdrop-blur-sm rounded-xl shadow-[0_2px_24px_rgba(45,42,38,0.05)] border border-[#EDE6DD]/50 p-1.5 sm:p-2">
           {categories.map((cat) => {
             const isActive = activeCategory === cat.id;
             const Icon = cat.icon;
 
             return (
               <button
+                type="button"
                 key={cat.id}
                 onClick={() => onCategoryChange(cat.id)}
                 className={`

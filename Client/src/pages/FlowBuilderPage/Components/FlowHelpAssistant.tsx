@@ -89,16 +89,25 @@ export default function FlowHelpAssistant() {
       {/* Toggle button */}
       <AnimatePresence>
         {!isOpen && (
-          <motion.button
+          <motion.div
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             exit={{ scale: 0 }}
-            onClick={() => setIsOpen(true)}
-            className="fixed bottom-6 left-6 z-40 flex items-center gap-2 px-4 py-2.5 rounded-full bg-[#FF7E47] text-white shadow-lg hover:bg-[#E86B38] transition-colors cursor-pointer"
+            className="fixed bottom-6 left-6 z-40 group"
           >
-            <Bot className="w-4 h-4" />
-            <span className="text-sm font-medium">{t("helpOpen")}</span>
-          </motion.button>
+            {/* Tooltip — appears to the right */}
+            <div className="absolute left-full top-1/2 -translate-y-1/2 ml-3 px-3 py-1.5 rounded-lg bg-[#2D2A26] text-white text-xs font-medium whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 shadow-lg">
+              {t("helpTooltip")}
+              <div className="absolute right-full top-1/2 -translate-y-1/2 border-[5px] border-transparent border-r-[#2D2A26]" />
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsOpen(true)}
+              className="w-12 h-12 rounded-full bg-[#FF7E47] text-white shadow-lg hover:shadow-xl hover:scale-105 active:scale-95 transition-all duration-200 flex items-center justify-center cursor-pointer"
+            >
+              <Bot className="w-5 h-5" />
+            </button>
+          </motion.div>
         )}
       </AnimatePresence>
 
@@ -127,16 +136,20 @@ export default function FlowHelpAssistant() {
               headerAction={
                 <div className="flex items-center gap-1">
                   <button
+                    type="button"
                     onClick={handleReset}
                     className="p-1.5 rounded-xl hover:bg-[#FAF7F3] transition-colors cursor-pointer"
                     title={t("helpReset")}
+                    aria-label={t("helpReset")}
                   >
                     <RotateCcw className="w-3.5 h-3.5 text-[#A39B90] hover:text-[#FF7E47]" />
                   </button>
                   <button
+                    type="button"
                     onClick={() => setIsOpen(false)}
                     className="p-1.5 rounded-xl hover:bg-[#FAF7F3] transition-colors cursor-pointer"
                     title={t("helpClose")}
+                    aria-label={t("helpClose")}
                   >
                     <X className="w-3.5 h-3.5 text-[#A39B90] hover:text-[#FF7E47]" />
                   </button>

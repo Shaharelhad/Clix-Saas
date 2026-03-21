@@ -830,10 +830,13 @@ export type Database = {
           file_name: string
           file_size: number
           file_type: string
-          storage_path: string
+          storage_path: string | null
           chunk_count: number
           status: string
           error_message: string | null
+          source_type: string
+          source_url: string | null
+          source_config: Json
           created_at: string
           updated_at: string
         }
@@ -841,12 +844,15 @@ export type Database = {
           id?: string
           user_id: string
           file_name: string
-          file_size: number
-          file_type: string
-          storage_path: string
+          file_size?: number
+          file_type?: string
+          storage_path?: string | null
           chunk_count?: number
           status?: string
           error_message?: string | null
+          source_type?: string
+          source_url?: string | null
+          source_config?: Json
           created_at?: string
           updated_at?: string
         }
@@ -856,10 +862,13 @@ export type Database = {
           file_name?: string
           file_size?: number
           file_type?: string
-          storage_path?: string
+          storage_path?: string | null
           chunk_count?: number
           status?: string
           error_message?: string | null
+          source_type?: string
+          source_url?: string | null
+          source_config?: Json
           created_at?: string
           updated_at?: string
         }
@@ -867,7 +876,7 @@ export type Database = {
           {
             foreignKeyName: "user_documents_user_id_fkey"
             columns: ["user_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },

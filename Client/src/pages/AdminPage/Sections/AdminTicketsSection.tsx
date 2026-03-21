@@ -150,6 +150,7 @@ export default function AdminTicketsSection() {
       <div className="flex gap-2 shrink-0">
         {STATUSES.map((s) => (
           <button
+            type="button"
             key={s}
             onClick={() => setStatusFilter(s)}
             className={cn(
@@ -182,6 +183,7 @@ export default function AdminTicketsSection() {
             ) : (
               filtered.map((ticket) => (
                 <button
+                  type="button"
                   key={ticket.id}
                   onClick={() => setSelectedId(ticket.id)}
                   className={cn(
@@ -281,6 +283,7 @@ export default function AdminTicketsSection() {
                     className="flex-1 border border-[#E8E4DF] rounded-xl px-4 py-2.5 text-sm text-[#111111] placeholder:text-[#CCCCCC] focus:outline-none focus:border-[#D8723C] focus:ring-1 focus:ring-[#D8723C]/20 transition-colors resize-none"
                   />
                   <button
+                    type="button"
                     onClick={() => replyMutation.mutate()}
                     disabled={!reply.trim() || replyMutation.isPending}
                     className="self-end px-4 py-2.5 rounded-xl bg-[#D8723C] hover:bg-[#C4632F] disabled:opacity-50 text-white text-sm font-bold transition-colors cursor-pointer disabled:cursor-not-allowed flex items-center gap-1.5"

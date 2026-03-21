@@ -451,6 +451,7 @@ if (error) {
 | `VITE_EDGE_FN_WCLIXAPI_CONNECT` | supabase.co/functions/v1/wclixapi-connect | **WORKING** |
 | `VITE_EDGE_FN_SCRAPE_STATUS` | supabase.co/functions/v1/scrape-status | **WORKING** |
 | `VITE_EDGE_FN_FLOW_DEMO` | supabase.co/functions/v1/flow-demo | **WORKING** |
+| `VITE_EDGE_FN_SHEETS_SYNC` | supabase.co/functions/v1/sheets-sync | **WORKING** |
 
 ### Adding a New Edge Function
 

@@ -92,6 +92,7 @@ const flow = {
   helpGreeting: "היי! 👋 אני כאן לעזור לך עם בונה התהליכים. שאל אותי על נודים, חיבורים, פרסום, הגדרות, או כל דבר אחר.",
   helpReset: "אפס שיחה",
   helpOpen: "עזרה",
+  helpTooltip: "עוזר AI לבניית תהליכים",
   helpClose: "סגור עזרה",
 
   // Canvas
@@ -258,6 +259,11 @@ const flow = {
   deleteNode: "מחק נוד",
   noNodeSelected: "בחר נוד כדי לערוך את המאפיינים שלו",
   flowList: "התהליכים שלי",
+
+  // Desktop-only gate
+  desktopOnlyTitle: "למסך גדול בלבד",
+  desktopOnlyDesc: "בונה התהליכים דורש מסך רחב יותר. אנא פתח אותו במחשב או בטאבלט במצב אופקי.",
+  desktopOnlyBack: "חזרה ללוח בקרה",
 };
 
 export default flow;

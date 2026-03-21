@@ -93,6 +93,7 @@ export default function FlowListDropdown({
               {isConfirming ? (
                 <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
                   <button
+                    type="button"
                     onClick={() => {
                       onDelete(w.id);
                       setConfirmDeleteId(null);
@@ -103,6 +104,7 @@ export default function FlowListDropdown({
                     {t("confirmDelete")}
                   </button>
                   <button
+                    type="button"
                     onClick={() => setConfirmDeleteId(null)}
                     className="text-[10px] text-[#7A7267] px-1 py-0.5 rounded hover:bg-[#EDE6DD]/40 cursor-pointer"
                   >
@@ -111,6 +113,7 @@ export default function FlowListDropdown({
                 </div>
               ) : (
                 <button
+                  type="button"
                   onClick={(e) => {
                     e.stopPropagation();
                     if (isPublished) return;
@@ -134,6 +137,7 @@ export default function FlowListDropdown({
       {/* New Flow button */}
       <div className="border-t border-[#EDE6DD]/60 p-2">
         <button
+          type="button"
           onClick={() => {
             if (atLimit) return;
             onNewFlow();

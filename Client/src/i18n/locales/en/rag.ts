@@ -26,6 +26,31 @@ const rag = {
   errorProcessing: "Processing failed. Please try again.",
   errorDelete: "Deletion failed. Please try again.",
   retry: "Try Again",
+
+  // Google Sheets
+  sheetsTitle: "Google Sheets",
+  sheetsDesc:
+    "Connect a public Google Sheet as a knowledge source. The bot will search this data when answering customers.",
+  sheetsPlaceholder: "Paste public Google Sheet URL",
+  sheetsConnect: "Connect",
+  sheetsDisconnect: "Disconnect",
+  sheetsDisconnectConfirm:
+    "Are you sure? All data from this sheet will be removed.",
+  sheetsSync: "Refresh",
+  sheetsSyncing: "Syncing...",
+  sheetsConnecting: "Connecting...",
+  sheetsLastSync: "Last synced",
+  sheetsRowCount: "Rows",
+  sheetsNoChanges: "Sheet is up to date, no changes detected.",
+  sheetsErrorUrl:
+    "Invalid Google Sheet URL. Make sure it's a valid public sheet link.",
+  sheetsErrorFetch:
+    "Could not read sheet. Make sure it's set to 'Anyone with the link can view'.",
+  sheetsErrorConnect: "Connection failed. Please try again.",
+  sheetsErrorSync: "Sync failed. Please try again.",
+  sheetsPublicHint:
+    "The sheet must be shared as 'Anyone with the link can view'",
+  sheetsAutoSync: "Auto-syncs every 10 minutes",
 };
 
 export default rag;

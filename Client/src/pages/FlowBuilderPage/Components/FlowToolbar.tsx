@@ -73,6 +73,7 @@ export default function FlowToolbar({
               dir="rtl"
             />
             <button
+              type="button"
               ref={dropdownTriggerRef}
               onClick={() => setShowDropdown((v) => !v)}
               className="flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-[#EDE6DD]/40 cursor-pointer"
@@ -108,18 +109,22 @@ export default function FlowToolbar({
 
           {/* Settings */}
           <button
+            type="button"
             onClick={onOpenSettings}
             className="p-1.5 rounded hover:bg-[#EDE6DD]/40 cursor-pointer"
             title={t("settingsTitle")}
+            aria-label={t("settingsTitle")}
           >
             <Settings className="w-4 h-4 text-[#7A7267]" />
           </button>
 
           {/* Integrations */}
           <button
+            type="button"
             onClick={onOpenIntegrations}
             className="p-1.5 rounded hover:bg-[#EDE6DD]/40 cursor-pointer"
             title={t("integrationsTitle", { ns: "dashboard" })}
+            aria-label={t("integrationsTitle", { ns: "dashboard" })}
           >
             <Plug className="w-4 h-4 text-[#7A7267]" />
           </button>
@@ -130,18 +135,22 @@ export default function FlowToolbar({
           {/* Undo / Redo */}
           <div className="flex items-center gap-0.5 border-e border-[#EDE6DD]/60 pe-2 me-1">
             <button
+              type="button"
               onClick={onUndo}
               disabled={!canUndo}
               className="p-1.5 rounded hover:bg-[#EDE6DD]/40 disabled:opacity-30 disabled:cursor-default cursor-pointer transition-colors"
               title={`${t("undo")} (Ctrl+Z)`}
+              aria-label={t("undo")}
             >
               <Undo2 className="w-4 h-4 text-[#7A7267]" />
             </button>
             <button
+              type="button"
               onClick={onRedo}
               disabled={!canRedo}
               className="p-1.5 rounded hover:bg-[#EDE6DD]/40 disabled:opacity-30 disabled:cursor-default cursor-pointer transition-colors"
               title={`${t("redo")} (Ctrl+Shift+Z)`}
+              aria-label={t("redo")}
             >
               <Redo2 className="w-4 h-4 text-[#7A7267]" />
             </button>
@@ -162,6 +171,7 @@ export default function FlowToolbar({
           {/* Publish / Unpublish */}
           {workflowStatus === "active" ? (
             <button
+              type="button"
               onClick={() => setShowConfirm(true)}
               className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border border-amber-200 bg-amber-50 text-amber-600 hover:bg-amber-100 transition-colors cursor-pointer"
             >
@@ -169,6 +179,7 @@ export default function FlowToolbar({
             </button>
           ) : (
             <button
+              type="button"
               onClick={() => setShowConfirm(true)}
               className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm transition-colors cursor-pointer"
             >
@@ -217,12 +228,14 @@ export default function FlowToolbar({
               </p>
               <div className="flex gap-3">
                 <button
+                  type="button"
                   onClick={() => setShowConfirm(false)}
                   className="flex-1 py-2.5 rounded-xl border border-[#EDE6DD] text-sm font-medium text-[#7A7267] hover:bg-[#FAF7F3] transition-colors cursor-pointer"
                 >
                   {t("cancel")}
                 </button>
                 <button
+                  type="button"
                   onClick={() => {
                     setShowConfirm(false);
                     onToggleStatus();

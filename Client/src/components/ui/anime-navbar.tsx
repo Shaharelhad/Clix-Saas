@@ -43,6 +43,7 @@ export function AnimeNavBar({
         const isActive = current === item.name;
         return (
           <button
+            type="button"
             key={item.name}
             onMouseEnter={() => setHovered(item.name)}
             onMouseLeave={() => setHovered(null)}

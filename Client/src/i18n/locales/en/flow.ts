@@ -92,6 +92,7 @@ const flow = {
   helpGreeting: "Hi! 👋 I'm here to help you with the flow builder. Ask me about nodes, connections, publishing, settings, or anything else.",
   helpReset: "Reset chat",
   helpOpen: "Help",
+  helpTooltip: "AI assistant for building flows",
   helpClose: "Close help",
 
   // Canvas
@@ -258,6 +259,11 @@ const flow = {
   deleteNode: "Delete Node",
   noNodeSelected: "Select a node to edit its properties",
   flowList: "My Flows",
+
+  // Desktop-only gate
+  desktopOnlyTitle: "Desktop Only",
+  desktopOnlyDesc: "The Flow Builder requires a larger screen. Please open it on a desktop or tablet in landscape mode.",
+  desktopOnlyBack: "Back to Dashboard",
 };
 
 export default flow;

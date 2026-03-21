@@ -26,6 +26,30 @@ const rag = {
   errorProcessing: "העיבוד נכשל. נסה שוב.",
   errorDelete: "המחיקה נכשלה. נסה שוב.",
   retry: "נסה שוב",
+
+  // Google Sheets
+  sheetsTitle: "גיליון Google",
+  sheetsDesc:
+    "חבר גיליון Google ציבורי כמקור ידע. הבוט ישתמש בנתונים האלה כשיענה ללקוחות.",
+  sheetsPlaceholder: "הדבק קישור ל-Google Sheet ציבורי",
+  sheetsConnect: "חבר",
+  sheetsDisconnect: "נתק",
+  sheetsDisconnectConfirm: "האם אתה בטוח? כל הנתונים מהגיליון יימחקו.",
+  sheetsSync: "רענן",
+  sheetsSyncing: "מסנכרן...",
+  sheetsConnecting: "מתחבר...",
+  sheetsLastSync: "סנכרון אחרון",
+  sheetsRowCount: "שורות",
+  sheetsNoChanges: "הגיליון מעודכן, לא נמצאו שינויים.",
+  sheetsErrorUrl:
+    "קישור לא תקין. ודא שזה קישור תקין ל-Google Sheet ציבורי.",
+  sheetsErrorFetch:
+    "לא ניתן לקרוא את הגיליון. ודא שהשיתוף מוגדר ל-'כל מי שיש לו קישור יכול לצפות'.",
+  sheetsErrorConnect: "החיבור נכשל. נסה שוב.",
+  sheetsErrorSync: "הסנכרון נכשל. נסה שוב.",
+  sheetsPublicHint:
+    "הגיליון חייב להיות משותף כ-'כל מי שיש לו קישור יכול לצפות'",
+  sheetsAutoSync: "סנכרון אוטומטי כל 10 דקות",
 };
 
 export default rag;

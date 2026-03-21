@@ -124,9 +124,11 @@ function matchButton(
   const normalized = userMessage.trim().toLowerCase();
   const exact = buttons.find((b) => b.label.trim().toLowerCase() === normalized);
   if (exact) return exact;
-  const num = parseInt(normalized);
-  if (!isNaN(num) && num >= 1 && num <= buttons.length) {
-    return buttons[num - 1];
+  if (/^\d+$/.test(normalized)) {
+    const num = parseInt(normalized);
+    if (num >= 1 && num <= buttons.length) {
+      return buttons[num - 1];
+    }
   }
   return undefined;
 }
@@ -637,6 +639,62 @@ Deno.serve(async (req) => {
 
     // If session completed or no current node, check for trigger match
     if (sessionStatus === "completed" || !currentNodeId) {
+      // Completed session with global menu — prioritize menu over trigger restart
+      if (sessionStatus === "completed") {
+        const globalMenuNode = flow.nodes.find((n) => n.type === "buttons" && n.data.isGlobalMenu === true);
+        if (globalMenuNode) {
+          // Check if user typed an exact button label — route to that button's target
+          const menuButtons = globalMenuNode.data.buttons || [];
+          const menuMatch = matchButton(menuButtons, message);
+          if (menuMatch) {
+            let targetNode = findNextNode(flow, globalMenuNode.id, `btn-${menuMatch.id}`);
+            if (targetNode) {
+              console.log("[flow-demo] Completed — global menu button match:", menuMatch.label, "→", targetNode.id);
+              let jumpNodeId: string | null = targetNode.id;
+              let maxSteps = 20;
+              while (jumpNodeId && maxSteps > 0) {
+                maxSteps--;
+                const node = findNodeById(flow, jumpNodeId);
+                if (!node) break;
+                if (node.type === "open_bot") { jumpNodeId = node.id; break; }
+                if (node.type === "ai_agent") {
+                  const next = findNextNode(flow, node.id);
+                  jumpNodeId = next?.id || null;
+                  if (!jumpNodeId) break;
+                  continue;
+                }
+                const result = await executeNodeDemo(node, variables, flow, responses);
+                if (result.waitForInput) { jumpNodeId = result.nextNodeId; break; }
+                jumpNodeId = result.nextNodeId;
+                if (!jumpNodeId) break;
+              }
+              return new Response(
+                JSON.stringify({
+                  responses: responses,
+                  conversation_id: convId,
+                  session_state: {
+                    current_node_id: jumpNodeId,
+                    variables,
+                    status: jumpNodeId ? "active" : "completed",
+                  },
+                }),
+                { headers: { ...cors, "Content-Type": "application/json" } }
+              );
+            }
+          }
+          // No button match — resend the global menu
+          await executeNodeDemo(globalMenuNode, variables, flow, responses);
+          return new Response(
+            JSON.stringify({
+              responses: responses,
+              conversation_id: convId,
+              session_state: { current_node_id: globalMenuNode.id, variables, status: "active" },
+            }),
+            { headers: { ...cors, "Content-Type": "application/json" } }
+          );
+        }
+      }
+      // No global menu or brand new session — try trigger classification
       const matchedId = await classifyTrigger(triggers, message);
       const triggerNode = matchedId ? findStartNodeById(flow, matchedId) : undefined;
       if (triggerNode) {
@@ -644,7 +702,7 @@ Deno.serve(async (req) => {
         variables = {};
         sessionStatus = "active";
       } else {
-        // No specific trigger match — check for catch-all start node (empty trigger)
+        // No trigger match — check for catch-all start node (empty trigger)
         const catchAll = findCatchAllStart(flow);
         if (catchAll) {
           currentNodeId = catchAll.id;
@@ -678,6 +736,28 @@ Deno.serve(async (req) => {
 
     // Open Bot node — free AI conversation (bypass strict mode)
     if (currentNode.type === "open_bot") {
+      // Menu-intent keyword check — navigate back to the parent menu
+      const MENU_KEYWORDS = ["menu", "תפריט", "tafrit", "main menu", "תפריט ראשי", "back to menu", "חזרה לתפריט", "back"];
+      const normalizedForMenu = message.trim().toLowerCase();
+      const isMenuRequest = MENU_KEYWORDS.some(kw => normalizedForMenu === kw || normalizedForMenu.includes(kw));
+
+      if (isMenuRequest && currentNode.data.linkedNodeId) {
+        const parentMenuNode = findNodeById(flow, currentNode.data.linkedNodeId);
+        if (parentMenuNode) {
+          console.log("[flow-demo] Menu keyword on open_bot — returning to parent menu:", parentMenuNode.id);
+          await executeNodeDemo(parentMenuNode, variables, flow, responses);
+          return new Response(
+            JSON.stringify({
+              responses: responses,
+              conversation_id: convId,
+              session_state: { current_node_id: parentMenuNode.id, variables, status: "active" },
+            }),
+            { headers: { ...cors, "Content-Type": "application/json" } }
+          );
+        }
+      }
+
+      // No menu request or no linked parent — continue with LLM
       const botResponse = await callLLMFallback(user_id, message, convId, workflowRecord, variables?.language);
       await supabase.from("demo_conversations").insert({
         user_id, conversation_id: convId,

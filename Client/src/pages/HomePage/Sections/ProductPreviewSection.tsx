@@ -652,6 +652,7 @@ const ProductPreviewSection = () => {
           const isActive = activeStep === idx;
           return (
             <button
+              type="button"
               key={idx}
               onClick={() => goToStep(idx)}
               className={`relative flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-xl text-sm font-medium transition-colors cursor-pointer ${
@@ -751,6 +752,7 @@ const ProductPreviewSection = () => {
           <div className="order-1 lg:order-2 relative">
             {/* Navigation arrows (desktop) */}
             <button
+              type="button"
               onClick={() =>
                 goToStep(
                   (activeStep === 0 ? 3 : activeStep - 1) as StepIdx,
@@ -761,6 +763,7 @@ const ProductPreviewSection = () => {
               <ChevronLeft className="w-4 h-4" />
             </button>
             <button
+              type="button"
               onClick={() =>
                 goToStep(((activeStep + 1) % 4) as StepIdx)
               }

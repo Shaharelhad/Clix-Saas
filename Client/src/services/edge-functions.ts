@@ -94,3 +94,7 @@ export function callFlowAssistant(data: Record<string, unknown>) {
 export function callTestIntegration(data: Record<string, unknown>) {
   return callEdgeFn("VITE_EDGE_FN_TEST_INTEGRATION", data);
 }
+
+export function callSheetsSync(data: Record<string, unknown>) {
+  return callEdgeFn("VITE_EDGE_FN_SHEETS_SYNC", data);
+}

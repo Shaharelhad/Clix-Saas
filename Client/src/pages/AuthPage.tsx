@@ -112,7 +112,12 @@ function SubmitBtn({
         isSubmitting && "opacity-60 pointer-events-none",
       )}
     >
-      {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
+      <Loader2
+        className={cn(
+          "w-4 h-4 animate-spin",
+          isSubmitting ? "block" : "hidden",
+        )}
+      />
       {label}
     </motion.button>
   );
@@ -371,9 +376,14 @@ export default function AuthPage() {
     if (!loginPassword) return setError(t("errorPasswordRequired"));
 
     setIsSubmitting(true);
-    const { error: authErr } = await signIn(loginEmail, loginPassword);
-    setIsSubmitting(false);
-    if (authErr) setError(t("errorLoginFailed"));
+    try {
+      const { error: authErr } = await signIn(loginEmail, loginPassword);
+      if (authErr) setError(t("errorLoginFailed"));
+    } catch {
+      setError(t("errorLoginFailed"));
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleSignup = async (e: React.FormEvent) => {
@@ -387,24 +397,29 @@ export default function AuthPage() {
     if (signupPw !== confirmPw) return setError(t("errorPasswordMismatch"));
 
     setIsSubmitting(true);
-    const { data, error: authErr } = await signUp(
-      signupEmail,
-      signupPw,
-      name,
-      phone,
-    );
-    setIsSubmitting(false);
-    if (authErr) {
-      setError(authErr.message);
-      return;
-    }
+    try {
+      const { data, error: authErr } = await signUp(
+        signupEmail,
+        signupPw,
+        name,
+        phone,
+      );
+      if (authErr) {
+        setError(authErr.message);
+        return;
+      }
 
-    if (!data?.session) {
-      setSuccess(t("signupConfirmEmail"));
-      return;
-    }
+      if (!data?.session) {
+        setSuccess(t("signupConfirmEmail"));
+        return;
+      }
 
-    navigate("/pending");
+      navigate("/pending");
+    } catch {
+      setError(t("errorLoginFailed"));
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleForgot = async (e: React.FormEvent) => {
@@ -415,13 +430,18 @@ export default function AuthPage() {
     if (!isValidEmail(forgotEmail)) return setError(t("errorEmailInvalid"));
 
     setIsSubmitting(true);
-    const { error: authErr } = await resetPassword(forgotEmail);
-    setIsSubmitting(false);
-    if (authErr) {
-      setError(authErr.message);
-      return;
+    try {
+      const { error: authErr } = await resetPassword(forgotEmail);
+      if (authErr) {
+        setError(authErr.message);
+        return;
+      }
+      setSuccess(t("resetEmailSent"));
+    } catch {
+      setError(t("errorLoginFailed"));
+    } finally {
+      setIsSubmitting(false);
     }
-    setSuccess(t("resetEmailSent"));
   };
 
   return (
@@ -434,7 +454,7 @@ export default function AuthPage() {
 
       {/* ── Right panel — Form (warm cream) ── */}
       <div
-        className="flex flex-col items-center justify-center px-6 sm:px-10 relative overflow-y-auto"
+        className="flex flex-col items-center justify-center px-4 sm:px-6 md:px-10 relative overflow-y-auto"
         style={{
           background: "linear-gradient(170deg, #FDF8F2 0%, #F8F0E6 40%, #FBF5EE 100%)",
         }}
@@ -672,25 +692,18 @@ function MessageAlert({
   const msg = error || success;
   const isError = !!error;
 
+  if (!msg) return null;
+
   return (
-    <AnimatePresence>
-      {msg && (
-        <motion.div
-          key={isError ? "error" : "success"}
-          initial={{ opacity: 0, y: -8, height: 0 }}
-          animate={{ opacity: 1, y: 0, height: "auto" }}
-          exit={{ opacity: 0, y: -8, height: 0 }}
-          transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-          className={cn(
-            "rounded-xl px-4 py-3 mb-1 border text-sm text-center",
-            isError
-              ? "bg-red-50 border-red-200 text-red-600"
-              : "bg-emerald-50 border-emerald-200 text-emerald-600",
-          )}
-        >
-          {msg}
-        </motion.div>
+    <div
+      className={cn(
+        "rounded-xl px-4 py-3 mb-1 border text-sm text-center",
+        isError
+          ? "bg-red-50 border-red-200 text-red-600"
+          : "bg-emerald-50 border-emerald-200 text-emerald-600",
       )}
-    </AnimatePresence>
+    >
+      {msg}
+    </div>
   );
 }
