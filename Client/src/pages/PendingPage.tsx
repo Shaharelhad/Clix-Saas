@@ -266,6 +266,7 @@ export default function PendingPage() {
 
             {/* Check Status button */}
             <motion.button
+              type="button"
               onClick={handleCheckStatus}
               disabled={isChecking}
               whileHover={isChecking ? {} : { scale: 1.015 }}
@@ -287,6 +288,7 @@ export default function PendingPage() {
 
             {/* Log out button */}
             <button
+              type="button"
               onClick={handleSignOut}
               className="w-full py-2.5 flex items-center justify-center gap-2 text-[#A39B90] hover:text-[#7A7267] transition-colors text-sm"
             >
