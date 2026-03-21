@@ -92,6 +92,7 @@ const flow = {
   helpGreeting: "Hi! 👋 I'm here to help you with the flow builder. Ask me about nodes, connections, publishing, settings, or anything else.",
   helpReset: "Reset chat",
   helpOpen: "Help",
+  helpTooltip: "AI assistant for building flows",
   helpClose: "Close help",
 
   // Canvas
