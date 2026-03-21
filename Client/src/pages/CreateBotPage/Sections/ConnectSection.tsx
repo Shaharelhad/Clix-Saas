@@ -168,6 +168,7 @@ function SuccessOverlay({ onGoToDashboard, t }: { onGoToDashboard: () => void; t
         </motion.div>
 
         <motion.button
+          type="button"
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 1.0, ease: EASE }}
@@ -373,6 +374,7 @@ const ConnectSection = () => {
           <div className="flex justify-center gap-2 pt-6 pb-2">
             {(["android", "iphone"] as const).map((p) => (
               <button
+                type="button"
                 key={p}
                 onClick={() => handlePlatformChange(p)}
                 className={`px-5 py-2 rounded-full text-sm font-semibold transition-all duration-200 cursor-pointer ${
@@ -397,6 +399,7 @@ const ConnectSection = () => {
           <div className="relative px-4 sm:px-8 pb-4">
             {/* Prev Arrow (always visual left) */}
             <button
+              type="button"
               onClick={goPrev}
               disabled={tutorialStep <= 0}
               className="absolute left-1 sm:left-2 top-1/2 -translate-y-1/2 z-10 w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all disabled:opacity-20 disabled:cursor-not-allowed cursor-pointer"
@@ -440,6 +443,7 @@ const ConnectSection = () => {
 
             {/* Next Arrow (always visual right) */}
             <button
+              type="button"
               onClick={goNext}
               disabled={tutorialStep >= totalSteps - 1}
               className="absolute right-1 sm:right-2 top-1/2 -translate-y-1/2 z-10 w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all disabled:opacity-20 disabled:cursor-not-allowed cursor-pointer"
@@ -452,6 +456,7 @@ const ConnectSection = () => {
           <div className="flex justify-center gap-2 pb-5">
             {steps.map((_, i) => (
               <button
+                type="button"
                 key={i}
                 onClick={() => {
                   setSlideDirection(i > tutorialStep ? (isRTL ? -1 : 1) : (isRTL ? 1 : -1));
@@ -488,6 +493,7 @@ const ConnectSection = () => {
                 </motion.div>
                 <div className="flex gap-3">
                   <motion.button
+                    type="button"
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.2 }}
@@ -499,6 +505,7 @@ const ConnectSection = () => {
                     {t("gotIt")}
                   </motion.button>
                   <motion.button
+                    type="button"
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.3 }}
@@ -538,6 +545,7 @@ const ConnectSection = () => {
                       {t("waitingForScan")}
                     </div>
                     <button
+                      type="button"
                       onClick={handleConnect}
                       className="inline-flex items-center gap-2 text-sm text-[#25D366] hover:text-[#1fb855] font-medium transition-colors cursor-pointer"
                     >
@@ -579,6 +587,7 @@ const ConnectSection = () => {
                   <div className="space-y-3">
                     <div className="flex gap-3">
                       <button
+                        type="button"
                         onClick={handleConnect}
                         disabled={isConnecting}
                         className="group flex-1 inline-flex items-center justify-center gap-3 bg-[#25D366] hover:bg-[#1fb855] text-white font-bold text-base rounded-xl py-3.5 transition-all duration-300 shadow-[0_4px_20px_rgba(37,211,102,0.3)] hover:shadow-[0_6px_28px_rgba(37,211,102,0.4)] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
@@ -593,6 +602,7 @@ const ConnectSection = () => {
                         </span>
                       </button>
                       <button
+                        type="button"
                         onClick={() => {
                           sessionStorage.removeItem("createBot_phase");
                           navigate("/dashboard");
@@ -605,12 +615,14 @@ const ConnectSection = () => {
                     </div>
                     <div className="flex justify-center gap-6 text-sm">
                       <button
+                        type="button"
                         className="text-gray-500 hover:text-white transition-colors cursor-pointer"
                         onClick={(e) => e.preventDefault()}
                       >
                         {t("linkWithPhone")}
                       </button>
                       <button
+                        type="button"
                         className="text-gray-500 hover:text-white transition-colors cursor-pointer"
                         onClick={(e) => e.preventDefault()}
                       >
