@@ -254,9 +254,10 @@ function BotStatusPill({ userId }: { userId: string }) {
     <motion.div variants={fadeUp} className="relative shrink-0">
       {/* ── Main pill ── */}
       <button
+        type="button"
         onClick={() => setMenuOpen((o) => !o)}
         disabled={loading}
-        className={`flex items-center gap-2.5 px-4 py-2.5 rounded-2xl border ${config.border} ${config.bg} shadow-sm cursor-pointer transition-all hover:shadow-md disabled:opacity-60`}
+        className={`flex items-center gap-2.5 px-4 py-2.5 rounded-2xl border ${config.border} ${config.bg} shadow-sm cursor-pointer transition-all hover:shadow-md active:scale-[0.98] disabled:opacity-60`}
       >
         {loading ? (
           <Loader2 className="w-4 h-4 animate-spin text-[#7A7267]" />
@@ -295,6 +296,7 @@ function BotStatusPill({ userId }: { userId: string }) {
                   </div>
                 )}
                 <button
+                  type="button"
                   onClick={(e) => { e.stopPropagation(); handlePause(); }}
                   className="w-full flex items-center gap-3 px-4 py-3 text-sm text-[#4A4640] hover:bg-amber-50 transition-colors cursor-pointer"
                 >
@@ -302,6 +304,7 @@ function BotStatusPill({ userId }: { userId: string }) {
                   {t("pauseBot")}
                 </button>
                 <button
+                  type="button"
                   onClick={(e) => { e.stopPropagation(); setShowConfirmDisconnect(true); setMenuOpen(false); }}
                   className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
                 >
@@ -314,6 +317,7 @@ function BotStatusPill({ userId }: { userId: string }) {
             {status === "paused" && (
               <>
                 <button
+                  type="button"
                   onClick={(e) => { e.stopPropagation(); handleResume(); }}
                   className="w-full flex items-center gap-3 px-4 py-3 text-sm text-[#4A4640] hover:bg-emerald-50 transition-colors cursor-pointer"
                 >
@@ -321,6 +325,7 @@ function BotStatusPill({ userId }: { userId: string }) {
                   {t("resumeBot")}
                 </button>
                 <button
+                  type="button"
                   onClick={(e) => { e.stopPropagation(); setShowConfirmDisconnect(true); setMenuOpen(false); }}
                   className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
                 >
@@ -333,6 +338,7 @@ function BotStatusPill({ userId }: { userId: string }) {
             {status === "disconnected" && (
               <>
                 <button
+                  type="button"
                   onClick={(e) => { e.stopPropagation(); handleReconnect(); }}
                   className="w-full flex items-center gap-3 px-4 py-3 text-sm text-[#4A4640] hover:bg-emerald-50 transition-colors cursor-pointer"
                 >
@@ -340,6 +346,7 @@ function BotStatusPill({ userId }: { userId: string }) {
                   {t("reconnectBot")}
                 </button>
                 <button
+                  type="button"
                   onClick={(e) => { e.stopPropagation(); setMenuOpen(false); setConnectModalOpen(true); }}
                   className="w-full flex items-center gap-3 px-4 py-3 text-sm text-[#4A4640] hover:bg-blue-50 transition-colors cursor-pointer"
                 >
@@ -378,12 +385,14 @@ function BotStatusPill({ userId }: { userId: string }) {
               <p className="text-sm text-[#7A7267]">{t("disconnectConfirm")}</p>
               <div className="flex gap-3">
                 <button
+                  type="button"
                   onClick={() => setShowConfirmDisconnect(false)}
                   className="flex-1 py-2.5 rounded-xl border border-[#EDE6DD] text-sm font-medium text-[#7A7267] hover:bg-[#FAF7F3] transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
+                  type="button"
                   onClick={handleDisconnect}
                   className="flex-1 py-2.5 rounded-xl bg-red-500 hover:bg-red-600 text-white text-sm font-bold transition-colors cursor-pointer"
                 >
@@ -456,7 +465,7 @@ export default function DashboardPage() {
       variants={stagger}
       initial="hidden"
       animate="show"
-      className="p-5 sm:p-8 max-w-7xl mx-auto"
+      className="px-3 py-5 sm:px-5 sm:py-5 md:p-8 max-w-7xl mx-auto"
     >
       {/* ── Top Row: Welcome + Status ── */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
@@ -472,6 +481,7 @@ export default function DashboardPage() {
         {user?.id && (
           <motion.div variants={fadeUp} className="flex items-center gap-3">
             <button
+              type="button"
               onClick={() => setBlockedModalOpen(true)}
               className="flex items-center gap-2 px-3.5 py-2.5 rounded-2xl border border-[#EDE6DD] bg-white shadow-sm cursor-pointer transition-all hover:shadow-md hover:border-[#D5CEC5]"
             >
