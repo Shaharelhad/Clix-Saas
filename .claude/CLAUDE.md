@@ -88,6 +88,7 @@ Only `Client/` has a package.json. Run `npm install` from there.
 - All 8 edge functions deployed and responding
 - 13/19 RPC functions used from frontend (6 unused — see `migration-status.md`)
 - **Draft/Publish system:** `form_responses.draft_bot_prompt` column separates preview from live bot. Edits go to draft, published on WhatsApp connect or via "Publish Changes" button in dashboard
+- **Google Sheets Knowledge Base:** Users paste a public Google Sheet URL → data is fetched via Google Sheets API, chunked, embedded, and added to the RAG pipeline. Auto-syncs every 10 min via Inngest cron. Manual refresh also available. Edge function: `sheets-sync`. Shared helpers: `_shared/sheets-helpers.ts`, `_shared/chunking.ts`.
 
 ### Frontend Pages Built
 - **HomePage** — full landing page with 6 sections (Hero, ProductPreview, Features, FAQ, CTA, Footer)

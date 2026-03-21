@@ -48,6 +48,7 @@ export function useRagUpload() {
         .from("user_documents")
         .select("*")
         .eq("user_id", user!.id)
+        .eq("source_type", "file")
         .maybeSingle();
       return data;
     },
