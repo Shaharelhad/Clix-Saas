@@ -132,9 +132,11 @@ function SortableFieldCard({
       )}
     >
       <button
+        type="button"
         {...attributes}
         {...listeners}
         className="text-[#CCCCCC] hover:text-[#999999] cursor-grab active:cursor-grabbing shrink-0"
+        aria-label="Drag to reorder"
       >
         <GripVertical className="w-4 h-4" />
       </button>
@@ -158,15 +160,19 @@ function SortableFieldCard({
 
       <div className="flex items-center gap-1.5 shrink-0">
         <button
+          type="button"
           onClick={onEdit}
           className="w-8 h-8 rounded-lg flex items-center justify-center text-[#AAAAAA] hover:text-[#444444] hover:bg-[#FDF9F6] transition-all cursor-pointer"
+          aria-label="Edit field"
         >
           <Pencil className="w-3.5 h-3.5" />
         </button>
         <button
+          type="button"
           onClick={onDelete}
           disabled={isDeleting}
           className="w-8 h-8 rounded-lg flex items-center justify-center text-red-600 hover:text-red-600 hover:bg-red-50 transition-all cursor-pointer disabled:opacity-40"
+          aria-label="Delete field"
         >
           {isDeleting ? (
             <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -215,8 +221,10 @@ function FieldEditPanel({
             {isNew ? t("addNewField") : t("editField")}
           </h3>
           <button
+            type="button"
             onClick={onCancel}
             className="w-7 h-7 rounded-lg flex items-center justify-center text-[#AAAAAA] hover:text-[#444444] hover:bg-[#FDF9F6] transition-all cursor-pointer"
+            aria-label="Close"
           >
             <X className="w-4 h-4" />
           </button>
@@ -326,6 +334,7 @@ function FieldEditPanel({
                   />
                   {data.options.length > 1 && (
                     <button
+                      type="button"
                       onClick={() => {
                         const newOpts = data.options.filter((_, j) => j !== i);
                         onChange({ ...data, options: newOpts });
@@ -338,6 +347,7 @@ function FieldEditPanel({
                 </div>
               ))}
               <button
+                type="button"
                 onClick={() =>
                   onChange({ ...data, options: [...data.options, ""] })
                 }
@@ -376,6 +386,7 @@ function FieldEditPanel({
         {/* Actions */}
         <div className="flex items-center gap-2 pt-2">
           <button
+            type="button"
             onClick={onSave}
             disabled={isSaving || !data.label.trim()}
             className={cn(
@@ -392,6 +403,7 @@ function FieldEditPanel({
             {t("saveField")}
           </button>
           <button
+            type="button"
             onClick={onCancel}
             className="px-4 py-2 rounded-xl text-sm text-[#999999] hover:text-[#444444] hover:bg-[#FDF9F6] transition-all cursor-pointer"
           >
@@ -742,6 +754,7 @@ export default function FormBuilderSection() {
               {/* Save button */}
               <div className="flex items-center gap-3">
                 <button
+                  type="button"
                   onClick={() => saveSettingsMutation.mutate()}
                   disabled={
                     !settingsDirty || saveSettingsMutation.isPending
@@ -789,6 +802,7 @@ export default function FormBuilderSection() {
                 {t("formFieldsTitle")}
               </h2>
               <button
+                type="button"
                 onClick={openNewField}
                 disabled={editingField === "new"}
                 className={cn(
