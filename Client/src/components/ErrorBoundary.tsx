@@ -44,8 +44,9 @@ class ErrorBoundary extends Component<Props, State> {
         <div className="min-h-dvh flex flex-col items-center justify-center gap-4 bg-neutral-300">
           <p className="text-2xl font-bold text-neutral-800">Something went wrong.</p>
           <button
+            type="button"
             onClick={() => this.setState({ hasError: false })}
-            className="px-4 py-2 rounded-xl bg-neutral-800 text-neutral-200 hover:bg-neutral-700 cursor-pointer"
+            className="px-4 py-2 rounded-xl bg-neutral-800 text-neutral-200 hover:bg-neutral-700 cursor-pointer transition-colors"
           >
             Try Again
           </button>
