@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { ReactFlowProvider } from "@xyflow/react";
-import { Loader2, Lock } from "lucide-react";
+import { Loader2, Lock, Monitor, ArrowRight } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import { useFlowBuilder } from "@/hooks/useFlowBuilder";
@@ -166,9 +167,36 @@ function FlowBuilderContent() {
 }
 
 export default function FlowBuilderPage() {
+  const { t } = useTranslation("flow");
+  const navigate = useNavigate();
+
   return (
-    <ReactFlowProvider>
-      <FlowBuilderContent />
-    </ReactFlowProvider>
+    <>
+      {/* Mobile gate — desktop only */}
+      <div className="lg:hidden flex items-center justify-center min-h-[calc(100vh-3.5rem)] p-6" dir="rtl">
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-[0_2px_24px_rgba(45,42,38,0.05)] border border-[#EDE6DD]/50 p-8 max-w-sm text-center space-y-4">
+          <div className="mx-auto w-14 h-14 rounded-full bg-[#FF7E47]/10 flex items-center justify-center">
+            <Monitor className="w-7 h-7 text-[#FF7E47]" />
+          </div>
+          <h2 className="text-lg font-bold text-[#2D2A26]">{t("desktopOnlyTitle")}</h2>
+          <p className="text-sm text-[#7A7267] leading-relaxed">{t("desktopOnlyDesc")}</p>
+          <button
+            type="button"
+            onClick={() => navigate("/dashboard")}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#FF7E47] text-white text-sm font-bold hover:bg-[#E86B38] transition-colors"
+          >
+            {t("desktopOnlyBack")}
+            <ArrowRight className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
+      {/* Desktop — full flow builder */}
+      <div className="hidden lg:block">
+        <ReactFlowProvider>
+          <FlowBuilderContent />
+        </ReactFlowProvider>
+      </div>
+    </>
   );
 }
