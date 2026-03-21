@@ -280,7 +280,7 @@ export default function FlowIntegrationsModal({ onClose }: FlowIntegrationsModal
             <Plug className="w-4 h-4 text-[#FF7E47]" />
             <span className="text-sm font-bold text-[#2D2A26]">{t("integrationsTitle")}</span>
           </div>
-          <button onClick={onClose} className="p-1 rounded hover:bg-[#EDE6DD]/40 cursor-pointer">
+          <button type="button" onClick={onClose} className="p-1 rounded hover:bg-[#EDE6DD]/40 cursor-pointer" aria-label="Close">
             <X className="w-4 h-4 text-[#7A7267]" />
           </button>
         </div>
@@ -295,6 +295,7 @@ export default function FlowIntegrationsModal({ onClose }: FlowIntegrationsModal
           {/* Add button */}
           {!showForm && (
             <button
+              type="button"
               onClick={openAdd}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#FF7E47] hover:bg-[#E86B38] text-white text-xs font-bold transition-colors cursor-pointer mb-4"
             >
@@ -310,7 +311,7 @@ export default function FlowIntegrationsModal({ onClose }: FlowIntegrationsModal
                 <span className="text-xs font-bold text-[#2D2A26]">
                   {editingId ? t("editIntegration") : t("addIntegration")}
                 </span>
-                <button onClick={closeForm} className="p-0.5 rounded hover:bg-white cursor-pointer">
+                <button type="button" onClick={closeForm} className="p-0.5 rounded hover:bg-white cursor-pointer" aria-label="Close">
                   <X className="w-3.5 h-3.5 text-[#7A7267]" />
                 </button>
               </div>
@@ -446,6 +447,7 @@ export default function FlowIntegrationsModal({ onClose }: FlowIntegrationsModal
               {/* Test Connection */}
               <div className="mt-3 space-y-2">
                 <button
+                  type="button"
                   onClick={handleTest}
                   disabled={!isFormValid || testStatus === "testing"}
                   className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#EDE6DD] text-xs font-bold text-[#2D2A26] hover:bg-[#FAF7F3] disabled:opacity-50 transition-colors cursor-pointer disabled:cursor-not-allowed"
@@ -478,6 +480,7 @@ export default function FlowIntegrationsModal({ onClose }: FlowIntegrationsModal
               {/* Save */}
               <div className="flex gap-2 mt-3">
                 <button
+                  type="button"
                   onClick={handleSave}
                   disabled={!isFormValid || saveMutation.isPending || testStatus !== "success"}
                   className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#FF7E47] hover:bg-[#E86B38] disabled:opacity-50 text-white text-xs font-bold transition-colors cursor-pointer disabled:cursor-not-allowed"
@@ -486,6 +489,7 @@ export default function FlowIntegrationsModal({ onClose }: FlowIntegrationsModal
                   {editingId ? t("editIntegration") : t("addIntegration")}
                 </button>
                 <button
+                  type="button"
                   onClick={closeForm}
                   className="px-3 py-1.5 rounded-lg border border-[#EDE6DD] text-xs text-[#7A7267] hover:bg-[#FAF7F3] transition-colors cursor-pointer"
                 >
@@ -518,6 +522,7 @@ export default function FlowIntegrationsModal({ onClose }: FlowIntegrationsModal
                   <div className="flex items-center gap-2 min-w-0">
                     {/* Status dot */}
                     <button
+                      type="button"
                       onClick={() =>
                         toggleStatusMutation.mutate({
                           id: item.id,
@@ -526,6 +531,7 @@ export default function FlowIntegrationsModal({ onClose }: FlowIntegrationsModal
                       }
                       className="shrink-0 cursor-pointer"
                       title={item.status === "active" ? t("integrationActive") : t("integrationInactive")}
+                      aria-label={item.status === "active" ? t("integrationActive") : t("integrationInactive")}
                     >
                       <span
                         className={`block w-2 h-2 rounded-full transition-colors ${
@@ -554,14 +560,17 @@ export default function FlowIntegrationsModal({ onClose }: FlowIntegrationsModal
                   {/* Actions */}
                   <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
+                      type="button"
                       onClick={() => openEdit(item)}
                       className="p-1 rounded text-[#A39B90] hover:text-[#FF7E47] hover:bg-[#FF7E47]/10 transition-colors cursor-pointer"
                       title={t("editIntegration")}
+                      aria-label={t("editIntegration")}
                     >
                       <Pencil className="w-3 h-3" />
                     </button>
                     {confirmDeleteId === item.id ? (
                       <button
+                        type="button"
                         onClick={() => deleteMutation.mutate(item.id)}
                         disabled={deleteMutation.isPending}
                         className="px-1.5 py-0.5 rounded text-[10px] font-bold text-red-600 bg-red-50 hover:bg-red-100 transition-colors cursor-pointer"
@@ -570,9 +579,11 @@ export default function FlowIntegrationsModal({ onClose }: FlowIntegrationsModal
                       </button>
                     ) : (
                       <button
+                        type="button"
                         onClick={() => setConfirmDeleteId(item.id)}
                         className="p-1 rounded text-[#C5BDB3] hover:text-red-500 hover:bg-red-50 transition-colors cursor-pointer"
                         title={t("deleteIntegration")}
+                      aria-label={t("deleteIntegration")}
                       >
                         <Trash2 className="w-3 h-3" />
                       </button>
@@ -587,6 +598,7 @@ export default function FlowIntegrationsModal({ onClose }: FlowIntegrationsModal
         {/* Footer */}
         <div className="px-5 py-3 border-t border-[#EDE6DD]/40">
           <button
+            type="button"
             onClick={onClose}
             className="w-full py-2 rounded-lg bg-[#FF7E47] text-white text-sm font-semibold hover:bg-[#e56e3a] transition-colors cursor-pointer"
           >
