@@ -105,7 +105,6 @@ export function useGoogleSheet() {
 
       if (fnError) {
         setError(fnError);
-        setIsSyncing(false);
         return;
       }
 
@@ -113,22 +112,19 @@ export function useGoogleSheet() {
 
       if (result?.no_changes) {
         setError(t("sheetsNoChanges"));
-        setIsSyncing(false);
         return;
       }
 
       if (result?.error) {
         setError(result.error);
-        setIsSyncing(false);
         return;
       }
-
-      await queryClient.invalidateQueries({
-        queryKey: ["google-sheet-document", user.id],
-      });
     } catch {
       setError(t("sheetsErrorSync"));
     } finally {
+      await queryClient.refetchQueries({
+        queryKey: ["google-sheet-document", user?.id],
+      });
       setIsSyncing(false);
     }
   }, [user?.id, sheetDocument, t, queryClient]);
@@ -147,12 +143,12 @@ export function useGoogleSheet() {
         setError(fnError);
         return;
       }
-
-      await queryClient.invalidateQueries({
-        queryKey: ["google-sheet-document", user.id],
-      });
     } catch {
       setError(t("sheetsErrorConnect"));
+    } finally {
+      await queryClient.refetchQueries({
+        queryKey: ["google-sheet-document", user?.id],
+      });
     }
   }, [user?.id, sheetDocument, t, queryClient]);
 
