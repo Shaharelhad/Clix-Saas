@@ -192,6 +192,7 @@ const CreateBotPage = () => {
 
       {/* ── Logout ── */}
       <motion.button
+        type="button"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.3 }}
@@ -214,6 +215,7 @@ const CreateBotPage = () => {
       {/* ── Skip button (only during form phase) ── */}
       {phase === "form" && (
         <motion.button
+          type="button"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.3 }}
@@ -272,6 +274,7 @@ const CreateBotPage = () => {
                   )}
 
                   <motion.button
+                    type="button"
                     onClick={() =>
                       isClickable
                         ? goToPhase(step.id as Phase)
