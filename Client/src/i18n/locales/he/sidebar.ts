@@ -8,6 +8,7 @@ const sidebar = {
   flowBuilder: "בונה תהליכים",
   knowledgeBase: "בסיס ידע",
   support: "תמיכה",
+  profile: "פרופיל",
   logout: "התנתק",
 };
 
