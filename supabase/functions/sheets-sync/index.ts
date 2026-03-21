@@ -99,10 +99,28 @@ Deno.serve(async (req) => {
       }
 
       // Check if content changed
-      const prevHash = (existingDoc.source_config as Record<string, unknown>)?.last_row_hash;
-      if (prevHash === sheetData.contentHash) {
+      const prevConfig = (existingDoc.source_config as Record<string, unknown>) || {};
+      if (prevConfig.last_row_hash === sheetData.contentHash) {
+        // Still update last_synced_at and row_count so UI reflects the check
+        await supabase
+          .from("user_documents")
+          .update({
+            source_config: {
+              ...prevConfig,
+              last_synced_at: new Date().toISOString(),
+              row_count: sheetData.rowCount,
+            },
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", document_id);
+
         return new Response(
-          JSON.stringify({ success: true, no_changes: true }),
+          JSON.stringify({
+            success: true,
+            no_changes: true,
+            row_count: sheetData.rowCount,
+            last_synced_at: new Date().toISOString(),
+          }),
           { headers: { ...cors, "Content-Type": "application/json" } },
         );
       }

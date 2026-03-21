@@ -26,6 +26,7 @@ export function useGoogleSheet() {
   const [isConnecting, setIsConnecting] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
   // Fetch current Google Sheet document
   const { data: sheetDocument = null, isLoading } = useQuery<UserDocument | null>({
@@ -94,6 +95,7 @@ export function useGoogleSheet() {
     if (!user?.id || !sheetDocument) return;
 
     setError(null);
+    setSuccess(null);
     setIsSyncing(true);
 
     try {
@@ -108,23 +110,51 @@ export function useGoogleSheet() {
         return;
       }
 
-      const result = data as { success?: boolean; no_changes?: boolean; error?: string } | null;
-
-      if (result?.no_changes) {
-        setError(t("sheetsNoChanges"));
-        return;
-      }
+      const result = data as {
+        success?: boolean;
+        no_changes?: boolean;
+        error?: string;
+        row_count?: number;
+        last_synced_at?: string;
+        chunk_count?: number;
+        sheet_name?: string;
+      } | null;
 
       if (result?.error) {
         setError(result.error);
         return;
       }
+
+      if (result?.no_changes) {
+        setError(t("sheetsNoChanges"));
+      } else if (result?.success) {
+        setSuccess(t("sheetsSyncSuccess"));
+        setTimeout(() => setSuccess(null), 3000);
+      }
+
+      // Optimistically update cache with response data
+      if (result?.success) {
+        queryClient.setQueryData(
+          ["google-sheet-document", user?.id],
+          (old: UserDocument | null) => {
+            if (!old) return old;
+            const prev = (old.source_config ?? {}) as Record<string, unknown>;
+            return {
+              ...old,
+              source_config: {
+                ...prev,
+                ...(result.row_count != null && { row_count: result.row_count }),
+                ...(result.last_synced_at && { last_synced_at: result.last_synced_at }),
+                ...(result.sheet_name && { sheet_name: result.sheet_name }),
+              },
+              ...(result.chunk_count != null && { chunk_count: result.chunk_count }),
+            };
+          },
+        );
+      }
     } catch {
       setError(t("sheetsErrorSync"));
     } finally {
-      await queryClient.refetchQueries({
-        queryKey: ["google-sheet-document", user?.id],
-      });
       setIsSyncing(false);
     }
   }, [user?.id, sheetDocument, t, queryClient]);
@@ -165,5 +195,7 @@ export function useGoogleSheet() {
     disconnectSheet,
     error,
     setError,
+    success,
+    setSuccess,
   };
 }

@@ -41,6 +41,7 @@ const rag = {
   sheetsLastSync: "סנכרון אחרון",
   sheetsRowCount: "שורות",
   sheetsNoChanges: "הגיליון מעודכן, לא נמצאו שינויים.",
+  sheetsSyncSuccess: "הגיליון סונכרן בהצלחה!",
   sheetsErrorUrl:
     "קישור לא תקין. ודא שזה קישור תקין ל-Google Sheet ציבורי.",
   sheetsErrorFetch:

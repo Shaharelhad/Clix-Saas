@@ -236,6 +236,7 @@ function GoogleSheetCard() {
     disconnectSheet,
     error,
     setError,
+    success,
   } = useGoogleSheet();
 
   const [sheetUrl, setSheetUrl] = useState("");
@@ -318,6 +319,14 @@ function GoogleSheetCard() {
               </div>
             </div>
           </div>
+
+          {/* Sync success message */}
+          {success && (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-50 border border-emerald-200">
+              <Check className="w-4 h-4 text-emerald-500 shrink-0" />
+              <span className="text-xs text-emerald-700">{success}</span>
+            </div>
+          )}
 
           {/* Sync info message (no changes) */}
           {error === t("sheetsNoChanges") && (
