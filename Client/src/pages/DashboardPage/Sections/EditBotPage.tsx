@@ -9,6 +9,7 @@ import EditBotSection from "./EditBotSection";
 import DemoChatSection from "./DemoChatSection";
 import BusinessContentSection from "./BusinessContentSection";
 import FaqSection from "./FaqSection";
+import KnowledgeBaseSection from "./KnowledgeBaseSection";
 import EditBotSidebar from "./EditBotSidebar";
 import type { EditBotCategory } from "./EditBotSidebar";
 
@@ -64,7 +65,7 @@ export default function EditBotPage() {
       variants={stagger}
       initial="hidden"
       animate="show"
-      className="p-5 sm:p-8 max-w-7xl mx-auto space-y-6"
+      className="px-3 py-5 sm:px-5 sm:py-5 md:p-8 max-w-7xl mx-auto space-y-6"
     >
       {/* ── Page Title ── */}
       <motion.div variants={fadeUp}>
@@ -112,6 +113,12 @@ export default function EditBotPage() {
             {activeCategory === "faq" && (
               <AnimatedPanel tabKey="faq">
                 <FaqSection />
+              </AnimatedPanel>
+            )}
+
+            {activeCategory === "knowledge-base" && (
+              <AnimatedPanel tabKey="knowledge-base">
+                <KnowledgeBaseSection />
               </AnimatedPanel>
             )}
           </AnimatePresence>
