@@ -247,11 +247,13 @@ export default function DemoChatSection({ resetKey = 0, workflowId }: DemoChatSe
         clickedMessageIds={clickedMessageIds}
         headerAction={
           <motion.button
+            type="button"
             whileHover={{ scale: 1.08, rotate: -15 }}
             whileTap={{ scale: 0.92 }}
             onClick={handleNewConversation}
             className="p-1.5 rounded-xl hover:bg-[#FAF7F3] transition-colors group cursor-pointer"
             title={t("newConversation")}
+            aria-label={t("newConversation")}
           >
             <RotateCcw className="w-3.5 h-3.5 text-[#A39B90] group-hover:text-[#FF7E47] transition-colors" />
           </motion.button>
