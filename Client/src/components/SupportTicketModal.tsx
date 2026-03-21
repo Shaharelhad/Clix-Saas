@@ -207,6 +207,7 @@ export default function SupportTicketModal({
           <div className="flex items-center gap-3 px-5 py-4 bg-[#2D2A26] text-white shrink-0">
             {view !== "list" && (
               <button
+                type="button"
                 onClick={goBack}
                 className="p-1 rounded-lg hover:bg-white/10 transition-colors cursor-pointer -ms-1"
               >
@@ -238,6 +239,7 @@ export default function SupportTicketModal({
               </span>
             )}
             <button
+              type="button"
               onClick={onClose}
               className="p-1 rounded-lg hover:bg-white/10 transition-colors cursor-pointer ms-1"
             >
@@ -267,6 +269,7 @@ export default function SupportTicketModal({
               {/* New conversation button */}
               <div className="px-4 pt-4 pb-2 shrink-0">
                 <button
+                  type="button"
                   onClick={startNew}
                   className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-[#FF7E47] hover:bg-[#E86B38] text-white text-sm font-bold transition-colors cursor-pointer shadow-sm shadow-[#FF7E47]/20"
                 >
@@ -296,6 +299,7 @@ export default function SupportTicketModal({
                         STATUS_COLORS[ticket.status] ?? STATUS_COLORS.open;
                       return (
                         <button
+                          type="button"
                           key={ticket.id}
                           onClick={() => openTicket(ticket.id)}
                           className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-[#EDE6DD]/40 transition-colors cursor-pointer text-start group"
@@ -362,6 +366,7 @@ export default function SupportTicketModal({
               {/* Send button */}
               <div className="px-5 pb-5 pt-2 shrink-0">
                 <button
+                  type="button"
                   onClick={() => createMutation.mutate()}
                   disabled={
                     !subject.trim() || !message.trim() || createMutation.isPending
@@ -469,6 +474,7 @@ export default function SupportTicketModal({
                       style={{ minHeight: "38px" }}
                     />
                     <button
+                      type="button"
                       onClick={() => replyMutation.mutate()}
                       disabled={!replyText.trim() || replyMutation.isPending}
                       className="w-9 h-9 rounded-xl bg-[#FF7E47] hover:bg-[#E86B38] disabled:opacity-40 flex items-center justify-center transition-colors cursor-pointer disabled:cursor-not-allowed shrink-0 shadow-sm shadow-[#FF7E47]/20"
