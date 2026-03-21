@@ -10,20 +10,28 @@ Deno.serve(async (req) => {
   }
 
   try {
-    await req.json(); // consume body (no fields needed besides auth)
+    const body = await req.json().catch(() => ({}));
     const user_id = await getAuthenticatedUserId(req);
+    const { document_id } = body as { document_id?: string };
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    // Fetch existing document
-    const { data: doc } = await supabase
+    // Fetch document — either by specific ID or the file-type document
+    let query = supabase
       .from("user_documents")
-      .select("id, storage_path")
-      .eq("user_id", user_id)
-      .maybeSingle();
+      .select("id, storage_path, source_type")
+      .eq("user_id", user_id);
+
+    if (document_id) {
+      query = query.eq("id", document_id);
+    } else {
+      query = query.eq("source_type", "file");
+    }
+
+    const { data: doc } = await query.maybeSingle();
 
     if (!doc) {
       return new Response(
@@ -32,8 +40,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Delete storage file
-    await supabase.storage.from("rag-documents").remove([doc.storage_path]);
+    // Delete storage file (only file-type documents have storage)
+    if (doc.storage_path) {
+      await supabase.storage.from("rag-documents").remove([doc.storage_path]);
+    }
 
     // Delete document row (CASCADE deletes chunks)
     await supabase.from("user_documents").delete().eq("id", doc.id);

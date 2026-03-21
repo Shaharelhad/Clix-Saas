@@ -797,11 +797,118 @@ const processDelayedJobs = inngest.createFunction(
   },
 );
 
+// ── Inngest Cron: Sync Google Sheets Knowledge Base ──────────
+
+const syncGoogleSheets = inngest.createFunction(
+  {
+    id: "sync-google-sheets",
+    retries: 1,
+  },
+  { cron: "*/10 * * * *" }, // every 10 minutes
+  async ({ step }) => {
+    const sheets = await step.run("fetch-sheet-documents", async () => {
+      const { data, error } = await supabase
+        .from("user_documents")
+        .select("id, user_id, source_url, source_config")
+        .eq("source_type", "google_sheet")
+        .eq("status", "ready");
+
+      if (error) {
+        console.error("[sheets-cron] Failed to fetch sheet documents:", error);
+        return [];
+      }
+      return data || [];
+    });
+
+    if (sheets.length === 0) return { checked: 0, updated: 0 };
+
+    let updated = 0;
+
+    for (const sheet of sheets) {
+      await step.run(`sync-sheet-${sheet.id}`, async () => {
+        try {
+          // Dynamic import to avoid loading sheets-helpers at module level
+          const { parseSheetId, fetchSheetData, processAndStoreChunks } = await import(
+            "../_shared/sheets-helpers.ts"
+          );
+
+          const sourceUrl = sheet.source_url as string;
+          const config = (sheet.source_config || {}) as Record<string, unknown>;
+          const sheetId = parseSheetId(sourceUrl);
+
+          if (!sheetId) {
+            console.error(`[sheets-cron] Invalid URL for doc ${sheet.id}`);
+            return;
+          }
+
+          const sheetData = await fetchSheetData(sheetId);
+
+          // Skip if unchanged
+          if (config.last_row_hash === sheetData.contentHash) return;
+
+          console.log(`[sheets-cron] Changes detected for doc ${sheet.id}, re-syncing...`);
+
+          // Delete old chunks
+          await supabase
+            .from("document_chunks")
+            .delete()
+            .eq("document_id", sheet.id);
+
+          // Update status to processing
+          await supabase
+            .from("user_documents")
+            .update({ status: "processing" })
+            .eq("id", sheet.id);
+
+          // Re-chunk and embed
+          const chunkCount = await processAndStoreChunks(
+            supabase,
+            sheet.id,
+            sheet.user_id,
+            sheetData.formattedText,
+          );
+
+          // Update document
+          await supabase
+            .from("user_documents")
+            .update({
+              status: "ready",
+              chunk_count: chunkCount,
+              file_name: sheetData.title,
+              source_config: {
+                ...config,
+                last_row_hash: sheetData.contentHash,
+                row_count: sheetData.rowCount,
+                sheet_name: sheetData.title,
+                last_synced_at: new Date().toISOString(),
+              },
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", sheet.id);
+
+          updated++;
+        } catch (err) {
+          console.error(`[sheets-cron] Failed to sync sheet ${sheet.id}:`, err);
+          await supabase
+            .from("user_documents")
+            .update({
+              status: "error",
+              error_message: `Auto-sync failed: ${(err as Error).message}`,
+            })
+            .eq("id", sheet.id);
+        }
+      });
+    }
+
+    return { checked: sheets.length, updated };
+  },
+);
+
 // ── Serve Inngest functions ─────────────────────────────────
 Deno.serve(
   serve({
     client: inngest,
-    functions: [processMessage, processDelayedJobs],
+    functions: [processMessage, processDelayedJobs, syncGoogleSheets],
     servePath: "/functions/v1/inngest",
     signingKey: Deno.env.get("INNGEST_SIGNING_KEY"),
   })
