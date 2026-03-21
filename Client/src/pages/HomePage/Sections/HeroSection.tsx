@@ -111,12 +111,12 @@ const HeroSection = () => {
       {/* ── Main content — two-column grid ── */}
       <div
         dir="ltr"
-        className="relative z-10 w-full max-w-7xl mx-auto px-6 lg:px-12 py-20 lg:py-0 grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center"
+        className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-12 py-20 lg:py-0 grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center"
       >
         {/* ── Left column — Text content (RTL) ── */}
         <div dir="rtl" className="order-2 lg:order-1 text-left">
           {/* Headline */}
-          <motion.h1 className="text-5xl sm:text-6xl md:text-7xl font-bold leading-tight mb-6">
+          <motion.h1 className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-bold leading-tight mb-6">
             <motion.span
               initial={{ opacity: 0, y: 40, filter: "blur(8px)" }}
               animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
@@ -173,6 +173,7 @@ const HeroSection = () => {
             }}
           >
             <button
+              type="button"
               onClick={() => navigate("/auth?mode=signup")}
               className="clix-btn cta-glow-pulse text-lg px-8 py-4 rounded-xl"
             >
@@ -211,7 +212,7 @@ const HeroSection = () => {
             }}
           >
             {/* ── Primary card: WhatsApp chat window ── */}
-            <div className="glass-card w-[320px] sm:w-[360px] lg:w-[400px] overflow-hidden">
+            <div className="glass-card w-full max-w-[320px] sm:max-w-[360px] lg:max-w-[400px] overflow-hidden">
               {/* Chat header */}
               <div className="flex items-center gap-3 px-4 py-3 border-b border-white/30">
                 <div
