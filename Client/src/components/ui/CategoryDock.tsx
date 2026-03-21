@@ -30,6 +30,7 @@ const floatingAnimation = {
 const DockIconButton = React.forwardRef<HTMLButtonElement, DockItem>(
   ({ icon: Icon, label, isActive, onClick }, ref) => (
     <motion.button
+      type="button"
       ref={ref}
       whileHover={{ scale: 1.1, y: -2 }}
       whileTap={{ scale: 0.95 }}
