@@ -258,6 +258,11 @@ const flow = {
   deleteNode: "Delete Node",
   noNodeSelected: "Select a node to edit its properties",
   flowList: "My Flows",
+
+  // Desktop-only gate
+  desktopOnlyTitle: "Desktop Only",
+  desktopOnlyDesc: "The Flow Builder requires a larger screen. Please open it on a desktop or tablet in landscape mode.",
+  desktopOnlyBack: "Back to Dashboard",
 };
 
 export default flow;
