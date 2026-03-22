@@ -868,6 +868,34 @@ Deno.serve(async (req) => {
           .single();
 
         if (outProfile?.active_flow_id) {
+          // Check if this is a bot-generated message echo (not a manual owner reply)
+          // WClixAPI echoes ALL outgoing messages including bot-sent ones
+          const { data: outSession } = await supabase
+            .from("subscriber_sessions")
+            .select("id")
+            .eq("workflow_id", outProfile.active_flow_id)
+            .eq("phone", outPhone)
+            .maybeSingle();
+
+          if (outSession) {
+            const { data: recentBotMsg } = await supabase
+              .from("flow_message_log")
+              .select("id")
+              .eq("session_id", outSession.id)
+              .eq("direction", "outbound")
+              .gte("created_at", new Date(Date.now() - 60_000).toISOString())
+              .limit(1)
+              .maybeSingle();
+
+            if (recentBotMsg) {
+              console.log("[flow] Skipping cooldown — bot echo for", outPhone);
+              return new Response(JSON.stringify({ ok: true, action: "bot_echo_skipped" }), {
+                headers: { ...corsHeaders, "Content-Type": "application/json" },
+              });
+            }
+          }
+
+          // No recent bot message — this is a manual owner reply, set cooldown
           const { data: wf } = await supabase
             .from("workflows")
             .select("flow_json")
