@@ -262,6 +262,7 @@ The gateway forwards **both incoming and outgoing** messages to `MAIN_SAAS_WEBHO
 > `from` is a clean phone number (e.g. `639516185785`), not a JID. The gateway resolves LIDs to phone numbers automatically.
 > Button/interactive replies are forwarded as regular text messages with the button's display text in `message`.
 > Images are sent as base64 in the payload — nothing is stored on disk.
+> **Bot echo:** The gateway forwards ALL outgoing messages, including bot-generated ones (sent via the API). The `flow-webhook` detects these echoes by checking `flow_message_log` for recent outbound entries and skips cooldown for them. Only messages NOT matching a recent bot-sent message trigger the manual-reply cooldown.
 
 ---
 
