@@ -159,7 +159,7 @@ export default function RagUploadModal({ isOpen, onClose }: RagUploadModalProps)
                           </span>
                           <span className="col-span-2">
                             {t("uploadDate")}:{" "}
-                            {new Date(document.created_at).toLocaleDateString(
+                            {new Date(document.created_at ?? "").toLocaleDateString(
                               i18n.language === "he" ? "he-IL" : "en-US",
                             )}
                           </span>
