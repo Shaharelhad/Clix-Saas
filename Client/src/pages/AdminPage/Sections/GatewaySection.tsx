@@ -119,36 +119,34 @@ export default function GatewaySection() {
         instance_id: instanceId,
       });
       if (data) {
-        const statusData = data as { status: string };
         queryClient.invalidateQueries({
           queryKey: ["admin", "gateway-instances"],
         });
-        if (statusData.status === "connected") {
-          // Stop polling
-          if (qrPollingRef.current) {
-            clearInterval(qrPollingRef.current);
-            qrPollingRef.current = null;
-          }
-        }
       }
     },
     [queryClient]
   );
 
-  // Start/stop QR polling based on selected instance status
+  // Poll status: fast (3s) during QR/connecting, slow (30s) when connected
   useEffect(() => {
     if (qrPollingRef.current) {
       clearInterval(qrPollingRef.current);
       qrPollingRef.current = null;
     }
 
-    if (
-      selected &&
-      (selected.status === "qr_generated" || selected.status === "connecting")
-    ) {
+    if (!selected) return;
+
+    let interval: number | undefined;
+    if (selected.status === "qr_generated" || selected.status === "connecting") {
+      interval = 3000;
+    } else if (selected.status === "connected") {
+      interval = 30000;
+    }
+
+    if (interval) {
       qrPollingRef.current = setInterval(() => {
         pollStatus(selected.instance_id);
-      }, 3000);
+      }, interval);
     }
 
     return () => {
