@@ -15,6 +15,7 @@ import EditBotPage from "./pages/DashboardPage/Sections/EditBotPage";
 import FlowBuilderPage from "./pages/FlowBuilderPage/FlowBuilderPage";
 import DashboardSection from "./pages/AdminPage/Sections/DashboardSection";
 import AdminTicketsSection from "./pages/AdminPage/Sections/AdminTicketsSection";
+import GatewaySection from "./pages/AdminPage/Sections/GatewaySection";
 import ProfilePage from "./pages/ProfilePage";
 
 function App() {
@@ -56,6 +57,7 @@ function App() {
         <Route path="users" element={<AdminUsersSection />} />
         <Route path="form-builder" element={<FormBuilderSection />} />
         <Route path="tickets" element={<AdminTicketsSection />} />
+        <Route path="gateway" element={<GatewaySection />} />
       </Route>
     </Routes>
   );
