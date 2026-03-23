@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.1"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       bot_edit_history: {
@@ -77,6 +102,54 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "demo_conversations_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      document_chunks: {
+        Row: {
+          chunk_index: number
+          content: string
+          created_at: string | null
+          document_id: string
+          embedding: string | null
+          id: string
+          token_count: number | null
+          user_id: string
+        }
+        Insert: {
+          chunk_index: number
+          content: string
+          created_at?: string | null
+          document_id: string
+          embedding?: string | null
+          id?: string
+          token_count?: number | null
+          user_id: string
+        }
+        Update: {
+          chunk_index?: number
+          content?: string
+          created_at?: string | null
+          document_id?: string
+          embedding?: string | null
+          id?: string
+          token_count?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_chunks_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "user_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_chunks_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -359,6 +432,50 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      gateway_instances: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          id: string
+          instance_id: string
+          label: string
+          phone_number: string | null
+          status: string
+          updated_at: string | null
+          webhook_url: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          instance_id: string
+          label?: string
+          phone_number?: string | null
+          status?: string
+          updated_at?: string | null
+          webhook_url?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          instance_id?: string
+          label?: string
+          phone_number?: string | null
+          status?: string
+          updated_at?: string | null
+          webhook_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gateway_instances_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       integrations: {
         Row: {
@@ -825,52 +942,52 @@ export type Database = {
       }
       user_documents: {
         Row: {
-          id: string
-          user_id: string
+          chunk_count: number | null
+          created_at: string | null
+          error_message: string | null
           file_name: string
           file_size: number
           file_type: string
-          storage_path: string | null
-          chunk_count: number
-          status: string
-          error_message: string | null
+          id: string
+          source_config: Json | null
           source_type: string
           source_url: string | null
-          source_config: Json
-          created_at: string
-          updated_at: string
+          status: string | null
+          storage_path: string | null
+          updated_at: string | null
+          user_id: string
         }
         Insert: {
-          id?: string
-          user_id: string
-          file_name: string
-          file_size?: number
-          file_type?: string
-          storage_path?: string | null
-          chunk_count?: number
-          status?: string
+          chunk_count?: number | null
+          created_at?: string | null
           error_message?: string | null
+          file_name: string
+          file_size: number
+          file_type: string
+          id?: string
+          source_config?: Json | null
           source_type?: string
           source_url?: string | null
-          source_config?: Json
-          created_at?: string
-          updated_at?: string
+          status?: string | null
+          storage_path?: string | null
+          updated_at?: string | null
+          user_id: string
         }
         Update: {
-          id?: string
-          user_id?: string
+          chunk_count?: number | null
+          created_at?: string | null
+          error_message?: string | null
           file_name?: string
           file_size?: number
           file_type?: string
-          storage_path?: string | null
-          chunk_count?: number
-          status?: string
-          error_message?: string | null
+          id?: string
+          source_config?: Json | null
           source_type?: string
           source_url?: string | null
-          source_config?: Json
-          created_at?: string
-          updated_at?: string
+          status?: string | null
+          storage_path?: string | null
+          updated_at?: string | null
+          user_id?: string
         }
         Relationships: [
           {
@@ -878,54 +995,6 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      document_chunks: {
-        Row: {
-          id: string
-          user_id: string
-          document_id: string
-          chunk_index: number
-          content: string
-          token_count: number | null
-          embedding: string | null
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          user_id: string
-          document_id: string
-          chunk_index: number
-          content: string
-          token_count?: number | null
-          embedding?: string | null
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          user_id?: string
-          document_id?: string
-          chunk_index?: number
-          content?: string
-          token_count?: number | null
-          embedding?: string | null
-          created_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "document_chunks_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "document_chunks_document_id_fkey"
-            columns: ["document_id"]
-            isOneToOne: false
-            referencedRelation: "user_documents"
             referencedColumns: ["id"]
           },
         ]
@@ -976,18 +1045,6 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      claim_pending_delayed_jobs: {
-        Args: { p_limit?: number }
-        Returns: {
-          created_at: string
-          execute_at: string
-          id: string
-          job_type: string
-          node_id: string
-          session_id: string
-          status: string
-        }[]
-      }
       admin_add_form_field: {
         Args: {
           p_allow_other?: boolean
@@ -1023,6 +1080,7 @@ export type Database = {
         Args: { p_id: string }
         Returns: {
           active_flow_id: string | null
+          blocked_numbers: Json | null
           bot_status: string
           created_at: string
           credits_balance: number
@@ -1068,6 +1126,7 @@ export type Database = {
         Args: { p_status?: string }
         Returns: {
           active_flow_id: string | null
+          blocked_numbers: Json | null
           bot_status: string
           created_at: string
           credits_balance: number
@@ -1143,10 +1202,25 @@ export type Database = {
         Args: { p_id: string; p_status: string }
         Returns: undefined
       }
-      discard_bot_draft: {
-        Args: { p_user_id: string }
-        Returns: Json
+      claim_pending_delayed_jobs: {
+        Args: { p_limit?: number }
+        Returns: {
+          created_at: string
+          execute_at: string
+          id: string
+          job_type: string
+          node_id: string
+          session_id: string
+          status: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "flow_delayed_jobs"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
+      discard_bot_draft: { Args: { p_user_id: string }; Returns: Json }
       get_max_revisions: {
         Args: { tier: Database["public"]["Enums"]["subscription_tier"] }
         Returns: number
@@ -1169,9 +1243,24 @@ export type Database = {
         }[]
       }
       is_admin: { Args: never; Returns: boolean }
-      publish_bot_changes: {
-        Args: { p_user_id: string }
-        Returns: Json
+      match_document_chunks: {
+        Args: {
+          p_embedding: string
+          p_match_count?: number
+          p_match_threshold?: number
+          p_user_id: string
+        }
+        Returns: {
+          chunk_index: number
+          content: string
+          id: string
+          similarity: number
+        }[]
+      }
+      publish_bot_changes: { Args: { p_user_id: string }; Returns: Json }
+      reset_conversation_session: {
+        Args: { p_session_id: string }
+        Returns: undefined
       }
       search_products: {
         Args: { p_limit?: number; p_query: string; p_user_id: string }
@@ -1188,20 +1277,6 @@ export type Database = {
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
-      match_document_chunks: {
-        Args: {
-          p_user_id: string
-          p_embedding: string
-          p_match_count?: number
-          p_match_threshold?: number
-        }
-        Returns: {
-          id: string
-          content: string
-          chunk_index: number
-          similarity: number
-        }[]
-      }
     }
     Enums: {
       subscription_tier: "basic" | "pro" | "premium"
@@ -1330,6 +1405,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       subscription_tier: ["basic", "pro", "premium"],
