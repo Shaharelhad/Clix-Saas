@@ -858,6 +858,30 @@ Deno.serve(async (req) => {
 
     // Handle outgoing messages — set cooldown when owner replies manually
     if (body.type === "outgoing") {
+      // Check if this is a gateway instance → forward outgoing to webhook too
+      const outGwId = body.customerId || "";
+      if (outGwId) {
+        const { data: gwInst } = await supabase
+          .from("gateway_instances")
+          .select("id, webhook_url")
+          .eq("instance_id", outGwId)
+          .maybeSingle();
+        if (gwInst?.webhook_url) {
+          try {
+            await fetch(gwInst.webhook_url, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(body),
+            });
+          } catch (e) {
+            console.error("[flow] Gateway outgoing forward error:", e);
+          }
+          return new Response(JSON.stringify({ ok: true, forwarded: true }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+      }
+
       const outCustomerId = body.customerId || "";
       const outPhone = body.from || "";
       if (outCustomerId && outPhone) {
@@ -951,6 +975,31 @@ Deno.serve(async (req) => {
     const phone = body.from || "";
     const userMessage = (body.message || "").trim();
     const buttonClickId = ""; // WClixAPI sends button clicks as plain text — matched by label/number
+
+    // Check if this is a gateway instance with its own webhook → forward and return
+    if (customerId) {
+      const { data: gatewayInstance } = await supabase
+        .from("gateway_instances")
+        .select("id, webhook_url")
+        .eq("instance_id", customerId)
+        .maybeSingle();
+
+      if (gatewayInstance?.webhook_url) {
+        try {
+          await fetch(gatewayInstance.webhook_url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          });
+          console.log("[flow] Forwarded to gateway webhook:", gatewayInstance.webhook_url);
+        } catch (fwdErr) {
+          console.error("[flow] Gateway webhook forward error:", fwdErr);
+        }
+        return new Response(JSON.stringify({ ok: true, forwarded: true }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
 
     if (!customerId || !phone || !userMessage) {
       console.log("[flow] Missing fields:", { customerId, phone, userMessage });

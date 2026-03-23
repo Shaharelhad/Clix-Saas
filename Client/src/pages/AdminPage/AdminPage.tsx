@@ -6,6 +6,7 @@ import {
   UserRoundSearch,
   ClipboardList,
   Ticket,
+  Radio,
   LogOut,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
@@ -17,6 +18,7 @@ const navItems = [
   { to: "/admin/users", icon: UserRoundSearch, labelKey: "navUsers" },
   { to: "/admin/form-builder", icon: ClipboardList, labelKey: "navFormBuilder" },
   { to: "/admin/tickets", icon: Ticket, labelKey: "navTickets" },
+  { to: "/admin/gateway", icon: Radio, labelKey: "navGateway" },
 ];
 
 export default function AdminPage() {

@@ -98,3 +98,7 @@ export function callTestIntegration(data: Record<string, unknown>) {
 export function callSheetsSync(data: Record<string, unknown>) {
   return callEdgeFn("VITE_EDGE_FN_SHEETS_SYNC", data);
 }
+
+export function callGatewayAdmin(data: Record<string, unknown>) {
+  return callEdgeFn("VITE_EDGE_FN_GATEWAY_ADMIN", data);
+}
