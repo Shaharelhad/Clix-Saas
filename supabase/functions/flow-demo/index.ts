@@ -958,6 +958,7 @@ Deno.serve(async (req) => {
           currentNode.data.expectedAnswer,
           message,
           currentNode.data.outputFormat || undefined,
+          variables,
         );
         formattedValue = validationResult.formatted;
         if (validationResult.result === "refused" && currentNode.data.allowSkip) {

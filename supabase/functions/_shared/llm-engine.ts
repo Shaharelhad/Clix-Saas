@@ -377,6 +377,7 @@ export async function validateCollectInput(
   expectedAnswer: string,
   userResponse: string,
   outputFormat?: string,
+  variables?: Record<string, string>,
 ): Promise<{ result: "valid" | "invalid" | "refused"; formatted?: string }> {
   if (!expectedAnswer.trim()) return { result: "valid" };
 
@@ -385,20 +386,23 @@ export async function validateCollectInput(
 
   const todayISO = new Date().toISOString().split("T")[0];
   const currentYear = new Date().getFullYear();
-  const formatInstruction = outputFormat
-    ? `\nToday's date is ${todayISO} (current year: ${currentYear}).
-If the response is valid and you can convert it to the format "${outputFormat}", include a "formatted" field.
-IMPORTANT date parsing rules:
+  const isDateFormat = outputFormat && /YYYY|MM|DD/i.test(outputFormat);
+  const dateInstruction = isDateFormat
+    ? `\nDate-specific rules (today is ${todayISO}, current year: ${currentYear}):
 - Users may write dates in ANY format: DD/MM/YY, YY/MM/DD, MM/DD/YY, DD-MM-YYYY, DD.MM.YY, "March 26", etc.
 - For 2-digit years, assume 2000s (e.g., "25" → 2025, "26" → 2026).
 - The formatted date MUST be a valid calendar date (month 1-12, day 1-31).
 - CRITICAL: This is for hotel booking dates which are ALWAYS in the future. The result MUST be a future date (after ${todayISO}). If one interpretation gives a past date and another gives a future date, you MUST pick the future date.
 - Try all valid interpretations (DD/MM/YY, YY/MM/DD, MM/DD/YY) and pick the one that gives a valid future date.
+- Handle RELATIVE dates: "today" → ${todayISO}, "tomorrow" → tomorrow's date, "next week" / "another week" / "in a week" → +7 days, "3 days" / "for 3 days" / "another 3 days" → +3 days. If prior context has a relevant date (e.g., check-in date), calculate relative to that date. Otherwise, calculate relative to today.
 - Example: "26/03/24" today being ${todayISO}:
   - DD/MM/YY → 2024-03-26 (PAST — reject)
   - YY/MM/DD → 2026-03-24 (FUTURE — use this!)
   - Result: {"result":"valid","formatted":"2026-03-24"}
-If you cannot convert it, just return {"result":"valid"} without a formatted field.`
+- Output format: "${outputFormat}"`
+    : "";
+  const variablesContext = variables && Object.keys(variables).length > 0
+    ? `\nPreviously collected information in this conversation:\n${JSON.stringify(variables)}\nUse this context to resolve relative references (e.g., "another week" relative to a previously collected date, "for 3 days" means check-in + 3 days).`
     : "";
 
   const systemPrompt = `You validate user responses in a WhatsApp chatbot.
@@ -414,7 +418,16 @@ Determine if the customer's response is:
 Be lenient with valid answers — accept reasonable variations, different formats, and different languages.
 For example: if expecting "a name", accept "John", "מיכאל", "sarah cohen" etc.
 If expecting "phone number", accept "0501234567", "050-123-4567", "+972501234567" etc.
-${formatInstruction}
+
+IMPORTANT: If the response is valid, ALWAYS try to extract a clean, normalized value and include it in a "formatted" field in your JSON response.
+Normalization rules by expected type:
+- Number / count / quantity (e.g., "number of guests"): extract the numeric value. "couple" or "זוג" → "2", "single" or "יחיד" → "1", "family of 4" or "משפחה של 4" → "4", "שלושה" → "3", "3 adults and 2 kids" → "5".
+- Phone number: normalize to digits with country code if possible.
+- Email: lowercase and trim whitespace.
+- Name: trim whitespace, keep as-is.
+${outputFormat && !isDateFormat ? `- The user specified output format: "${outputFormat}". Try to convert to this format.` : ""}
+If you cannot normalize meaningfully, omit the "formatted" field.
+${dateInstruction}${variablesContext}
 Respond with ONLY valid JSON.`;
 
   try {
