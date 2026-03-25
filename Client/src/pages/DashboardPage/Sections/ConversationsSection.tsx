@@ -163,6 +163,7 @@ export default function ConversationsSection() {
         .from("flow_message_log")
         .select("id, direction, content, message_type, created_at")
         .eq("session_id", effectiveSelectedId)
+        .not("message_type", "in", "(api_call,api_call_error)")
         .order("created_at", { ascending: false })
         .limit(100);
       return ((data ?? []) as Message[]).reverse();
