@@ -42,7 +42,38 @@ Deno.serve(async (req) => {
         .select("*")
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return json(cors, { instances: data ?? [] });
+      const instances = data ?? [];
+
+      // Sync live status from WA gateway for each instance
+      const synced = await Promise.all(
+        instances.map(async (inst) => {
+          try {
+            const res = await fetch(
+              `${WA_GATEWAY_BASE}/api/session/status/${inst.instance_id}`,
+              { headers: { "x-api-key": WA_GATEWAY_API_KEY } }
+            );
+            const live = await res.json();
+            const liveStatus = live.status || "not_found";
+            const updates: Record<string, unknown> = {
+              status: liveStatus,
+              updated_at: new Date().toISOString(),
+            };
+            if (live.phoneNumber) updates.phone_number = live.phoneNumber;
+
+            if (liveStatus !== inst.status || (live.phoneNumber && live.phoneNumber !== inst.phone_number)) {
+              await supabase
+                .from("gateway_instances")
+                .update(updates)
+                .eq("instance_id", inst.instance_id);
+            }
+            return { ...inst, status: liveStatus, phone_number: live.phoneNumber || inst.phone_number };
+          } catch {
+            return inst;
+          }
+        })
+      );
+
+      return json(cors, { instances: synced });
     }
 
     // ── HEALTH ───────────────────────────────────────────────

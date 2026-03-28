@@ -78,7 +78,7 @@ Content-Type: application/json
 
 ---
 
-### 4. Send Image/File
+### 4. Send File
 
 ```
 POST /api/session/send-file/:customerId
@@ -88,10 +88,15 @@ Content-Type: multipart/form-data
 **Form fields:**
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `chatId` | string | Yes | Phone number (e.g. `63XXXXXXXXXX`) |
-| `file` | file | Yes | The image/file to send (max 16MB) |
-| `fileName` | string | No | Custom file name |
-| `caption` | string | No | Caption text for images |
+| `file` | file | Yes | The file to send (max 64MB) |
+| `chatId` | string | Yes | Phone number or JID |
+| `caption` | string | No | Caption for the file |
+| `fileName` | string | No | Custom filename (used for documents, defaults to original filename) |
+
+The endpoint auto-detects media type from the file's mimetype:
+- `image/*` → sent as WhatsApp image
+- `video/*` → sent as WhatsApp video
+- Everything else (PDF, DOCX, XLSX, etc.) → sent as WhatsApp document
 
 **Response:**
 ```json
@@ -212,6 +217,56 @@ The gateway forwards **both incoming and outgoing** messages to `MAIN_SAAS_WEBHO
 }
 ```
 
+### Private document message
+```json
+{
+  "customerId": "customer1",
+  "type": "incoming",
+  "chatType": "private",
+  "from": "639516185785",
+  "pushName": "John Doe",
+  "message": "caption text or empty string",
+  "messageType": "document",
+  "timestamp": 1709812345,
+  "media": {
+    "base64": "<base64 encoded data>",
+    "mimetype": "application/pdf",
+    "caption": "caption text or null",
+    "fileName": "invoice.pdf"
+  }
+}
+```
+
+### Private video message
+```json
+{
+  "customerId": "customer1",
+  "type": "incoming",
+  "chatType": "private",
+  "from": "639516185785",
+  "pushName": "John Doe",
+  "message": "caption text or empty string",
+  "messageType": "video",
+  "timestamp": 1709812345,
+  "media": {
+    "base64": "<base64 encoded data>",
+    "mimetype": "video/mp4",
+    "caption": "caption text or null",
+    "fileName": null
+  }
+}
+```
+
+### Media download failure
+When media download fails, the `media` field is `null` and a `mediaError` string is included:
+```json
+{
+  "messageType": "document",
+  "media": null,
+  "mediaError": "Failed to download document"
+}
+```
+
 ### Group message
 ```json
 {
@@ -251,17 +306,24 @@ The gateway forwards **both incoming and outgoing** messages to `MAIN_SAAS_WEBHO
 | `from` | string | Phone number (private) or group ID (group chat) |
 | `participant` | string\|undefined | Only in group messages — phone number of the sender |
 | `pushName` | string\|null | Sender's WhatsApp display name (usually null for outgoing) |
-| `message` | string | Message text, button display text, or image caption |
-| `messageType` | string | `"text"` or `"image"` |
+| `message` | string | Message text, button display text, or media caption |
+| `messageType` | string | `"text"`, `"image"`, `"video"`, or `"document"` |
 | `timestamp` | number | Unix seconds |
 | `image` | object\|undefined | Only when `messageType` is `"image"` |
 | `image.base64` | string | Base64-encoded image data (not saved to disk) |
 | `image.mimetype` | string | e.g. `"image/jpeg"`, `"image/png"` |
 | `image.caption` | string\|null | Image caption if provided |
+| `media` | object\|null\|undefined | Only when `messageType` is `"video"` or `"document"`. `null` if download failed |
+| `media.base64` | string | Base64-encoded media data |
+| `media.mimetype` | string | e.g. `"video/mp4"`, `"application/pdf"` |
+| `media.caption` | string\|null | Caption if provided |
+| `media.fileName` | string\|null | Original filename (documents) or null (videos) |
+| `mediaError` | string\|undefined | Error message when media download fails |
 
 > `from` is a clean phone number (e.g. `639516185785`), not a JID. The gateway resolves LIDs to phone numbers automatically.
 > Button/interactive replies are forwarded as regular text messages with the button's display text in `message`.
-> Images are sent as base64 in the payload — nothing is stored on disk.
+> Images use the `image` field; videos and documents use the `media` field. All are sent as base64 in the payload — nothing is stored on disk.
+> If media download fails, `media` is `null` and `mediaError` contains the error message.
 > **Bot echo:** The gateway forwards ALL outgoing messages, including bot-generated ones (sent via the API). The `flow-webhook` detects these echoes by checking `flow_message_log` for recent outbound entries and skips cooldown for them. Only messages NOT matching a recent bot-sent message trigger the manual-reply cooldown.
 
 ---
@@ -284,7 +346,7 @@ The gateway forwards **both incoming and outgoing** messages to `MAIN_SAAS_WEBHO
 2. **Single API key** for all sessions (not per-instance like Green API)
 3. **QR code returned as base64 PNG** directly in the response (no separate getQRCode call)
 4. **Phone number format** — send `to` as plain number (`63XXXXXXXXXX`), no need for `@c.us` suffix
-5. **Webhook payload** — includes `chatType`, `messageType`, `from` as clean phone number, and `image` for photos
+5. **Webhook payload** — includes `chatType`, `messageType` (`"text"`, `"image"`, `"video"`, `"document"`), `from` as clean phone number, `image` for photos, `media` for videos/documents
 6. **Clean phone numbers** — `from` is always a phone number (e.g. `639516185785`), not a JID or LID. Group messages include `participant` for the sender's number.
 
 ---
@@ -338,6 +400,15 @@ if (payload.type === "incoming") {
     // payload.image.base64 = base64-encoded image data
     // payload.image.mimetype = "image/jpeg", "image/png", etc.
     // payload.image.caption = caption text or null
+  }
+
+  if ((payload.messageType === "video" || payload.messageType === "document") && payload.media) {
+    // payload.media.base64 = base64-encoded media data
+    // payload.media.mimetype = "video/mp4", "application/pdf", etc.
+    // payload.media.caption = caption text or null
+    // payload.media.fileName = original filename (documents) or null (videos)
+  } else if (payload.mediaError) {
+    // Media download failed — payload.mediaError contains error message
   }
 }
 ```
