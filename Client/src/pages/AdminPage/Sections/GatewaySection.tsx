@@ -127,7 +127,7 @@ export default function GatewaySection() {
     [queryClient]
   );
 
-  // Poll status: fast (3s) during QR/connecting, slow (30s) when connected
+  // Poll status: immediate on selection, then fast (3s) during QR/connecting, slow (30s) when connected
   useEffect(() => {
     if (qrPollingRef.current) {
       clearInterval(qrPollingRef.current);
@@ -135,6 +135,9 @@ export default function GatewaySection() {
     }
 
     if (!selected) return;
+
+    // Always poll immediately on selection to sync live status
+    pollStatus(selected.instance_id);
 
     let interval: number | undefined;
     if (selected.status === "qr_generated" || selected.status === "connecting") {
