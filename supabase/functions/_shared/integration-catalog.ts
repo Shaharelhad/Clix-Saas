@@ -15,10 +15,12 @@ export interface OperationDefinition {
   id: string;
   labelKey: string;
   descriptionKey: string;
-  method: "GET" | "POST" | "PUT";
+  method: "GET" | "POST" | "PUT" | "PATCH";
   endpointTemplate: string;
   bodyTemplate?: string;
   constructUrl?: boolean;
+  editableBody?: boolean;
+  editableResponseMapping?: boolean;
   inputFields: OperationInputField[];
   responseMapping: Array<{ jsonPath: string; variableName: string; labelKey: string }>;
   errorMessageKey: string;
@@ -149,6 +151,99 @@ export const INTEGRATION_CATALOG: ServiceDefinition[] = [
           },
         ],
         errorMessageKey: "cloudbeds_errorGetBookingLink",
+      },
+    ],
+  },
+  {
+    id: "notion",
+    labelKey: "integrationNotion",
+    operations: [
+      {
+        id: "queryDatabase",
+        labelKey: "notion_opQueryDatabase",
+        descriptionKey: "notion_opQueryDatabaseDesc",
+        method: "POST",
+        endpointTemplate: "/v1/databases/{{databaseId}}/query",
+        bodyTemplate: `{"filter":{"property":"{{filterProperty}}","{{filterType}}":{"equals":"{{filterValue}}"}}}`,
+        editableResponseMapping: true,
+        inputFields: [
+          {
+            id: "databaseId",
+            labelKey: "notion_fieldDatabaseId",
+            hintKey: "notion_fieldDatabaseIdHint",
+            required: true,
+            type: "text",
+            placeholder: "{{database_id}}",
+          },
+          {
+            id: "filterProperty",
+            labelKey: "notion_fieldFilterProperty",
+            required: true,
+            type: "text",
+            placeholder: "מספר טלפון",
+          },
+          {
+            id: "filterType",
+            labelKey: "notion_fieldFilterType",
+            required: true,
+            type: "text",
+            placeholder: "phone_number",
+          },
+          {
+            id: "filterValue",
+            labelKey: "notion_fieldFilterValue",
+            required: true,
+            type: "text",
+            placeholder: "{{phone}}",
+          },
+        ],
+        responseMapping: [],
+        errorMessageKey: "notion_errorQueryDatabase",
+      },
+      {
+        id: "getPage",
+        labelKey: "notion_opGetPage",
+        descriptionKey: "notion_opGetPageDesc",
+        method: "GET",
+        endpointTemplate: "/v1/pages/{{pageId}}",
+        editableResponseMapping: true,
+        inputFields: [
+          {
+            id: "pageId",
+            labelKey: "notion_fieldPageId",
+            required: true,
+            type: "text",
+            placeholder: "{{notion_page_id}}",
+          },
+        ],
+        responseMapping: [],
+        errorMessageKey: "notion_errorGetPage",
+      },
+      {
+        id: "updatePage",
+        labelKey: "notion_opUpdatePage",
+        descriptionKey: "notion_opUpdatePageDesc",
+        method: "PATCH",
+        endpointTemplate: "/v1/pages/{{pageId}}",
+        bodyTemplate: `{"properties":{}}`,
+        editableBody: true,
+        inputFields: [
+          {
+            id: "pageId",
+            labelKey: "notion_fieldPageId",
+            required: true,
+            type: "text",
+            placeholder: "{{notion_page_id}}",
+          },
+        ],
+        responseMapping: [
+          {
+            jsonPath: "id",
+            variableName: "updated_page_id",
+            labelKey: "notion_varUpdatedPageId",
+          },
+        ],
+        errorMessageKey: "notion_errorUpdatePage",
       },
     ],
   },
