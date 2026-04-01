@@ -23,8 +23,10 @@ export async function getAuthenticatedUserId(
   const token = authHeader.replace("Bearer ", "");
 
   // If the token is the service role key, trust user_id from body (internal call)
+  // Check both new-format (sb_secret_...) and legacy JWT service role keys
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  if (serviceRoleKey && token === serviceRoleKey) {
+  const legacyServiceRoleKey = Deno.env.get("LEGACY_SERVICE_ROLE_KEY");
+  if ((serviceRoleKey && token === serviceRoleKey) || (legacyServiceRoleKey && token === legacyServiceRoleKey)) {
     const userId = body?.user_id as string | undefined;
     if (!userId) {
       throw new Error("Service role call requires user_id in body");
