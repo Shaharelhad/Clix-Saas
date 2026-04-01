@@ -762,7 +762,24 @@ async function executeNode(
           : "Sorry, no available rooms were found for the selected dates. Please try different dates.";
       }
 
-      // Convert price to ILS if requested
+      // Compute extra adult charge and total price from Cloudbeds adultsExtraCharge object
+      if (integration.integration_type === "cloudbeds" && hasData) {
+        const room = json.data?.[0]?.propertyRooms?.[0];
+        const adultsExtra = room?.adultsExtraCharge;
+        // Resolve adults count from inputValues (e.g. "{{total_guest}}") or common variable names
+        const adultsInput = (node.data.inputValues as Record<string, string>)?.adults || "";
+        const adultsVarMatch = adultsInput.match(/\{\{(\w+)\}\}/);
+        const adultsCount = adultsVarMatch ? (variables[adultsVarMatch[1]] || "1") : (variables.adults || variables.number_of_guests || variables.total_guest || "1");
+        let extraCharge = 0;
+        if (adultsExtra && typeof adultsExtra === "object") {
+          extraCharge = parseFloat(adultsExtra[adultsCount]) || 0;
+        }
+        variables.extra_adult_charge = String(extraCharge);
+        const basePrice = parseFloat(variables.price) || 0;
+        variables.total_price = String(basePrice + extraCharge);
+      }
+
+      // Convert price, total_price, and extra_adult_charge to ILS if requested
       if (integration.integration_type === "cloudbeds"
           && node.data.outputCurrency === "ILS"
           && variables.price
@@ -776,6 +793,14 @@ async function executeNode(
             const ilsRate = rateData.rates?.ILS;
             if (ilsRate) {
               variables.price = String(Math.round(priceNum * ilsRate));
+              const extraNum = parseFloat(variables.extra_adult_charge) || 0;
+              if (extraNum > 0) {
+                variables.extra_adult_charge = String(Math.round(extraNum * ilsRate));
+              }
+              const totalNum = parseFloat(variables.total_price) || 0;
+              if (totalNum > 0) {
+                variables.total_price = String(Math.round(totalNum * ilsRate));
+              }
               variables.currency = "₪";
             }
           } catch { /* keep original if conversion fails */ }

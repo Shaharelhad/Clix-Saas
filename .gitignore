@@ -24,3 +24,4 @@ dist-ssr
 *.sln
 *.sw?
 .claude/tool-integration-plan.md
+.claude/eliron/

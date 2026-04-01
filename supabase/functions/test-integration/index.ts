@@ -59,6 +59,16 @@ Deno.serve(async (req: Request) => {
       }
       testUrl = "https://api.cloudbeds.com/api/v1.2/getHotelDetails";
       headers["Authorization"] = `Bearer ${config.apiKey}`;
+    } else if (integration_type === "notion") {
+      if (!config.apiKey) {
+        return new Response(
+          JSON.stringify({ success: false, error: "Notion API Key is required" }),
+          { status: 400, headers: { ...cors, "Content-Type": "application/json" } },
+        );
+      }
+      testUrl = "https://api.notion.com/v1/users/me";
+      headers["Authorization"] = `Bearer ${config.apiKey}`;
+      headers["Notion-Version"] = "2022-06-28";
     } else if (integration_type === "custom_api") {
       if (!config.baseUrl) {
         return new Response(

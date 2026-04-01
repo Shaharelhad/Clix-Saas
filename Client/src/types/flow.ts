@@ -11,7 +11,9 @@ export type FlowNodeType =
   | "open_bot"
   | "collect_input"
   | "api_call"
-  | "language";
+  | "language"
+  | "ai_router"
+  | "notion_ai_agent";
 
 export interface ButtonItem {
   id: string;
@@ -63,6 +65,20 @@ export interface FlowNodeData extends Record<string, unknown> {
   operationId?: string;
   inputValues?: Record<string, string>;
   serviceType?: string;
+  // ai_router
+  routerIntents?: Array<{ id: string; label: string; description: string }>;
+  routerContext?: string;
+  // notion_ai_agent
+  agentSystemPrompt?: string;
+  agentIntegrationId?: string;
+  agentDatabaseId?: string;
+  agentTools?: {
+    updateNotion?: boolean;
+    bookEventDate?: { enabled: boolean; webhookUrl: string };
+    calendarCheck?: { enabled: boolean; webhookUrl: string };
+    findSlots?: { enabled: boolean; webhookUrl: string };
+    createMeeting?: { enabled: boolean; webhookUrl: string };
+  };
 }
 
 // XYFlow typed node / edge
@@ -122,6 +138,8 @@ export const NODE_COLORS: Record<FlowNodeType, string> = {
   collect_input: "#06b6d4",
   api_call: "#ec4899",
   language: "#2563eb",
+  ai_router: "#f97316",
+  notion_ai_agent: "#10b981",
 };
 
 // Default labels for each node type
@@ -135,4 +153,24 @@ export const NODE_DEFAULTS: Record<FlowNodeType, Partial<FlowNodeData>> = {
   collect_input: { type: "collect_input", message: "", variableName: "" },
   api_call: { type: "api_call", method: "GET", endpoint: "", responseMapping: [], errorMessage: "" },
   language: { type: "language", message: "" },
+  ai_router: {
+    type: "ai_router",
+    routerIntents: [
+      { id: "intent_1", label: "", description: "" },
+    ],
+    routerContext: "",
+  },
+  notion_ai_agent: {
+    type: "notion_ai_agent",
+    agentSystemPrompt: "",
+    agentIntegrationId: "",
+    agentDatabaseId: "",
+    agentTools: {
+      updateNotion: true,
+      bookEventDate: { enabled: false, webhookUrl: "" },
+      calendarCheck: { enabled: false, webhookUrl: "" },
+      findSlots: { enabled: false, webhookUrl: "" },
+      createMeeting: { enabled: false, webhookUrl: "" },
+    },
+  },
 };
