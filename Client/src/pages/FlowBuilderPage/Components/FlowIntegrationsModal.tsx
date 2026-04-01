@@ -9,7 +9,7 @@ import type { Json } from "@/types/database";
 
 /* ── Types ── */
 
-type IntegrationType = "cloudbeds" | "custom_api";
+type IntegrationType = "cloudbeds" | "notion" | "custom_api";
 
 interface CloudbedsConfig {
   clientId: string;
@@ -24,9 +24,15 @@ interface CustomApiConfig {
   baseUrl: string;
   authType: "bearer" | "api_key";
   authValue: string;
+  customHeaders?: Record<string, string>;
 }
 
-type IntegrationConfig = CloudbedsConfig | CustomApiConfig;
+interface NotionConfig {
+  apiKey: string;
+  defaultDatabaseId?: string;
+}
+
+type IntegrationConfig = CloudbedsConfig | NotionConfig | CustomApiConfig;
 
 interface Integration {
   id: string;
@@ -56,6 +62,10 @@ interface FormState {
   baseUrl: string;
   authType: "bearer" | "api_key";
   authValue: string;
+  customHeaders: Array<{ key: string; value: string }>;
+  // notion
+  notionApiKey: string;
+  notionDatabaseId: string;
 }
 
 const EMPTY_FORM: FormState = {
@@ -69,24 +79,42 @@ const EMPTY_FORM: FormState = {
   baseUrl: "",
   authType: "bearer",
   authValue: "",
+  customHeaders: [],
+  notionApiKey: "",
+  notionDatabaseId: "",
 };
 
 function formToConfig(form: FormState): IntegrationConfig {
   if (form.type === "cloudbeds") {
     return { clientId: form.clientId, clientSecret: form.clientSecret, apiKey: form.apiKey, propertyId: form.propertyId, bookingUrl: form.bookingUrl };
   }
-  return {
+  if (form.type === "notion") {
+    const config: NotionConfig = { apiKey: form.notionApiKey };
+    if (form.notionDatabaseId.trim()) config.defaultDatabaseId = form.notionDatabaseId;
+    return config;
+  }
+  const config: CustomApiConfig = {
     name: form.name,
     baseUrl: form.baseUrl,
     authType: form.authType,
     authValue: form.authValue,
   };
+  // Convert array of {key, value} pairs to Record, filtering empty keys
+  const headers = form.customHeaders.filter((h) => h.key.trim());
+  if (headers.length > 0) {
+    config.customHeaders = Object.fromEntries(headers.map((h) => [h.key, h.value]));
+  }
+  return config;
 }
 
 function configToForm(type: IntegrationType, config: IntegrationConfig): FormState {
   if (type === "cloudbeds") {
     const c = config as CloudbedsConfig;
     return { ...EMPTY_FORM, type, clientId: c.clientId, clientSecret: c.clientSecret, apiKey: c.apiKey, propertyId: c.propertyId || "", bookingUrl: c.bookingUrl || "" };
+  }
+  if (type === "notion") {
+    const c = config as NotionConfig;
+    return { ...EMPTY_FORM, type, notionApiKey: c.apiKey, notionDatabaseId: c.defaultDatabaseId || "" };
   }
   const c = config as CustomApiConfig;
   return {
@@ -96,6 +124,9 @@ function configToForm(type: IntegrationType, config: IntegrationConfig): FormSta
     baseUrl: c.baseUrl,
     authType: c.authType || "bearer",
     authValue: c.authValue,
+    customHeaders: c.customHeaders
+      ? Object.entries(c.customHeaders).map(([key, value]) => ({ key, value }))
+      : [],
   };
 }
 
@@ -256,12 +287,17 @@ export default function FlowIntegrationsModal({ onClose }: FlowIntegrationsModal
 
   const handleSave = () => {
     if (form.type === "cloudbeds" && !form.apiKey.trim()) return;
+    if (form.type === "notion" && !form.notionApiKey.trim()) return;
     if (form.type === "custom_api" && !form.baseUrl.trim()) return;
     saveMutation.mutate();
   };
 
   const isFormValid =
-    form.type === "cloudbeds" ? !!form.apiKey.trim() : !!form.baseUrl.trim();
+    form.type === "cloudbeds"
+      ? !!form.apiKey.trim()
+      : form.type === "notion"
+        ? !!form.notionApiKey.trim()
+        : !!form.baseUrl.trim();
 
   /* ── Field input class ── */
   const fieldCls =
@@ -327,6 +363,7 @@ export default function FlowIntegrationsModal({ onClose }: FlowIntegrationsModal
                   className={fieldCls}
                 >
                   <option value="cloudbeds">{t("integrationTypeCloudbeds")}</option>
+                  <option value="notion">{t("integrationTypeNotion")}</option>
                   <option value="custom_api">{t("integrationTypeCustomApi")}</option>
                 </select>
               </div>
@@ -387,6 +424,40 @@ export default function FlowIntegrationsModal({ onClose }: FlowIntegrationsModal
                 </>
               )}
 
+              {/* Notion */}
+              {form.type === "notion" && (
+                <>
+                  <div className="mb-2">
+                    <label className="text-[10px] font-medium text-[#7A7267] mb-1 block">
+                      {t("integrationNotionApiKey")}
+                    </label>
+                    <input
+                      type="password"
+                      value={form.notionApiKey}
+                      onChange={(e) => updateForm((f) => ({ ...f, notionApiKey: e.target.value }))}
+                      className={fieldCls}
+                      dir="ltr"
+                      placeholder="ntn_... or secret_..."
+                    />
+                    <span className="text-[9px] text-[#A39888] mt-0.5 block">{t("integrationNotionApiKeyHint")}</span>
+                  </div>
+                  <div className="mb-2">
+                    <label className="text-[10px] font-medium text-[#7A7267] mb-1 block">
+                      {t("integrationNotionDatabaseId")}
+                    </label>
+                    <input
+                      type="text"
+                      value={form.notionDatabaseId}
+                      onChange={(e) => updateForm((f) => ({ ...f, notionDatabaseId: e.target.value }))}
+                      className={`${fieldCls} placeholder:text-[#C5BDB3]`}
+                      dir="ltr"
+                      placeholder="32d8a087..."
+                    />
+                    <span className="text-[9px] text-[#A39888] mt-0.5 block">{t("integrationNotionDatabaseIdHint")}</span>
+                  </div>
+                </>
+              )}
+
               {/* Custom API */}
               {form.type === "custom_api" && (
                 <>
@@ -440,6 +511,61 @@ export default function FlowIntegrationsModal({ onClose }: FlowIntegrationsModal
                       className={fieldCls}
                       dir="ltr"
                     />
+                  </div>
+
+                  {/* Custom Headers */}
+                  <div className="mb-2">
+                    <label className="text-[10px] font-medium text-[#7A7267] mb-1 block">
+                      {t("integrationCustomHeaders")}
+                    </label>
+                    <p className="text-[9px] text-[#A39B90] mb-1.5">{t("integrationCustomHeadersHint")}</p>
+                    {form.customHeaders.map((header, idx) => (
+                      <div key={idx} className="flex items-center gap-1 mb-1">
+                        <input
+                          value={header.key}
+                          onChange={(e) => updateForm((f) => {
+                            const updated = [...f.customHeaders];
+                            updated[idx] = { ...updated[idx], key: e.target.value };
+                            return { ...f, customHeaders: updated };
+                          })}
+                          className={fieldCls + " !py-1 !text-[11px] flex-1"}
+                          placeholder="Header-Name"
+                          dir="ltr"
+                        />
+                        <input
+                          value={header.value}
+                          onChange={(e) => updateForm((f) => {
+                            const updated = [...f.customHeaders];
+                            updated[idx] = { ...updated[idx], value: e.target.value };
+                            return { ...f, customHeaders: updated };
+                          })}
+                          className={fieldCls + " !py-1 !text-[11px] flex-1"}
+                          placeholder="value"
+                          dir="ltr"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => updateForm((f) => ({
+                            ...f,
+                            customHeaders: f.customHeaders.filter((_, i) => i !== idx),
+                          }))}
+                          className="p-1 rounded hover:bg-red-100 text-[#A39B90] hover:text-red-500 transition-colors shrink-0"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => updateForm((f) => ({
+                        ...f,
+                        customHeaders: [...f.customHeaders, { key: "", value: "" }],
+                      }))}
+                      className="flex items-center gap-1 text-[10px] text-[#FF7E47] hover:text-[#e66a33] font-medium mt-1"
+                    >
+                      <Plus className="w-3 h-3" />
+                      {t("integrationAddHeader")}
+                    </button>
                   </div>
                 </>
               )}
@@ -544,7 +670,9 @@ export default function FlowIntegrationsModal({ onClose }: FlowIntegrationsModal
                       <p className="text-xs font-medium text-[#2D2A26] truncate">
                         {item.integration_type === "cloudbeds"
                           ? t("integrationTypeCloudbeds")
-                          : t("integrationTypeCustomApi")}
+                          : item.integration_type === "notion"
+                            ? t("integrationTypeNotion")
+                            : t("integrationTypeCustomApi")}
                         {item.integration_type === "custom_api" &&
                           (item.config as CustomApiConfig).name &&
                           ` — ${(item.config as CustomApiConfig).name}`}
@@ -552,7 +680,9 @@ export default function FlowIntegrationsModal({ onClose }: FlowIntegrationsModal
                       <p className="text-[10px] text-[#A39B90] truncate" dir="ltr">
                         {item.integration_type === "cloudbeds"
                           ? `${t("integrationApiKey")}: ${mask((item.config as CloudbedsConfig).apiKey)}`
-                          : (item.config as CustomApiConfig).baseUrl}
+                          : item.integration_type === "notion"
+                            ? `${t("integrationApiKey")}: ${mask((item.config as NotionConfig).apiKey)}`
+                            : (item.config as CustomApiConfig).baseUrl}
                       </p>
                     </div>
                   </div>
