@@ -89,11 +89,6 @@ export const INTEGRATION_CATALOG: ServiceDefinition[] = [
             labelKey: "cloudbeds_varCurrency",
           },
           {
-            jsonPath: "data[0].propertyRooms[0].totalRate",
-            variableName: "total_price",
-            labelKey: "cloudbeds_varTotalPrice",
-          },
-          {
             jsonPath: "data[0].propertyRooms[0].roomTypeID",
             variableName: "room_type_id",
             labelKey: "cloudbeds_varRoomTypeId",
