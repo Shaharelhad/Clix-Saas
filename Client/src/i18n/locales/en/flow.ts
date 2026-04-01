@@ -202,6 +202,7 @@ const flow = {
   cloudbeds_fieldDateHint: "Format: YYYY-MM-DD or {{variable}}",
   cloudbeds_fieldAdults: "Number of Guests",
   cloudbeds_fieldAdultsHint: "Number of adults or {{variable}}",
+  cloudbeds_varTotalPrice: "Total Price",
   cloudbeds_varRoomTypeId: "Room Type ID",
   cloudbeds_errorGetAvailableRooms: "Could not check room availability. Please try again later.",
   cloudbeds_opGetBookingLink: "Generate Booking Link",

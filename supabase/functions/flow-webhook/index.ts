@@ -762,12 +762,13 @@ async function executeNode(
           : "Sorry, no available rooms were found for the selected dates. Please try different dates.";
       }
 
-      // Convert price to ILS if requested
+      // Convert price and total_price to ILS if requested
       if (integration.integration_type === "cloudbeds"
           && node.data.outputCurrency === "ILS"
           && variables.price
           && hasData) {
         const priceNum = parseFloat(variables.price);
+        const totalPriceNum = variables.total_price ? parseFloat(variables.total_price) : NaN;
         if (!isNaN(priceNum) && variables.currency !== "₪") {
           const fromCode = variables.currency === "$" ? "USD" : variables.currency === "€" ? "EUR" : "USD";
           try {
@@ -776,9 +777,23 @@ async function executeNode(
             const ilsRate = rateData.rates?.ILS;
             if (ilsRate) {
               variables.price = String(Math.round(priceNum * ilsRate));
+              if (!isNaN(totalPriceNum)) {
+                variables.total_price = String(Math.round(totalPriceNum * ilsRate));
+              }
               variables.currency = "₪";
             }
           } catch { /* keep original if conversion fails */ }
+        }
+      }
+
+      // Compute extra adult charge (totalRate - roomRate)
+      if (variables.total_price && variables.price) {
+        const total = parseFloat(variables.total_price);
+        const base = parseFloat(variables.price);
+        if (!isNaN(total) && !isNaN(base) && total > base) {
+          variables.extra_adult_charge = String(Math.round(total - base));
+        } else {
+          variables.extra_adult_charge = "0";
         }
       }
 

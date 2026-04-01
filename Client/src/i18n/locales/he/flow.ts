@@ -202,6 +202,7 @@ const flow = {
   cloudbeds_fieldDateHint: "פורמט: YYYY-MM-DD או {{variable}}",
   cloudbeds_fieldAdults: "מספר אורחים",
   cloudbeds_fieldAdultsHint: "מספר מבוגרים או {{variable}}",
+  cloudbeds_varTotalPrice: "מחיר כולל",
   cloudbeds_varRoomTypeId: "מזהה סוג חדר",
   cloudbeds_errorGetAvailableRooms: "לא הצלחנו לבדוק חדרים פנויים. נסה שוב מאוחר יותר.",
   cloudbeds_opGetBookingLink: "יצירת קישור הזמנה",
