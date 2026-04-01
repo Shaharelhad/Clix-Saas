@@ -23,6 +23,8 @@ import OpenBotNode from "./nodes/OpenBotNode";
 import CollectInputNode from "./nodes/CollectInputNode";
 import ApiCallNode from "./nodes/ApiCallNode";
 import LanguageNode from "./nodes/LanguageNode";
+import AiRouterNode from "./nodes/AiRouterNode";
+import NotionAiAgentNode from "./nodes/NotionAiAgentNode";
 
 const nodeTypes: NodeTypes = {
   start: StartNode,
@@ -34,6 +36,8 @@ const nodeTypes: NodeTypes = {
   collect_input: CollectInputNode,
   api_call: ApiCallNode,
   language: LanguageNode,
+  ai_router: AiRouterNode,
+  notion_ai_agent: NotionAiAgentNode,
 };
 
 const edgeTypes: EdgeTypes = {

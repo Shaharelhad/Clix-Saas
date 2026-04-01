@@ -9,6 +9,8 @@ import {
   TextCursorInput,
   Globe,
   Languages,
+  Route,
+  Bot,
 } from "lucide-react";
 import { NODE_COLORS, type FlowNodeType } from "@/types/flow";
 
@@ -21,6 +23,8 @@ const PALETTE_ITEMS: { type: FlowNodeType; icon: typeof MessageSquareText; label
   { type: "collect_input", icon: TextCursorInput, labelKey: "nodeCollectInput", descKey: "nodeCollectInputDesc" },
   { type: "language", icon: Languages, labelKey: "nodeLanguage", descKey: "nodeLanguageDesc" },
   { type: "api_call", icon: Globe, labelKey: "nodeApiCall", descKey: "nodeApiCallDesc" },
+  { type: "ai_router", icon: Route, labelKey: "nodeAiRouter", descKey: "nodeAiRouterDesc" },
+  { type: "notion_ai_agent", icon: Bot, labelKey: "nodeNotionAiAgent", descKey: "nodeNotionAiAgentDesc" },
 ];
 
 interface NodePaletteProps {

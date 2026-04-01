@@ -31,7 +31,7 @@ export default function NodeEditorSidebar({ node, onUpdate, onClose, isLocked, s
   const update = (patch: Partial<FlowNodeData>) => onUpdate(node.id, patch);
 
   return (
-    <div className="w-64 bg-white border-e border-[#EDE6DD]/60 flex flex-col overflow-hidden">
+    <div className="w-64 h-full bg-white border-e border-[#EDE6DD]/60 flex flex-col overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-[#EDE6DD]/40">
         <span className="text-sm font-bold text-[#2D2A26]">
@@ -43,8 +43,8 @@ export default function NodeEditorSidebar({ node, onUpdate, onClose, isLocked, s
       </div>
 
       {/* Fields */}
-      <fieldset disabled={isLocked} className={`flex-1 min-h-0 overflow-hidden flex flex-col ${isLocked ? "opacity-60" : ""}`}>
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className={`flex-1 min-h-0 overflow-y-auto ${isLocked ? "opacity-60 pointer-events-none" : ""}`}>
+      <fieldset disabled={isLocked} className="p-4 space-y-4">
         {/* Start node */}
         {data.type === "start" && (
           <>
@@ -377,8 +377,18 @@ export default function NodeEditorSidebar({ node, onUpdate, onClose, isLocked, s
           </>
         )}
 
-      </div>
+        {/* AI Router */}
+        {data.type === "ai_router" && (
+          <AiRouterEditor data={data} update={update} />
+        )}
+
+        {/* Notion AI Agent */}
+        {data.type === "notion_ai_agent" && (
+          <NotionAiAgentEditor data={data} update={update} />
+        )}
+
       </fieldset>
+      </div>
 
       {/* Inline styles for field inputs */}
       <style>{`
@@ -576,6 +586,212 @@ function ImageUploadField({ imageUrl, onUpdate }: { imageUrl: string; onUpdate: 
   );
 }
 
+function AiRouterEditor({ data, update }: { data: FlowNodeData; update: (patch: Partial<FlowNodeData>) => void }) {
+  const { t } = useTranslation("flow");
+  const intents = data.routerIntents ?? [];
+
+  const addIntent = () => {
+    const id = `intent_${Date.now()}`;
+    update({ routerIntents: [...intents, { id, label: "", description: "" }] });
+  };
+
+  const removeIntent = (id: string) => {
+    update({ routerIntents: intents.filter((i) => i.id !== id) });
+  };
+
+  const updateIntent = (id: string, patch: Partial<{ label: string; description: string }>) => {
+    update({
+      routerIntents: intents.map((i) => (i.id === id ? { ...i, ...patch } : i)),
+    });
+  };
+
+  return (
+    <>
+      <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 mb-1">
+        <p className="text-[11px] text-orange-600 leading-relaxed">{t("aiRouterInfo")}</p>
+      </div>
+
+      <Field label={t("aiRouterIntents")} hint={t("aiRouterIntentsHint")}>
+        <div className="flex flex-col gap-2">
+          {intents.map((intent) => (
+            <div key={intent.id} className="bg-[#FAF7F3] border border-[#EDE6DD] rounded-lg p-2">
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <input
+                  value={intent.label}
+                  onChange={(e) => updateIntent(intent.id, { label: e.target.value })}
+                  className="field-input !py-1 !text-xs flex-1"
+                  placeholder={t("aiRouterIntentLabel")}
+                  dir="auto"
+                />
+                <button
+                  type="button"
+                  onClick={() => removeIntent(intent.id)}
+                  className="p-1 rounded hover:bg-red-100 text-[#A39B90] hover:text-red-500 transition-colors shrink-0"
+                >
+                  <Trash2 className="w-3 h-3" />
+                </button>
+              </div>
+              <textarea
+                value={intent.description}
+                onChange={(e) => updateIntent(intent.id, { description: e.target.value })}
+                className="field-input !py-1 !text-[11px] min-h-[36px] resize-y"
+                placeholder={t("aiRouterIntentDesc")}
+                dir="auto"
+              />
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={addIntent}
+            className="flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-dashed border-orange-300 text-orange-500 hover:bg-orange-50 transition-colors text-xs"
+          >
+            <Plus className="w-3 h-3" />
+            {t("aiRouterAddIntent")}
+          </button>
+        </div>
+      </Field>
+
+      <Field label={t("aiRouterContext")} hint={t("aiRouterContextHint")}>
+        <textarea
+          value={data.routerContext ?? ""}
+          onChange={(e) => update({ routerContext: e.target.value })}
+          className="field-input min-h-[60px] resize-y text-xs"
+          placeholder={t("aiRouterContextPlaceholder")}
+          dir="ltr"
+        />
+      </Field>
+    </>
+  );
+}
+
+function NotionAiAgentEditor({ data, update }: { data: FlowNodeData; update: (patch: Partial<FlowNodeData>) => void }) {
+  const { t } = useTranslation("flow");
+  const userId = useAuthStore((s) => s.user?.id);
+
+  const { data: integrations } = useQuery({
+    queryKey: ["integrations", userId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("integrations")
+        .select("id, integration_type, config, status")
+        .eq("status", "active")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: !!userId,
+  });
+
+  const notionIntegrations = integrations?.filter((i) => i.integration_type === "notion") ?? [];
+  const tools = data.agentTools ?? { updateNotion: true, calendarCheck: { enabled: false, webhookUrl: "" }, findSlots: { enabled: false, webhookUrl: "" }, createMeeting: { enabled: false, webhookUrl: "" } };
+
+  const updateTools = (patch: Partial<typeof tools>) => {
+    update({ agentTools: { ...tools, ...patch } });
+  };
+
+  return (
+    <>
+      {/* Integration selection */}
+      <Field label={t("notionAgentIntegration")} hint={t("notionAgentIntegrationHint")}>
+        {notionIntegrations.length > 0 ? (
+          <select
+            value={data.agentIntegrationId ?? ""}
+            onChange={(e) => update({ agentIntegrationId: e.target.value || undefined })}
+            className="field-input"
+          >
+            <option value="">{t("apiCallSelectIntegration")}</option>
+            {notionIntegrations.map((intg) => (
+              <option key={intg.id} value={intg.id}>
+                Notion — {(intg.config as Record<string, unknown>)?.defaultDatabaseId ? "Connected" : intg.id.slice(0, 8)}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <p className="text-[10px] text-amber-600">{t("notionAgentNoIntegration")}</p>
+        )}
+      </Field>
+
+      {/* Database ID */}
+      <Field label={t("notionAgentDatabaseId")} hint={t("notionAgentDatabaseIdHint")}>
+        <input
+          value={data.agentDatabaseId ?? ""}
+          onChange={(e) => update({ agentDatabaseId: e.target.value })}
+          className="field-input text-xs font-mono"
+          placeholder="32d8a087..."
+          dir="ltr"
+        />
+      </Field>
+
+      {/* System prompt */}
+      <Field label={t("notionAgentPrompt")} hint={t("notionAgentPromptHint")}>
+        <textarea
+          value={data.agentSystemPrompt ?? ""}
+          onChange={(e) => update({ agentSystemPrompt: e.target.value })}
+          className="field-input min-h-[120px] resize-y text-xs"
+          placeholder={t("notionAgentPromptPlaceholder")}
+          dir="auto"
+        />
+      </Field>
+
+      {/* Tools */}
+      <Field label={t("notionAgentTools")} hint={t("notionAgentToolsHint")}>
+        <div className="flex flex-col gap-2">
+          {/* Update Notion — always on */}
+          <label className="flex items-center gap-2 text-xs">
+            <input type="checkbox" checked={tools.updateNotion ?? true} onChange={(e) => updateTools({ updateNotion: e.target.checked })} className="accent-emerald-600" />
+            {t("notionAgentToolUpdate")}
+          </label>
+
+          {/* Book Event Date */}
+          <label className="flex items-center gap-2 text-xs">
+            <input type="checkbox" checked={tools.bookEventDate?.enabled ?? false} onChange={(e) => updateTools({ bookEventDate: { ...tools.bookEventDate!, enabled: e.target.checked, webhookUrl: tools.bookEventDate?.webhookUrl ?? "" } })} className="accent-emerald-600" />
+            {t("notionAgentToolBookEvent")}
+          </label>
+          {tools.bookEventDate?.enabled && (
+            <input value={tools.bookEventDate.webhookUrl} onChange={(e) => updateTools({ bookEventDate: { enabled: true, webhookUrl: e.target.value } })} className="field-input text-[10px] font-mono" placeholder="https://n8n.../webhook/book-event-date" dir="ltr" />
+          )}
+
+          {/* Calendar Check */}
+          <label className="flex items-center gap-2 text-xs">
+            <input type="checkbox" checked={tools.calendarCheck?.enabled ?? false} onChange={(e) => updateTools({ calendarCheck: { ...tools.calendarCheck!, enabled: e.target.checked, webhookUrl: tools.calendarCheck?.webhookUrl ?? "" } })} className="accent-emerald-600" />
+            {t("notionAgentToolCalendar")}
+          </label>
+          {tools.calendarCheck?.enabled && (
+            <input value={tools.calendarCheck.webhookUrl} onChange={(e) => updateTools({ calendarCheck: { enabled: true, webhookUrl: e.target.value } })} className="field-input text-[10px] font-mono" placeholder="https://n8n.../webhook/calendar-check" dir="ltr" />
+          )}
+
+          {/* Find Slots */}
+          <label className="flex items-center gap-2 text-xs">
+            <input type="checkbox" checked={tools.findSlots?.enabled ?? false} onChange={(e) => updateTools({ findSlots: { ...tools.findSlots!, enabled: e.target.checked, webhookUrl: tools.findSlots?.webhookUrl ?? "" } })} className="accent-emerald-600" />
+            {t("notionAgentToolSlots")}
+          </label>
+          {tools.findSlots?.enabled && (
+            <input value={tools.findSlots.webhookUrl} onChange={(e) => updateTools({ findSlots: { enabled: true, webhookUrl: e.target.value } })} className="field-input text-[10px] font-mono" placeholder="https://n8n.../webhook/find-slots" dir="ltr" />
+          )}
+
+          {/* Create Meeting */}
+          <label className="flex items-center gap-2 text-xs">
+            <input type="checkbox" checked={tools.createMeeting?.enabled ?? false} onChange={(e) => updateTools({ createMeeting: { ...tools.createMeeting!, enabled: e.target.checked, webhookUrl: tools.createMeeting?.webhookUrl ?? "" } })} className="accent-emerald-600" />
+            {t("notionAgentToolMeeting")}
+          </label>
+          {tools.createMeeting?.enabled && (
+            <input value={tools.createMeeting.webhookUrl} onChange={(e) => updateTools({ createMeeting: { enabled: true, webhookUrl: e.target.value } })} className="field-input text-[10px] font-mono" placeholder="https://n8n.../webhook/create-meeting" dir="ltr" />
+          )}
+        </div>
+      </Field>
+
+      {/* Info about system variables */}
+      <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-2.5">
+        <p className="text-[10px] font-bold text-emerald-700 mb-1">{t("notionAgentVarsTitle")}</p>
+        <p className="text-[10px] text-emerald-600" dir="ltr">
+          {"{{phone}}"} — {t("notionAgentVarPhone")}<br />
+          {"{{customer_name}}"}, {"{{status}}"}, {"{{event_date}}"}, {"{{venue_name}}"}, {"{{audience}}"} — {t("notionAgentVarFromQuery")}
+        </p>
+      </div>
+    </>
+  );
+}
+
 function ApiCallEditor({ data, update }: { data: FlowNodeData; update: (patch: Partial<FlowNodeData>) => void }) {
   const { t } = useTranslation("flow");
   const userId = useAuthStore((s) => s.user?.id);
@@ -661,6 +877,15 @@ function ApiCallEditor({ data, update }: { data: FlowNodeData; update: (patch: P
         )}
       </Field>
 
+      {/* System variables info */}
+      {data.integrationId && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-2.5 mb-1">
+          <p className="text-[10px] font-bold text-blue-700 mb-1">{t("apiCallSystemVars")}</p>
+          <p className="text-[10px] text-blue-600 font-mono" dir="ltr">{"{{phone}}"} — {t("apiCallVarPhone")}</p>
+          <p className="text-[9px] text-blue-400 mt-1">{t("apiCallSystemVarsHint")}</p>
+        </div>
+      )}
+
       {/* ── Operation mode (catalog service like Cloudbeds) ── */}
       {isOperationMode && (
         <>
@@ -689,14 +914,30 @@ function ApiCallEditor({ data, update }: { data: FlowNodeData; update: (patch: P
                   label={t(field.labelKey)}
                   hint={field.hintKey ? t(field.hintKey) : t("apiCallInputHint")}
                 >
-                  <input
-                    type="text"
-                    value={data.inputValues?.[field.id] ?? ""}
-                    onChange={(e) => handleInputChange(field.id, e.target.value)}
-                    className="field-input"
-                    dir="ltr"
-                    placeholder={field.placeholder ?? ""}
-                  />
+                  {field.id === "filterType" ? (
+                    <select
+                      value={data.inputValues?.[field.id] ?? "phone_number"}
+                      onChange={(e) => handleInputChange(field.id, e.target.value)}
+                      className="field-input"
+                    >
+                      <option value="phone_number">{t("notion_filterPhone")}</option>
+                      <option value="rich_text">{t("notion_filterRichText")}</option>
+                      <option value="status">{t("notion_filterStatus")}</option>
+                      <option value="select">{t("notion_filterSelect")}</option>
+                      <option value="number">{t("notion_filterNumber")}</option>
+                      <option value="checkbox">{t("notion_filterCheckbox")}</option>
+                      <option value="date">{t("notion_filterDate")}</option>
+                    </select>
+                  ) : (
+                    <input
+                      type="text"
+                      value={data.inputValues?.[field.id] ?? ""}
+                      onChange={(e) => handleInputChange(field.id, e.target.value)}
+                      className="field-input"
+                      dir="ltr"
+                      placeholder={field.placeholder ?? ""}
+                    />
+                  )}
                 </Field>
               ))}
 
@@ -769,6 +1010,36 @@ function ApiCallEditor({ data, update }: { data: FlowNodeData; update: (patch: P
                   </div>
                 </Field>
               )}
+
+              {/* Editable body template (for Notion and similar) */}
+              {operationDef.editableBody && (
+                <Field label={t("apiCallBody")} hint={t("apiCallBodyHint")}>
+                  <textarea
+                    value={data.bodyTemplate ?? operationDef.bodyTemplate ?? ""}
+                    onChange={(e) => update({ bodyTemplate: e.target.value })}
+                    className="field-input min-h-[80px] resize-y font-mono text-[11px]"
+                    dir="ltr"
+                    placeholder='{"properties": {...}}'
+                  />
+                </Field>
+              )}
+
+              {/* Notion property mapping (simplified) */}
+              {operationDef.editableResponseMapping && serviceDef?.id === "notion" && (
+                <NotionPropertyMapper
+                  mappings={data.responseMapping ?? []}
+                  onChange={(mappings) => update({ responseMapping: mappings })}
+                  operationId={operationDef.id}
+                />
+              )}
+
+              {/* Generic editable response mapping (non-Notion) */}
+              {operationDef.editableResponseMapping && serviceDef?.id !== "notion" && (
+                <ResponseMappingEditor
+                  mappings={data.responseMapping ?? []}
+                  onChange={(mappings) => update({ responseMapping: mappings })}
+                />
+              )}
             </>
           )}
         </>
@@ -787,6 +1058,7 @@ function ApiCallEditor({ data, update }: { data: FlowNodeData; update: (patch: P
               <option value="GET">GET</option>
               <option value="POST">POST</option>
               <option value="PUT">PUT</option>
+              <option value="PATCH">PATCH</option>
             </select>
           </Field>
 
@@ -802,8 +1074,8 @@ function ApiCallEditor({ data, update }: { data: FlowNodeData; update: (patch: P
             />
           </Field>
 
-          {/* Body template (POST/PUT only) */}
-          {(method === "POST" || method === "PUT") && (
+          {/* Body template (POST/PUT/PATCH only) */}
+          {(method === "POST" || method === "PUT" || method === "PATCH") && (
             <Field label={t("apiCallBody")} hint={t("apiCallBodyHint")}>
               <textarea
                 value={data.bodyTemplate ?? ""}
@@ -832,6 +1104,135 @@ function ApiCallEditor({ data, update }: { data: FlowNodeData; update: (patch: P
           </Field>
         </>
       )}
+    </>
+  );
+}
+
+// Notion property type → JSON path suffix
+const NOTION_TYPE_PATHS: Record<string, string> = {
+  title: "title[0].plain_text",
+  rich_text: "rich_text[0].plain_text",
+  status: "status.name",
+  select: "select.name",
+  number: "number",
+  phone_number: "phone_number",
+  email: "email",
+  url: "url",
+  checkbox: "checkbox",
+  date: "date.start",
+};
+
+function NotionPropertyMapper({
+  mappings,
+  onChange,
+  operationId,
+}: {
+  mappings: Array<{ jsonPath: string; variableName: string }>;
+  onChange: (m: Array<{ jsonPath: string; variableName: string }>) => void;
+  operationId: string;
+}) {
+  const { t } = useTranslation("flow");
+  const prefix = operationId === "queryDatabase" ? "results[0]." : "";
+
+  // Build JSON path from property name + type
+  const buildPath = (propName: string, propType: string) =>
+    `${prefix}properties.${propName}.${NOTION_TYPE_PATHS[propType] || "rich_text[0].plain_text"}`;
+
+  // Parse existing mapping back to prop name + type
+  const parseMapping = (m: { jsonPath: string; variableName: string }) => {
+    if (m.jsonPath.endsWith(".id") || m.jsonPath === "id" || m.jsonPath === `${prefix}id`) {
+      return { propName: "", propType: "id", varName: m.variableName, isPageId: true };
+    }
+    const match = m.jsonPath.match(/properties\.([^.]+)\.(.+)/);
+    if (match) {
+      const propType = Object.entries(NOTION_TYPE_PATHS).find(([, v]) => v === match[2])?.[0] || "rich_text";
+      return { propName: match[1], propType, varName: m.variableName, isPageId: false };
+    }
+    return { propName: "", propType: "rich_text", varName: m.variableName, isPageId: false };
+  };
+
+  const hasPageId = mappings.some((m) => m.jsonPath.endsWith("id"));
+
+  const addPageId = () => {
+    onChange([{ jsonPath: `${prefix}id`, variableName: "page_id" }, ...mappings]);
+  };
+
+  const addProperty = () => {
+    onChange([...mappings, { jsonPath: buildPath("", "rich_text"), variableName: "" }]);
+  };
+
+  const updateAt = (idx: number, propName: string, propType: string, varName: string) => {
+    const updated = [...mappings];
+    updated[idx] = { jsonPath: buildPath(propName, propType), variableName: varName };
+    onChange(updated);
+  };
+
+  const removeAt = (idx: number) => onChange(mappings.filter((_, i) => i !== idx));
+
+  return (
+    <>
+      <Field label={t("notion_outputProperties")} hint={t("notion_outputPropertiesHint")}>
+        <div className="flex flex-col gap-1.5">
+          {/* Auto page_id */}
+          {!hasPageId && (
+            <button type="button" onClick={addPageId} className="text-[10px] text-amber-600 hover:text-amber-700 font-medium text-start">
+              + {t("notion_addPageId")}
+            </button>
+          )}
+
+          {mappings.map((m, idx) => {
+            const pm = parseMapping(m);
+            if (pm.isPageId) {
+              return (
+                <div key={idx} className="flex items-center justify-between bg-emerald-50 border border-emerald-200 rounded-md px-2 py-1">
+                  <span className="text-[10px] font-mono text-emerald-600">{"{{page_id}}"}</span>
+                  <button type="button" onClick={() => removeAt(idx)} className="p-0.5 text-[#A39B90] hover:text-red-500"><Trash2 className="w-2.5 h-2.5" /></button>
+                </div>
+              );
+            }
+            return (
+              <div key={idx} className="bg-[#FAF7F3] border border-[#EDE6DD] rounded-lg p-2 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[9px] font-medium text-[#A39B90]">{t("notion_propNamePlaceholder")}</span>
+                  <button type="button" onClick={() => removeAt(idx)} className="p-0.5 text-[#A39B90] hover:text-red-500"><Trash2 className="w-2.5 h-2.5" /></button>
+                </div>
+                <input
+                  value={pm.propName}
+                  onChange={(e) => updateAt(idx, e.target.value, pm.propType, pm.varName)}
+                  className="field-input !py-1 !text-xs"
+                  placeholder="סטטוס"
+                  dir="auto"
+                />
+                <select
+                  value={pm.propType}
+                  onChange={(e) => updateAt(idx, pm.propName, e.target.value, pm.varName)}
+                  className="field-input !py-1 !text-xs"
+                >
+                  {Object.keys(NOTION_TYPE_PATHS).map((k) => (
+                    <option key={k} value={k}>{t(`notion_prop${k.charAt(0).toUpperCase() + k.slice(1).replace(/_./g, (m) => m[1].toUpperCase())}`)}</option>
+                  ))}
+                </select>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] text-[#A39B90]">→</span>
+                  <input
+                    value={pm.varName}
+                    onChange={(e) => updateAt(idx, pm.propName, pm.propType, e.target.value)}
+                    className="field-input !py-1 !text-xs flex-1 font-mono"
+                    placeholder="variable_name"
+                    dir="ltr"
+                  />
+                </div>
+                {pm.varName && <p className="text-[10px] text-emerald-500 font-mono" dir="ltr">{`{{${pm.varName}}}`}</p>}
+              </div>
+            );
+          })}
+
+          <button type="button" onClick={addProperty} className="flex items-center justify-center gap-1 py-1 rounded-md border border-dashed border-amber-300 text-amber-500 hover:bg-amber-50 text-[10px]">
+            <Plus className="w-2.5 h-2.5" />
+            {t("notion_addProperty")}
+          </button>
+        </div>
+      </Field>
     </>
   );
 }
