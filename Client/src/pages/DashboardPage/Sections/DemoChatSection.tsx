@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { motion } from "framer-motion";
-import { Bot, RotateCcw } from "lucide-react";
+import { Bot, RotateCcw, Settings2, ChevronDown } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { callFlowDemo } from "@/services/edge-functions";
 import ChatPanel, {
@@ -51,6 +51,8 @@ export default function DemoChatSection({ resetKey = 0, workflowId }: DemoChatSe
   const [sessionState, setSessionState] = useState<Record<string, unknown> | null>(null);
   const [isSending, setIsSending] = useState(false);
   const [clickedMessageIds, setClickedMessageIds] = useState<Set<string>>(new Set());
+  const [testPhone, setTestPhone] = useState("");
+  const [showTestSettings, setShowTestSettings] = useState(false);
 
   /* ── Reset when edit is applied ── */
   useEffect(() => {
@@ -70,6 +72,14 @@ export default function DemoChatSection({ resetKey = 0, workflowId }: DemoChatSe
     }
   }, [resetKey, t]);
 
+  /* ── Build session state with test variables ── */
+  const buildSessionState = useCallback(() => {
+    const base = sessionState ?? {};
+    if (!testPhone.trim()) return sessionState;
+    const vars = (base.variables as Record<string, string>) ?? {};
+    return { ...base, variables: { ...vars, phone: testPhone.trim() } };
+  }, [sessionState, testPhone]);
+
   /* ── Send message ── */
   const handleSend = useCallback(async () => {
     const text = input.trim();
@@ -87,12 +97,13 @@ export default function DemoChatSection({ resetKey = 0, workflowId }: DemoChatSe
     setIsSending(true);
 
     try {
+      const stateToSend = buildSessionState();
       const result = await callFlowDemo({
         user_id: user?.id ?? "",
         workflow_id: workflowId,
         message: text,
         ...(conversationId ? { conversation_id: conversationId } : {}),
-        ...(sessionState ? { session_state: sessionState } : {}),
+        ...(stateToSend ? { session_state: stateToSend } : {}),
       });
 
       if (result.error) throw new Error(result.error);
@@ -140,7 +151,7 @@ export default function DemoChatSection({ resetKey = 0, workflowId }: DemoChatSe
     } finally {
       setIsSending(false);
     }
-  }, [input, isSending, user?.id, workflowId, conversationId, sessionState]);
+  }, [input, isSending, user?.id, workflowId, conversationId, buildSessionState]);
 
   /* ── Button click in chat ── */
   const handleButtonClick = useCallback(async (label: string) => {
@@ -158,12 +169,13 @@ export default function DemoChatSection({ resetKey = 0, workflowId }: DemoChatSe
     setIsSending(true);
 
     try {
+      const stateToSend = buildSessionState();
       const result = await callFlowDemo({
         user_id: user?.id ?? "",
         workflow_id: workflowId,
         message: label,
         ...(conversationId ? { conversation_id: conversationId } : {}),
-        ...(sessionState ? { session_state: sessionState } : {}),
+        ...(stateToSend ? { session_state: stateToSend } : {}),
       });
 
       if (result.error) throw new Error(result.error);
@@ -209,7 +221,7 @@ export default function DemoChatSection({ resetKey = 0, workflowId }: DemoChatSe
     } finally {
       setIsSending(false);
     }
-  }, [isSending, user?.id, workflowId, conversationId, sessionState]);
+  }, [isSending, user?.id, workflowId, conversationId, buildSessionState]);
 
   /* ── New conversation ── */
   const handleNewConversation = () => {
@@ -231,6 +243,34 @@ export default function DemoChatSection({ resetKey = 0, workflowId }: DemoChatSe
 
   return (
     <motion.div variants={fadeUp} className="flex flex-col h-full">
+      {/* Test Settings */}
+      <div className="border-b border-[#EDE6DD]/60 bg-[#FAF7F3]">
+        <button
+          type="button"
+          onClick={() => setShowTestSettings((v) => !v)}
+          className="w-full flex items-center justify-between px-3 py-1.5 text-[10px] font-medium text-[#7A7267] hover:text-[#2D2A26] transition-colors cursor-pointer"
+        >
+          <span className="flex items-center gap-1.5">
+            <Settings2 className="w-3 h-3" />
+            {t("demoTestSettings")}
+          </span>
+          <ChevronDown className={`w-3 h-3 transition-transform ${showTestSettings ? "rotate-180" : ""}`} />
+        </button>
+        {showTestSettings && (
+          <div className="px-3 pb-2 flex items-center gap-2">
+            <label className="text-[10px] text-[#A39B90] shrink-0">{t("demoTestPhone")}</label>
+            <input
+              type="text"
+              value={testPhone}
+              onChange={(e) => setTestPhone(e.target.value)}
+              placeholder="972501234567"
+              className="flex-1 border border-[#EDE6DD] rounded-md px-2 py-1 text-xs text-[#2D2A26] bg-white focus:outline-none focus:border-[#FF7E47] transition-colors"
+              dir="ltr"
+            />
+          </div>
+        )}
+      </div>
+
       <ChatPanel
         title={t("demoChatTitle")}
         icon={<Bot className="w-4 h-4 text-[#FF7E47]" />}
