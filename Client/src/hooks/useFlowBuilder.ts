@@ -26,6 +26,8 @@ function describeNodeType(type: string): string {
     buttons: "תפריט כפתורים",
     delay: "ממתין",
     open_bot: "מעביר לשיחת AI חופשית",
+    ai_router: "ניתוב חכם לפי כוונה",
+    notion_ai_agent: "סוכן AI נוטיון עם כלים",
   };
   return map[type] || type;
 }
@@ -75,20 +77,31 @@ function getNodeKeywords(data: FlowNodeData): string[] {
 }
 
 function generateWorkflowRecord(nodes: FlowNode[], edges: FlowEdge[]): string {
-  const startNodes = nodes.filter(
-    (n) => n.data.type === "start" && !n.data.disabled && getNodeKeywords(n.data).length > 0,
+  const enabledStarts = nodes.filter(
+    (n) => n.data.type === "start" && !n.data.disabled,
   );
+  const keywordStarts = enabledStarts.filter((n) => getNodeKeywords(n.data).length > 0);
+  const catchAllStarts = enabledStarts.filter((n) => getNodeKeywords(n.data).length === 0);
 
-  if (startNodes.length === 0) {
-    return "אין תהליכים מוגדרים. ענה באופן טבעי כבעל העסק.";
-  }
+  const lines: string[] = [];
 
-  const lines = startNodes.map((startNode) => {
+  // Keyword-triggered flows
+  for (const startNode of keywordStarts) {
     const keywords = getNodeKeywords(startNode.data);
     const trigger = keywords.map((k) => `"${k}"`).join(", ");
     const description = describeFlowChain(startNode.id, nodes, edges);
-    return `- ${trigger} → ${description}`;
-  });
+    lines.push(`- ${trigger} → ${description}`);
+  }
+
+  // Catch-all flows (no keywords = handles all messages)
+  for (const startNode of catchAllStarts) {
+    const description = describeFlowChain(startNode.id, nodes, edges);
+    lines.push(`- כל הודעה → ${description}`);
+  }
+
+  if (lines.length === 0) {
+    return "אין תהליכים מוגדרים. ענה באופן טבעי כבעל העסק.";
+  }
 
   return `הבוט מטפל בתהליכים הבאים:\n${lines.join("\n")}\nכשאין התאמה לתהליך — ענה באופן טבעי כבעל העסק, והצע ללקוח תהליכים רלוונטיים כשמתאים.`;
 }
@@ -494,6 +507,7 @@ export function useFlowBuilder(): UseFlowBuilderReturn {
       const newStatus = workflowStatus === "active" ? "paused" : "active";
 
       // Publish validation: in non-strict mode, all enabled starts need keywords
+      // Exception: a SINGLE enabled start with no keywords is allowed (catch-all mode)
       if (newStatus === "active" && !flowSettings.strictMode) {
         const enabledStarts = nodes.filter(
           (n) => n.data.type === "start" && !n.data.disabled,
@@ -501,7 +515,9 @@ export function useFlowBuilder(): UseFlowBuilderReturn {
         const emptyTriggers = enabledStarts.filter(
           (n) => getNodeKeywords(n.data).length === 0,
         );
-        if (emptyTriggers.length > 0) {
+        // Allow single catch-all start (1 start, no keywords = catch-all)
+        const isSingleCatchAll = enabledStarts.length === 1 && emptyTriggers.length === 1;
+        if (emptyTriggers.length > 0 && !isSingleCatchAll) {
           throw new Error("EMPTY_TRIGGERS");
         }
       }
