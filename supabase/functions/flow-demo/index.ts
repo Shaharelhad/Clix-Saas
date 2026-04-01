@@ -1,7 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { getAuthenticatedUserId } from "../_shared/auth.ts";
-import { callLLMEngine, classifyTrigger, validateCollectInput, detectRefusal, translateMessage, translateButtonLabels, formatApiResponse, type TriggerInfo } from "../_shared/llm-engine.ts";
+import { callLLMEngine, classifyTrigger, classifyIntent, validateCollectInput, detectRefusal, translateMessage, translateButtonLabels, formatApiResponse, callAgentLLM, type TriggerInfo, type AgentToolDefinition, type AgentMessage } from "../_shared/llm-engine.ts";
 import { findOperationById, resolveOperation } from "../_shared/integration-catalog.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -43,6 +43,9 @@ interface FlowNode {
     bodyTemplate?: string;
     responseMapping?: Array<{ jsonPath: string; variableName: string }>;
     errorMessage?: string;
+    // ai_router
+    routerIntents?: Array<{ id: string; label: string; description: string }>;
+    routerContext?: string;
   };
 }
 
@@ -172,7 +175,8 @@ async function callLLMFallback(
   userMessage: string,
   conversationId: string,
   workflowRecord?: string,
-  languagePreference?: string
+  languagePreference?: string,
+  sessionVariables?: Record<string, string>,
 ): Promise<string> {
   // Fetch conversation history from demo_conversations
   const { data: history } = await supabase
@@ -204,6 +208,8 @@ async function callLLMFallback(
     undefined, // no legacy triggerContext
     true,      // useDraft for preview
     fullWorkflowRecord || undefined,
+    false,     // classifyStage
+    sessionVariables,
   );
 
   return result.response;
@@ -230,6 +236,34 @@ async function executeNodeDemo(
   // Open Bot — terminate flow, enter free AI conversation
   if (node.type === "open_bot") {
     return { nextNodeId: null, waitForInput: false };
+  }
+
+  // AI Router — classify message intent and route to matching handle
+  if (node.type === "ai_router") {
+    const intents = node.data.routerIntents ?? [];
+    if (intents.length === 0) {
+      const next = findNextNode(flow, node.id, "intent-fallback");
+      return { nextNodeId: next?.id || null, waitForInput: false };
+    }
+
+    // Resolve context variables
+    const context = node.data.routerContext
+      ? resolveVariables(node.data.routerContext, variables)
+      : undefined;
+
+    // Get the last user message from the demo conversation
+    const lastUserMsg = variables.__lastUserMessage || "";
+
+    const matchedIntentId = await classifyIntent(
+      intents.filter((i) => i.label.trim()),
+      lastUserMsg,
+      context,
+    );
+
+    const handleId = matchedIntentId ? `intent-${matchedIntentId}` : "intent-fallback";
+    const next = findNextNode(flow, node.id, handleId);
+    console.log("[flow-demo] ai_router:", { lastUserMsg, matchedIntentId, handleId, nextId: next?.id });
+    return { nextNodeId: next?.id || null, waitForInput: false };
   }
 
   // Language — send language selection buttons
@@ -304,7 +338,9 @@ async function executeNodeDemo(
 
   if (node.type === "api_call") {
     const integrationId = node.data.integrationId;
+    console.log("[flow-demo] api_call node:", { integrationId, operationId: node.data.operationId, serviceType: node.data.serviceType });
     if (!integrationId) {
+      console.log("[flow-demo] api_call: no integrationId, skipping");
       const next = findNextNode(flow, node.id);
       return { nextNodeId: next?.id || null, waitForInput: false };
     }
@@ -317,9 +353,11 @@ async function executeNodeDemo(
       .single();
 
     if (intError || !integration || integration.status !== "active") {
+      console.log("[flow-demo] api_call: integration not found or inactive", { intError, status: integration?.status });
       const next = findNextNode(flow, node.id);
       return { nextNodeId: next?.id || null, waitForInput: false };
     }
+    console.log("[flow-demo] api_call: integration loaded", { type: integration.integration_type, status: integration.status });
 
     // Build URL and headers based on integration type
     const config = integration.config as Record<string, string>;
@@ -329,12 +367,21 @@ async function executeNodeDemo(
     if (integration.integration_type === "cloudbeds") {
       baseUrl = "https://api.cloudbeds.com";
       headers["Authorization"] = `Bearer ${config.apiKey}`;
+    } else if (integration.integration_type === "notion") {
+      baseUrl = "https://api.notion.com";
+      headers["Authorization"] = `Bearer ${config.apiKey}`;
+      headers["Notion-Version"] = "2022-06-28";
     } else {
       baseUrl = config.baseUrl || "";
       if (config.authType === "bearer") {
         headers["Authorization"] = `Bearer ${config.authValue}`;
       } else if (config.authType === "api_key") {
         headers["x-api-key"] = config.authValue;
+      }
+      // Merge custom headers if defined
+      const customHeaders = (integration.config as Record<string, unknown>)?.customHeaders;
+      if (customHeaders && typeof customHeaders === "object") {
+        Object.assign(headers, customHeaders);
       }
     }
 
@@ -378,7 +425,10 @@ async function executeNodeDemo(
       endpoint = resolveVariables(resolved.endpoint, variables);
       method = resolved.method;
       bodyTemplate = resolved.bodyTemplate;
-      responseMapping = resolved.responseMapping;
+      responseMapping = [
+        ...resolved.responseMapping,
+        ...(node.data.responseMapping || []),
+      ];
     } else {
       endpoint = resolveVariables(node.data.endpoint || "", variables);
       method = (node.data.method || "GET").toUpperCase();
@@ -390,8 +440,11 @@ async function executeNodeDemo(
 
     const fetchOptions: RequestInit = { method, headers };
     if (method !== "GET" && bodyTemplate) {
-      fetchOptions.body = resolveVariables(bodyTemplate, variables);
+      const resolvedBody = resolveVariables(bodyTemplate, variables);
+      fetchOptions.body = resolvedBody;
+      console.log("[flow-demo] api_call body:", resolvedBody);
     }
+    console.log("[flow-demo] api_call:", { method, url: `${baseUrl.replace(/\/$/, "")}/${endpoint.replace(/^\//, "")}`, hasBody: !!fetchOptions.body, variables: JSON.stringify(variables).substring(0, 200) });
 
     try {
       if (!isUrlSafe(url)) {
@@ -414,12 +467,22 @@ async function executeNodeDemo(
 
       const json = await response.json();
       console.log("[flow-demo] api_call response keys:", Object.keys(json));
+      // Debug: log actual Notion property names for mapping troubleshooting
+      if (json.results?.[0]?.properties) {
+        const propNames = Object.keys(json.results[0].properties);
+        console.log("[flow-demo] Notion properties found:", JSON.stringify(propNames));
+        for (const pn of propNames) {
+          const prop = json.results[0].properties[pn];
+          console.log("[flow-demo] Notion prop:", JSON.stringify(pn), "type:", prop?.type);
+        }
+      }
 
       // Extract response fields and LLM-format structured data
       let hasData = false;
+      console.log("[flow-demo] responseMapping count:", responseMapping.length, "mappings:", JSON.stringify(responseMapping));
       for (const mapping of responseMapping) {
         const value = extractJsonPath(json, mapping.jsonPath);
-        console.log("[flow-demo] extractJsonPath:", mapping.jsonPath, "→", typeof value, value === null ? "null" : value === undefined ? "undefined" : "has data");
+        console.log("[flow-demo] extractJsonPath:", JSON.stringify(mapping.jsonPath), "→ var:", mapping.variableName, "type:", typeof value, value === null ? "null" : value === undefined ? "undefined" : "has data");
         const raw = typeof value === "object" && value !== null ? JSON.stringify(value) : String(value ?? "");
         // Check if the extracted data is meaningful (non-empty array/object/string)
         const isEmpty = !value || (Array.isArray(value) && value.length === 0);
@@ -493,7 +556,237 @@ async function executeNodeDemo(
     return { nextNodeId: next?.id || null, waitForInput: false };
   }
 
+  // Notion AI Agent — stay on this node and wait for user input
+  if (node.type === "notion_ai_agent") {
+    return { nextNodeId: node.id, waitForInput: true };
+  }
+
   return { nextNodeId: null, waitForInput: false };
+}
+
+// ── Notion AI Agent Executor ────────────────────────────────
+
+async function executeNotionAgent(
+  node: { id: string; type: string; data: Record<string, unknown> },
+  userMessage: string,
+  variables: Record<string, string>,
+  agentHistory: AgentMessage[],
+  userId: string,
+  workflowRecord?: string,
+): Promise<{ response: string; toolCalls: Array<{ name: string; input: Record<string, unknown>; result: unknown }>; updatedHistory: AgentMessage[] }> {
+  const integrationId = node.data.agentIntegrationId as string | undefined;
+  const databaseId = node.data.agentDatabaseId as string | undefined;
+  const userPrompt = resolveVariables(node.data.agentSystemPrompt as string || "", variables);
+  // Inject today's date so LLM can resolve "tomorrow", "next week", etc.
+  const today = new Date().toLocaleDateString("he-IL", { weekday: "long", year: "numeric", month: "long", day: "numeric", timeZone: "Asia/Jerusalem" });
+  const todayISO = new Date().toISOString().split("T")[0];
+  const dateContext = `התאריך של היום: ${today} (${todayISO})\n\n`;
+  // Prepend date + workflow_record (business content) to the system prompt
+  const systemPrompt = dateContext + (workflowRecord ? workflowRecord + "\n\n" : "") + userPrompt;
+  const tools = node.data.agentTools as Record<string, unknown> || {};
+
+  console.log("[notion_ai_agent] Config:", { integrationId: integrationId || "EMPTY", databaseId, toolsConfig: JSON.stringify(tools).substring(0, 200), promptLen: systemPrompt.length, historyLen: agentHistory.length });
+
+  // Load Notion integration credentials
+  let notionApiKey = "";
+  let notionHeaders: Record<string, string> = {};
+  if (integrationId) {
+    const { data: intg } = await supabase.from("integrations").select("config").eq("id", integrationId).single();
+    if (intg?.config) {
+      const config = intg.config as Record<string, unknown>;
+      notionApiKey = (config.apiKey as string) || "";
+      notionHeaders = {
+        "Authorization": `Bearer ${notionApiKey}`,
+        "Notion-Version": "2022-06-28",
+        "Content-Type": "application/json",
+      };
+      if (config.customHeaders && typeof config.customHeaders === "object") {
+        Object.assign(notionHeaders, config.customHeaders);
+      }
+    }
+  }
+
+  // Build tool definitions
+  const toolDefs: AgentToolDefinition[] = [];
+
+  if (tools.updateNotion) {
+    toolDefs.push({
+      name: "update_notion",
+      description: `Update a customer's Notion page. Always send ALL fields you want to update in a single call. Use the exact Notion API property format:
+- Status: {"סטטוס": {"status": {"name": "תהליך מכירה"}}}
+- Event date: {"תאריך ושעת האירוע": {"date": {"start": "2026-07-10"}}}
+- Venue: {"שם מקום אירוע": {"rich_text": [{"text": {"content": "אלגריה"}}]}}
+- Audience: {"סוג קהל": {"select": {"name": "כללי"}}}
+- Meeting scheduled: {"נקבע פגישה": {"checkbox": true}} or false to reset
+- No-response counter: {"כמות אין מענה": {"number": 0}}
+- Follow-up date: {"תאריך פולואפ": {"date": {"start": "2026-07-10T14:00:00+03:00"}}}
+- Conversation history: {"היסטוריית שיחה": {"rich_text": [{"text": {"content": ""}}]}}
+Combine multiple fields in one call.`,
+      parameters: {
+        type: "object",
+        properties: {
+          page_id: { type: "string", description: "The Notion page ID" },
+          properties: { type: "object", description: "Notion properties to update" },
+        },
+        required: ["page_id", "properties"],
+      },
+    });
+  }
+
+  const bookEventDate = tools.bookEventDate as { enabled?: boolean; webhookUrl?: string } | undefined;
+  if (bookEventDate?.enabled && bookEventDate.webhookUrl) {
+    toolDefs.push({
+      name: "book_event_date",
+      description: "Book an ALL-DAY event in Google Calendar to reserve the wedding/event date. Call this immediately after calendar_check confirms the date is available. This does NOT schedule a meeting call — it only blocks the event date.",
+      parameters: {
+        type: "object",
+        properties: {
+          date: { type: "string", description: "Event date YYYY-MM-DD" },
+          name: { type: "string", description: "Customer name" },
+          venue: { type: "string", description: "Venue/hall name" },
+          phone: { type: "string", description: "Customer phone number" },
+          audience: { type: "string", description: "Audience type (כללי/דתי/בני העדה)" },
+        },
+        required: ["date", "name"],
+      },
+    });
+  }
+
+  const calendarCheck = tools.calendarCheck as { enabled?: boolean; webhookUrl?: string } | undefined;
+  if (calendarCheck?.enabled && calendarCheck.webhookUrl) {
+    toolDefs.push({
+      name: "calendar_check",
+      description: "Check Google Calendar availability for a specific date. Returns whether the date is available or too busy.",
+      parameters: {
+        type: "object",
+        properties: {
+          date: { type: "string", description: "Date to check in YYYY-MM-DD format" },
+        },
+        required: ["date"],
+      },
+    });
+  }
+
+  const findSlots = tools.findSlots as { enabled?: boolean; webhookUrl?: string } | undefined;
+  if (findSlots?.enabled && findSlots.webhookUrl) {
+    toolDefs.push({
+      name: "find_slots",
+      description: "Find 2 free time slots for a meeting in the next 3 days. Returns two available times.",
+      parameters: {
+        type: "object",
+        properties: {
+          date: { type: "string", description: "Preferred date in YYYY-MM-DD format" },
+        },
+        required: ["date"],
+      },
+    });
+  }
+
+  const createMeeting = tools.createMeeting as { enabled?: boolean; webhookUrl?: string } | undefined;
+  if (createMeeting?.enabled && createMeeting.webhookUrl) {
+    toolDefs.push({
+      name: "create_meeting",
+      description: "Create a meeting in Google Calendar. Use after customer confirms a time.",
+      parameters: {
+        type: "object",
+        properties: {
+          date: { type: "string", description: "Meeting date YYYY-MM-DD" },
+          time: { type: "string", description: "Meeting time HH:MM" },
+          name: { type: "string", description: "Customer name" },
+          phone: { type: "string", description: "Customer phone number" },
+          type: { type: "string", enum: ["phone", "face_to_face"], description: "Meeting type" },
+        },
+        required: ["date", "time", "name", "phone", "type"],
+      },
+    });
+  }
+
+  console.log("[notion_ai_agent] Tools defined:", toolDefs.map(t => t.name), "notionApiKey:", notionApiKey ? "SET" : "EMPTY");
+
+  // Tool executor
+  const executeTool = async (name: string, args: Record<string, unknown>): Promise<unknown> => {
+    if (name === "update_notion") {
+      const pageId = args.page_id as string || variables.page_id;
+      console.log("[notion_ai_agent] update_notion called:", { pageId: pageId || "EMPTY", hasApiKey: !!notionApiKey, args: JSON.stringify(args).substring(0, 500) });
+      if (!pageId || !notionApiKey) return { error: `Missing ${!pageId ? "page_id" : "Notion credentials"}. page_id=${pageId}, hasKey=${!!notionApiKey}` };
+      const body = JSON.stringify({ properties: args.properties });
+      console.log("[notion_ai_agent] Notion PATCH body:", body.substring(0, 500));
+      const response = await fetch(`https://api.notion.com/v1/pages/${pageId}`, {
+        method: "PATCH",
+        headers: notionHeaders,
+        body,
+      });
+      if (!response.ok) {
+        const errText = await response.text();
+        console.error("[notion_ai_agent] update_notion error:", response.status, errText.substring(0, 500));
+        return { error: `Notion API error ${response.status}: ${errText.substring(0, 200)}` };
+      }
+      console.log("[notion_ai_agent] update_notion SUCCESS for page:", pageId);
+      return { success: true };
+    }
+
+    if (name === "book_event_date" && bookEventDate?.webhookUrl) {
+      console.log("[notion_ai_agent] book_event_date called:", JSON.stringify(args).substring(0, 300));
+      const response = await fetch(bookEventDate.webhookUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(args),
+      });
+      return await response.json();
+    }
+
+    if (name === "calendar_check" && calendarCheck?.webhookUrl) {
+      const response = await fetch(calendarCheck.webhookUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ date: args.date }),
+      });
+      return await response.json();
+    }
+
+    if (name === "find_slots" && findSlots?.webhookUrl) {
+      const response = await fetch(findSlots.webhookUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ date: args.date }),
+      });
+      return await response.json();
+    }
+
+    if (name === "create_meeting" && createMeeting?.webhookUrl) {
+      const response = await fetch(createMeeting.webhookUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(args),
+      });
+      return await response.json();
+    }
+
+    return { error: `Unknown tool: ${name}` };
+  };
+
+  // Call the agent LLM
+  const result = await callAgentLLM({
+    systemPrompt,
+    conversationHistory: agentHistory,
+    userMessage,
+    tools: toolDefs,
+    executeTool,
+  });
+
+  // Build updated history (trim to last 20 messages)
+  const newHistory: AgentMessage[] = [
+    ...agentHistory,
+    { role: "user", content: userMessage },
+    { role: "assistant", content: result.response },
+  ];
+  const trimmedHistory = newHistory.length > 20 ? newHistory.slice(-20) : newHistory;
+
+  return {
+    response: result.response,
+    toolCalls: result.toolCalls,
+    updatedHistory: trimmedHistory,
+  };
 }
 
 // ── Main Handler ────────────────────────────────────────────
@@ -506,7 +799,7 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json();
-    const user_id = await getAuthenticatedUserId(req);
+    const user_id = await getAuthenticatedUserId(req, body);
     const { workflow_id, message, conversation_id, session_state } = body;
 
     if (!message) {
@@ -560,7 +853,7 @@ Deno.serve(async (req) => {
     // Workflow paused — use LLM-only mode (no flow node execution)
     if (workflow.status !== "active") {
       const workflowRecord = (workflow.workflow_record as string) || undefined;
-      const botResponse = await callLLMFallback(user_id, message, convId, workflowRecord, session_state?.variables?.language);
+      const botResponse = await callLLMFallback(user_id, message, convId, workflowRecord, session_state?.variables?.language, session_state?.variables);
       await supabase.from("demo_conversations").insert({
         user_id,
         conversation_id: convId,
@@ -577,7 +870,7 @@ Deno.serve(async (req) => {
     const workflowRecord = (workflow.workflow_record as string) || undefined;
 
     if (!flow?.nodes?.length) {
-      const botResponse = await callLLMFallback(user_id, message, convId, workflowRecord, session_state?.variables?.language);
+      const botResponse = await callLLMFallback(user_id, message, convId, workflowRecord, session_state?.variables?.language, session_state?.variables);
       await supabase.from("demo_conversations").insert({
         user_id,
         conversation_id: convId,
@@ -595,6 +888,10 @@ Deno.serve(async (req) => {
     // Restore session state from request
     let currentNodeId: string | null = session_state?.current_node_id || null;
     let variables: Record<string, string> = session_state?.variables || {};
+    variables.__lastUserMessage = message; // Store for ai_router access
+    // Preserve system variables (phone from test settings) across resets
+    const _systemVars: Record<string, string> = {};
+    if (variables.phone) _systemVars.phone = variables.phone;
     let sessionStatus: string = session_state?.status || "active";
 
     const responses: DemoResponse[] = [];
@@ -619,7 +916,7 @@ Deno.serve(async (req) => {
       if (strictMode) {
         return strictNudgeResponse("אני יכול לעזור רק דרך התהליך. שלח הודעה כדי להתחיל.", stayOnNode);
       }
-      const botResponse = await callLLMFallback(user_id, message, convId, workflowRecord, variables?.language);
+      const botResponse = await callLLMFallback(user_id, message, convId, workflowRecord, variables?.language, variables);
       await supabase.from("demo_conversations").insert({
         user_id,
         conversation_id: convId,
@@ -699,14 +996,14 @@ Deno.serve(async (req) => {
       const triggerNode = matchedId ? findStartNodeById(flow, matchedId) : undefined;
       if (triggerNode) {
         currentNodeId = triggerNode.id;
-        variables = {};
+        variables = { ..._systemVars };
         sessionStatus = "active";
       } else {
         // No trigger match — check for catch-all start node (empty trigger)
         const catchAll = findCatchAllStart(flow);
         if (catchAll) {
           currentNodeId = catchAll.id;
-          variables = {};
+          variables = { ..._systemVars };
           sessionStatus = "active";
         } else {
           return llmFallbackResponse(null);
@@ -719,7 +1016,7 @@ Deno.serve(async (req) => {
         const triggerNode = findStartNodeById(flow, matchedId);
         if (triggerNode) {
           currentNodeId = triggerNode.id;
-          variables = {};
+          variables = { ..._systemVars };
         }
       }
     }
@@ -758,7 +1055,7 @@ Deno.serve(async (req) => {
       }
 
       // No menu request or no linked parent — continue with LLM
-      const botResponse = await callLLMFallback(user_id, message, convId, workflowRecord, variables?.language);
+      const botResponse = await callLLMFallback(user_id, message, convId, workflowRecord, variables?.language, variables);
       await supabase.from("demo_conversations").insert({
         user_id, conversation_id: convId,
         user_message: message, bot_response: botResponse,
@@ -768,6 +1065,40 @@ Deno.serve(async (req) => {
           response: botResponse,
           conversation_id: convId,
           session_state: { current_node_id: currentNode.id, variables, status: "active" },
+        }),
+        { headers: { ...cors, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Notion AI Agent node — conversational agent with tool calling
+    if (currentNode.type === "notion_ai_agent") {
+      const agentResult = await executeNotionAgent(currentNode, message, variables, session_state?.agent_history || [], user_id, workflowRecord);
+      // Save conversation to demo_conversations
+      await supabase.from("demo_conversations").insert({
+        user_id, conversation_id: convId,
+        user_message: message, bot_response: agentResult.response,
+      });
+      // Update variables from tool calls (e.g., agent updated Notion)
+      for (const tc of agentResult.toolCalls) {
+        if (tc.name === "update_notion" && tc.result && typeof tc.result === "object" && (tc.result as Record<string, unknown>).success) {
+          // Merge any extracted fields into variables
+          const props = (tc.input.properties || {}) as Record<string, unknown>;
+          if (props["תאריך ושעת האירוע"]) variables.event_date = String((props["תאריך ושעת האירוע"] as Record<string, unknown>)?.date?.start || variables.event_date || "");
+          if (props["שם מקום אירוע"]) variables.venue_name = String(((props["שם מקום אירוע"] as Record<string, unknown>)?.rich_text as Array<Record<string, unknown>>)?.[0]?.text?.content || variables.venue_name || "");
+          if (props["סוג קהל"]) variables.audience = String((props["סוג קהל"] as Record<string, unknown>)?.select?.name || variables.audience || "");
+          if (props["סטטוס"]) variables.status = String((props["סטטוס"] as Record<string, unknown>)?.status?.name || variables.status || "");
+        }
+      }
+      return new Response(
+        JSON.stringify({
+          responses: [{ type: "text", content: agentResult.response }],
+          conversation_id: convId,
+          session_state: {
+            current_node_id: currentNode.id,
+            variables,
+            agent_history: agentResult.updatedHistory,
+            status: "active",
+          },
         }),
         { headers: { ...cors, "Content-Type": "application/json" } }
       );
@@ -802,7 +1133,7 @@ Deno.serve(async (req) => {
                 if (!jumpNodeId) break;
                 continue;
               }
-              const result = await executeNode(node, variables, flow, responses);
+              const result = await executeNodeDemo(node, variables, flow, responses);
               if (result.waitForInput) { jumpNodeId = result.nextNodeId; break; }
               jumpNodeId = result.nextNodeId;
               if (!jumpNodeId) break;
@@ -872,7 +1203,7 @@ Deno.serve(async (req) => {
         nextNodeId = nextNode?.id || null;
       } else {
         // Re-send the current buttons node (with proper translation)
-        await executeNode(currentNode, variables, flow, responses);
+        await executeNodeDemo(currentNode, variables, flow, responses);
         return new Response(
           JSON.stringify({ response: responses, conversation_id: convId, session_state: { current_node_id: currentNodeId, variables, status: "active" } }),
           { headers: { ...cors, "Content-Type": "application/json" } }
@@ -1086,7 +1417,7 @@ Deno.serve(async (req) => {
           user_message: message, bot_response: flowText,
         });
       }
-      const botResponse = await callLLMFallback(user_id, message, convId, workflowRecord, variables?.language);
+      const botResponse = await callLLMFallback(user_id, message, convId, workflowRecord, variables?.language, variables);
       await supabase.from("demo_conversations").insert({
         user_id, conversation_id: convId,
         user_message: message, bot_response: botResponse,
@@ -1096,6 +1427,45 @@ Deno.serve(async (req) => {
           response: botResponse,
           conversation_id: convId,
           session_state: { current_node_id: nextNodeId, variables, status: "active" },
+        }),
+        { headers: { ...cors, "Content-Type": "application/json" } }
+      );
+    }
+
+    // If notion_ai_agent node was reached via chain, handle it (same pattern as open_bot above)
+    if (finalNode?.type === "notion_ai_agent") {
+      // Save any flow responses accumulated before the agent as context
+      if (responses.length > 0) {
+        const flowText = responses.map((r) => r.content).join("\n");
+        await supabase.from("demo_conversations").insert({
+          user_id, conversation_id: convId,
+          user_message: message, bot_response: flowText,
+        });
+      }
+      const agentResult = await executeNotionAgent(finalNode, message, variables, session_state?.agent_history || [], user_id, workflowRecord);
+      await supabase.from("demo_conversations").insert({
+        user_id, conversation_id: convId,
+        user_message: message, bot_response: agentResult.response,
+      });
+      for (const tc of agentResult.toolCalls) {
+        if (tc.name === "update_notion" && tc.result && typeof tc.result === "object" && (tc.result as Record<string, unknown>).success) {
+          const props = (tc.input.properties || {}) as Record<string, unknown>;
+          if (props["תאריך ושעת האירוע"]) variables.event_date = String((props["תאריך ושעת האירוע"] as Record<string, unknown>)?.date?.start || variables.event_date || "");
+          if (props["שם מקום אירוע"]) variables.venue_name = String(((props["שם מקום אירוע"] as Record<string, unknown>)?.rich_text as Array<Record<string, unknown>>)?.[0]?.text?.content || variables.venue_name || "");
+          if (props["סוג קהל"]) variables.audience = String((props["סוג קהל"] as Record<string, unknown>)?.select?.name || variables.audience || "");
+          if (props["סטטוס"]) variables.status = String((props["סטטוס"] as Record<string, unknown>)?.status?.name || variables.status || "");
+        }
+      }
+      return new Response(
+        JSON.stringify({
+          responses: [...responses, { type: "text", content: agentResult.response }],
+          conversation_id: convId,
+          session_state: {
+            current_node_id: nextNodeId,
+            variables,
+            agent_history: agentResult.updatedHistory,
+            status: "active",
+          },
         }),
         { headers: { ...cors, "Content-Type": "application/json" } }
       );
