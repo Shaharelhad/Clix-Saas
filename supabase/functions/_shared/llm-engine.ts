@@ -901,7 +901,7 @@ export async function callAgentLLM(params: {
           Authorization: `Bearer ${openrouterKey}`,
         },
         body: JSON.stringify({
-          model: "google/gemini-2.5-flash",
+          model: "google/gemini-2.5-pro-preview",
           messages: messages.map((m) => {
             // Strip undefined fields for clean API payload
             const msg: Record<string, unknown> = { role: m.role };
@@ -912,7 +912,7 @@ export async function callAgentLLM(params: {
             return msg;
           }),
           tools: openaiTools.length > 0 ? openaiTools : undefined,
-          max_tokens: 1024,
+          max_tokens: 2048,
           temperature: 0.3,
         }),
       });
