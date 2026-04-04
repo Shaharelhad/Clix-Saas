@@ -61,6 +61,7 @@ Only `Client/` has a package.json. Run `npm install` from there.
 - State: Zustand for client state (`src/store/`), React Query for server state
 - Database types: import from `@/types/database` (e.g., `Tables<"profiles">`, `TablesInsert<"form_responses">`)
 - External operations (Supabase, APIs, third-party services): always read `Client/.env` first to get credentials/URLs before asking the user for access details (includes `SUPABASE_ACCESS_TOKEN` for CLI deploys)
+- **Do NOT read or browse the `supabase/` folder** in this local codebase. For any Supabase or Inngest related work (queries, edge function deploys, CLI commands, etc.), always get credentials and URLs from `Client/.env` — never from local supabase config files.
 
 ### Page Structure (`src/pages/`)
 - **Naming:** pages are `{Name}Page.tsx`, sections are `{Name}Section.tsx`
@@ -102,7 +103,18 @@ Only `Client/` has a package.json. Run `npm install` from there.
 - **FlowBuilderPage** — visual @xyflow/react flow editor at `/dashboard/flow-builder`. 3-panel layout (editor sidebar, canvas, node palette) + toolbar + preview simulator. 8 node types (start, text, image, buttons, collect_input, delay, follow_up, condition). 1 workflow per account (auto-created). Default template: single Start node. LLM works implicitly behind the scenes — no AI Agent node. **Smart triggers:** LLM-based semantic matching via `classifyTrigger()` in `_shared/llm-engine.ts` (e.g., "hi" matches a "hello" trigger). **workflow_record:** auto-generated Hebrew summary of flow paths, stored in `workflows.workflow_record` on publish, passed to LLM as context for fallback responses. Legacy ai_agent nodes are auto-stripped on load (frontend) and treated as pass-through (backend). Dashboard demo chat unified with flow preview (both use `callFlowDemo()`).
 - **Auto-Follow-Up System** — LLM-generated re-engagement messages when customers stop replying during active funnels. Configurable delay (15-1440 min) and max count (1-2) in FlowSettingsModal. Stage classification via hidden `<!-- stage:engaging/closed -->` LLM tags. Background job executor via Inngest cron (`process-delayed-jobs`, every 2 min). Also fixes existing broken `delay` and `follow_up` node executors. DB: `subscriber_sessions.conversation_stage`, `subscriber_sessions.follow_up_count`, `flow_delayed_jobs.job_type`, `claim_pending_delayed_jobs` RPC.
 - **AdminGuard** — route protection for admin pages
-- **i18n** — 15 namespaces (including `flow`), Hebrew + English, RTL support via i18next
+- **i18n** — 16 namespaces (including `flow`, `apply`), Hebrew + English, RTL support via i18next
+- **White-Label System** — Multi-tenant platform with runtime theming:
+  - **Database:** `tenants` table (slug, branding, status), `profiles.tenant_id` FK, `set_tenant_on_profile` trigger
+  - **Theming:** CSS custom properties (`--brand-primary`, `--brand-primary-hover`, `--brand-primary-light`, `--brand-primary-lighter`, `--brand-primary-rgb`) defined in `:root`, all 47 component files use CSS vars instead of hardcoded hex
+  - **BrandLogo:** `src/components/BrandLogo.tsx` reads logo from tenant store, replaces 7 hardcoded logo references
+  - **Tenant runtime:** `src/lib/tenant.ts` detects subdomain from hostname, fetches tenant config via `get_tenant_config` RPC, applies CSS vars + title + favicon before React renders. Cached in localStorage for 10 min.
+  - **ApplyPage:** Public form at `/apply` for companies to submit white-label applications (name, subdomain, logo, color, email)
+  - **Admin TenantsSection:** Review/approve/reject tenant applications with brand preview at `/admin/tenants`
+  - **Auth:** Signup passes `tenant_slug` in user metadata → DB trigger auto-sets `tenant_id` on profile
+  - **RPCs:** `get_tenant_config`, `get_tenant_by_domain`, `submit_tenant_application`, `check_slug_available`, `admin_list_tenants`, `admin_update_tenant_status`, `admin_get_tenant`
+  - **Storage:** `tenant-assets` bucket for logos/icons (publicly readable)
+  - **Env vars:** `VITE_DEFAULT_TENANT_SLUG` (dev), `VITE_BASE_DOMAIN` (production base domain)
 
 ### Frontend Not Yet Built
 See [`.claude/migration-status.md`](.claude/migration-status.md) for the full gap analysis with checklists.

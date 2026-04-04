@@ -48,7 +48,7 @@ export default function EditBotSidebar({
                   text-sm font-medium transition-colors duration-200 cursor-pointer
                   ${
                     isActive
-                      ? "text-[#FF7E47] font-bold"
+                      ? "text-[var(--brand-primary-light)] font-bold"
                       : "text-[#7A7267] hover:bg-[#FAF7F3] hover:text-[#2D2A26]"
                   }
                 `}
@@ -56,7 +56,7 @@ export default function EditBotSidebar({
                 {isActive && (
                   <motion.div
                     layoutId="sidebar-active"
-                    className="absolute inset-0 rounded-xl bg-gradient-to-l from-[#FF7E47]/10 to-[#FF7E47]/5 border-e-[3px] border-[#FF7E47]"
+                    className="absolute inset-0 rounded-xl bg-gradient-to-l from-[var(--brand-primary-light)]/10 to-[var(--brand-primary-light)]/5 border-e-[3px] border-[var(--brand-primary-light)]"
                     transition={{ type: "spring", stiffness: 380, damping: 30 }}
                   />
                 )}
@@ -85,7 +85,7 @@ export default function EditBotSidebar({
                   text-sm whitespace-nowrap transition-colors duration-200 cursor-pointer
                   ${
                     isActive
-                      ? "text-[#FF7E47] font-bold"
+                      ? "text-[var(--brand-primary-light)] font-bold"
                       : "text-[#7A7267] hover:bg-[#FAF7F3] hover:text-[#2D2A26]"
                   }
                 `}
@@ -93,7 +93,7 @@ export default function EditBotSidebar({
                 {isActive && (
                   <motion.div
                     layoutId="sidebar-active-mobile"
-                    className="absolute inset-0 rounded-xl bg-[#FF7E47]/10"
+                    className="absolute inset-0 rounded-xl bg-[var(--brand-primary-light)]/10"
                     transition={{ type: "spring", stiffness: 380, damping: 30 }}
                   />
                 )}

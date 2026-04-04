@@ -40,7 +40,7 @@ const EASE = [0.22, 1, 0.36, 1] as const;
 /* ═══════════════════════ TYPING INDICATOR ═══════════════════ */
 
 function TypingIndicator({ variant = "demo" }: { variant?: "demo" | "edit" }) {
-  const dotColor = variant === "edit" ? "bg-[#FF7E47]/60" : "bg-[#B8AFA4]";
+  const dotColor = variant === "edit" ? "bg-[var(--brand-primary-light)]/60" : "bg-[#B8AFA4]";
   return (
     <div className="flex items-center gap-1.5 px-4 py-3">
       {[0, 1, 2].map((i) => (
@@ -77,13 +77,13 @@ function ChatBubble({
 
   const botBg =
     variant === "edit"
-      ? "bg-gradient-to-br from-[#FF7E47]/8 to-[#FF7E47]/4 text-[#3D3730] border border-[#FF7E47]/12"
+      ? "bg-gradient-to-br from-[var(--brand-primary-light)]/8 to-[var(--brand-primary-light)]/4 text-[#3D3730] border border-[var(--brand-primary-light)]/12"
       : "bg-[#2D2A26] text-white";
 
   const userBg =
     variant === "edit"
       ? "bg-[#2D2A26] text-white"
-      : "bg-[#FF7E47]/10 text-[#4A4640] border border-[#FF7E47]/15";
+      : "bg-[var(--brand-primary-light)]/10 text-[#4A4640] border border-[var(--brand-primary-light)]/15";
 
   return (
     <motion.div
@@ -179,20 +179,20 @@ const ChatPanel = ({
   };
 
   const isEdit = variant === "edit";
-  const accentColor = isEdit ? "#FF7E47" : "#FF7E47";
+  const accentColor = isEdit ? "var(--brand-primary-light)" : "var(--brand-primary-light)";
   const headerBorder = isEdit
-    ? "border-[#FF7E47]/10"
+    ? "border-[var(--brand-primary-light)]/10"
     : "border-[#EDE6DD]/40";
   const statusDotColor = statusColor === "emerald"
     ? "bg-emerald-400"
     : `bg-[${accentColor}]`;
   const statusTextColor = statusColor === "emerald"
     ? "text-emerald-500"
-    : "text-[#FF7E47]";
+    : "text-[var(--brand-primary-light)]";
 
   return (
     <div
-      className={`flex flex-col bg-white rounded-2xl overflow-hidden shadow-[0_2px_28px_rgba(45,42,38,0.06)] border ${isEdit ? "border-[#FF7E47]/15" : "border-[#EDE6DD]/50"} h-full ${className}`}
+      className={`flex flex-col bg-white rounded-2xl overflow-hidden shadow-[0_2px_28px_rgba(45,42,38,0.06)] border ${isEdit ? "border-[var(--brand-primary-light)]/15" : "border-[#EDE6DD]/50"} h-full ${className}`}
     >
       {/* Header */}
       <div
@@ -206,7 +206,7 @@ const ChatPanel = ({
         <div className="flex items-center gap-2.5">
           <div className="relative">
             <div
-              className={`w-8 h-8 rounded-full flex items-center justify-center ${isEdit ? "bg-gradient-to-br from-[#FF7E47]/20 to-[#FF7E47]/10" : "bg-[#FF7E47]/12"}`}
+              className={`w-8 h-8 rounded-full flex items-center justify-center ${isEdit ? "bg-gradient-to-br from-[var(--brand-primary-light)]/20 to-[var(--brand-primary-light)]/10" : "bg-[var(--brand-primary-light)]/12"}`}
             >
               {icon}
             </div>
@@ -258,7 +258,7 @@ const ChatPanel = ({
             className="self-start max-w-[80%]"
           >
             <div
-              className={`${isEdit ? "bg-[#FF7E47]/8 border border-[#FF7E47]/10" : "bg-[#2D2A26]"} rounded-2xl rounded-ss-sm shadow-sm`}
+              className={`${isEdit ? "bg-[var(--brand-primary-light)]/8 border border-[var(--brand-primary-light)]/10" : "bg-[#2D2A26]"} rounded-2xl rounded-ss-sm shadow-sm`}
             >
               <TypingIndicator variant={variant} />
             </div>
@@ -284,8 +284,8 @@ const ChatPanel = ({
               placeholder={placeholder}
               className={`w-full border rounded-xl px-3.5 py-2.5 pe-11 text-sm text-[#2D2A26] placeholder-[#B8AFA4] outline-none transition-all duration-200 disabled:opacity-50 ${
                 isEdit
-                  ? "bg-[#FFF8F4] border-[#FFD4BD]/60 focus:border-[#FF7E47] focus:ring-2 focus:ring-[#FF7E47]/15"
-                  : "bg-[#FAF7F3] border-[#E5DDD3] focus:border-[#FF7E47] focus:ring-2 focus:ring-[#FF7E47]/15"
+                  ? "bg-[#FFF8F4] border-[#FFD4BD]/60 focus:border-[var(--brand-primary-light)] focus:ring-2 focus:ring-[var(--brand-primary-light)]/15"
+                  : "bg-[#FAF7F3] border-[#E5DDD3] focus:border-[var(--brand-primary-light)] focus:ring-2 focus:ring-[var(--brand-primary-light)]/15"
               }`}
             />
             <motion.button
@@ -294,7 +294,7 @@ const ChatPanel = ({
               whileTap={{ scale: 0.9 }}
               onClick={onSend}
               disabled={!input.trim() || isSending}
-              className="absolute top-1/2 -translate-y-1/2 end-1.5 p-1.5 rounded-lg bg-[#FF7E47] hover:bg-[#E86B38] transition-all duration-200 disabled:opacity-40 disabled:hover:bg-[#FF7E47] cursor-pointer disabled:cursor-not-allowed"
+              className="absolute top-1/2 -translate-y-1/2 end-1.5 p-1.5 rounded-lg bg-[var(--brand-primary-light)] hover:bg-[var(--brand-primary-hover)] transition-all duration-200 disabled:opacity-40 disabled:hover:bg-[var(--brand-primary-light)] cursor-pointer disabled:cursor-not-allowed"
             >
               {isSending ? (
                 <Loader2 className="w-3.5 h-3.5 text-white animate-spin" />

@@ -34,8 +34,8 @@ export default function FlowNodeWrapper({
     <div
       className={`relative overflow-visible bg-white rounded-xl shadow-md border-2 min-w-[180px] transition-shadow ${
         width ? "" : "max-w-[240px] "
-      }${selected ? "shadow-lg ring-2 ring-[#FF7E47]/40" : ""}${disabled ? " opacity-50" : ""}`}
-      style={{ borderColor: selected ? "#FF7E47" : `${color}40`, ...(width ? { width } : {}) }}
+      }${selected ? "shadow-lg ring-2 ring-[var(--brand-primary-light)]/40" : ""}${disabled ? " opacity-50" : ""}`}
+      style={{ borderColor: selected ? "var(--brand-primary-light)" : `${color}40`, ...(width ? { width } : {}) }}
     >
       {/* Target handle */}
       {!hideTarget && (

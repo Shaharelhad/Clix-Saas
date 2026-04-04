@@ -216,13 +216,13 @@ export default function BlockedNumbersModal({
                 }}
                 onKeyDown={handleKeyDown}
                 placeholder={t("blockedNumbersPlaceholder")}
-                className="flex-1 border border-[#EDE6DD] rounded-xl px-4 py-2.5 text-sm text-[#2D2A26] placeholder:text-[#C5BDB3] focus:outline-none focus:border-[#FF7E47] focus:ring-1 focus:ring-[#FF7E47]/20 transition-colors"
+                className="flex-1 border border-[#EDE6DD] rounded-xl px-4 py-2.5 text-sm text-[#2D2A26] placeholder:text-[#C5BDB3] focus:outline-none focus:border-[var(--brand-primary-light)] focus:ring-1 focus:ring-[var(--brand-primary-light)]/20 transition-colors"
               />
               <button
                 type="button"
                 onClick={handleAdd}
                 disabled={!input.trim() || addMutation.isPending}
-                className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-[#FF7E47] hover:bg-[#E86B38] disabled:opacity-50 text-white text-sm font-bold transition-colors cursor-pointer disabled:cursor-not-allowed"
+                className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-[var(--brand-primary-light)] hover:bg-[var(--brand-primary-hover)] disabled:opacity-50 text-white text-sm font-bold transition-colors cursor-pointer disabled:cursor-not-allowed"
               >
                 <Plus className="w-4 h-4" />
                 {t("blockedNumbersAdd")}

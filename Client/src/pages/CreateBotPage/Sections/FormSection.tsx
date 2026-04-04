@@ -473,7 +473,7 @@ const FormSection = ({ onNext }: FormSectionProps) => {
   if (fieldsLoading || steps.length === 0) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <Loader2 className="animate-spin w-8 h-8 text-[#FF7E47]" />
+        <Loader2 className="animate-spin w-8 h-8 text-[var(--brand-primary-light)]" />
       </div>
     );
   }
@@ -522,7 +522,7 @@ const FormSection = ({ onNext }: FormSectionProps) => {
                   }}
                   className="inline-block mb-6"
                 >
-                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#FF7E47] to-[#E86B38] flex items-center justify-center shadow-[0_4px_24px_rgba(255,126,71,0.3)]">
+                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[var(--brand-primary-light)] to-[var(--brand-primary-hover)] flex items-center justify-center shadow-[0_4px_24px_rgba(var(--brand-primary-rgb),0.3)]">
                     <Bot className="w-8 h-8 text-white" />
                   </div>
                 </motion.div>
@@ -644,7 +644,7 @@ const FormSection = ({ onNext }: FormSectionProps) => {
                           e.target.value,
                         )
                       }
-                      className="w-full bg-[#FAF7F3] border border-[#E5DDD3] rounded-xl px-4 py-3 text-sm text-[#2D2A26] placeholder-[#B8AFA4] focus:border-[#FF7E47] focus:ring-2 focus:ring-[#FF7E47]/15 outline-none transition-all duration-200"
+                      className="w-full bg-[#FAF7F3] border border-[#E5DDD3] rounded-xl px-4 py-3 text-sm text-[#2D2A26] placeholder-[#B8AFA4] focus:border-[var(--brand-primary-light)] focus:ring-2 focus:ring-[var(--brand-primary-light)]/15 outline-none transition-all duration-200"
                     />
                   </div>
                 </div>

@@ -264,7 +264,7 @@ export default function DemoChatSection({ resetKey = 0, workflowId }: DemoChatSe
               value={testPhone}
               onChange={(e) => setTestPhone(e.target.value)}
               placeholder="972501234567"
-              className="flex-1 border border-[#EDE6DD] rounded-md px-2 py-1 text-xs text-[#2D2A26] bg-white focus:outline-none focus:border-[#FF7E47] transition-colors"
+              className="flex-1 border border-[#EDE6DD] rounded-md px-2 py-1 text-xs text-[#2D2A26] bg-white focus:outline-none focus:border-[var(--brand-primary-light)] transition-colors"
               dir="ltr"
             />
           </div>
@@ -273,7 +273,7 @@ export default function DemoChatSection({ resetKey = 0, workflowId }: DemoChatSe
 
       <ChatPanel
         title={t("demoChatTitle")}
-        icon={<Bot className="w-4 h-4 text-[#FF7E47]" />}
+        icon={<Bot className="w-4 h-4 text-[var(--brand-primary-light)]" />}
         statusText={t("demoChatStatus")}
         statusColor="emerald"
         messages={messages}
@@ -295,7 +295,7 @@ export default function DemoChatSection({ resetKey = 0, workflowId }: DemoChatSe
             title={t("newConversation")}
             aria-label={t("newConversation")}
           >
-            <RotateCcw className="w-3.5 h-3.5 text-[#A39B90] group-hover:text-[#FF7E47] transition-colors" />
+            <RotateCcw className="w-3.5 h-3.5 text-[#A39B90] group-hover:text-[var(--brand-primary-light)] transition-colors" />
           </motion.button>
         }
       />

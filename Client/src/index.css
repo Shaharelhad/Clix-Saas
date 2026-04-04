@@ -1,5 +1,14 @@
 @import "tailwindcss";
 
+/* ── Brand theme — CSS custom properties ── */
+:root {
+  --brand-primary: #FF6B2C;
+  --brand-primary-hover: #E85D04;
+  --brand-primary-light: #FF7E47;
+  --brand-primary-lighter: #FF8F5C;
+  --brand-primary-rgb: 255, 107, 44;
+}
+
 /* ── Global UX base resets ── */
 @layer base {
   button, [role="button"] {
@@ -7,7 +16,7 @@
   }
 
   :focus-visible {
-    outline: 2px solid rgba(255, 107, 44, 0.5);
+    outline: 2px solid rgba(var(--brand-primary-rgb), 0.5);
     outline-offset: 2px;
   }
 
@@ -16,7 +25,7 @@
   }
 
   ::selection {
-    background: rgba(255, 107, 44, 0.2);
+    background: rgba(var(--brand-primary-rgb), 0.2);
     color: inherit;
   }
 
@@ -40,13 +49,13 @@ body {
 
 /* ── Primary CTA button ── */
 .clix-btn {
-  background: #FF6B2C;
+  background: var(--brand-primary);
   color: #fff;
   font-weight: 700;
   padding: 0.75rem 2rem;
   border-radius: 0.75rem;
-  border: 1px solid rgba(255, 107, 44, 0.3);
-  box-shadow: 0 4px 24px rgba(255, 107, 44, 0.2);
+  border: 1px solid rgba(var(--brand-primary-rgb), 0.3);
+  box-shadow: 0 4px 24px rgba(var(--brand-primary-rgb), 0.2);
   transition: all 0.3s ease;
   position: relative;
   overflow: hidden;
@@ -68,9 +77,9 @@ body {
 }
 
 .clix-btn:hover {
-  background: #E85D04;
+  background: var(--brand-primary-hover);
   transform: scale(1.03);
-  box-shadow: 0 6px 32px rgba(255, 107, 44, 0.35);
+  box-shadow: 0 6px 32px rgba(var(--brand-primary-rgb), 0.35);
 }
 
 .clix-btn:active {
@@ -98,7 +107,7 @@ body {
   left: 50%;
   transform: translate(-50%, -60%);
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(255, 107, 44, 0.12) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(var(--brand-primary-rgb), 0.12) 0%, transparent 70%);
   animation: hero-pulse 8s ease-in-out infinite;
 }
 
@@ -141,7 +150,7 @@ body {
   left: 50%;
   transform: translate(-50%, -60%);
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(255, 107, 44, 0.06) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(var(--brand-primary-rgb), 0.06) 0%, transparent 70%);
   animation: hero-pulse 8s ease-in-out infinite;
 }
 
@@ -156,8 +165,8 @@ body {
 
 /* ── CTA ambient glow pulse ── */
 @keyframes glow-pulse {
-  0%, 100% { box-shadow: 0 0 30px rgba(255, 107, 44, 0.2); }
-  50% { box-shadow: 0 0 50px rgba(255, 107, 44, 0.35); }
+  0%, 100% { box-shadow: 0 0 30px rgba(var(--brand-primary-rgb), 0.2); }
+  50% { box-shadow: 0 0 50px rgba(var(--brand-primary-rgb), 0.35); }
 }
 
 .cta-glow-pulse {
@@ -181,7 +190,7 @@ body {
   left: 50%;
   transform: translate(-50%, -50%);
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(255, 107, 44, 0.1) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(var(--brand-primary-rgb), 0.1) 0%, transparent 70%);
   animation: cta-shift 8s ease-in-out infinite;
 }
 

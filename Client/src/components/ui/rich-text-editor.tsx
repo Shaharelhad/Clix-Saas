@@ -62,7 +62,7 @@ export default function RichTextEditor({
       className={cn(
         "w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-150 cursor-pointer",
         active
-          ? "bg-[#FF6B2C]/20 text-[#FF6B2C]"
+          ? "bg-[var(--brand-primary)]/20 text-[var(--brand-primary)]"
           : "text-white/40 hover:text-white/70 hover:bg-white/[0.06]"
       )}
     >
@@ -71,7 +71,7 @@ export default function RichTextEditor({
   );
 
   return (
-    <div className="rounded-xl border border-white/[0.08] bg-white/[0.04] overflow-hidden focus-within:border-[#FF6B2C]/40 transition-colors">
+    <div className="rounded-xl border border-white/[0.08] bg-white/[0.04] overflow-hidden focus-within:border-[var(--brand-primary)]/40 transition-colors">
       {/* Toolbar */}
       <div className="flex items-center gap-0.5 px-2 py-1.5 border-b border-white/[0.06]">
         <ToolbarButton

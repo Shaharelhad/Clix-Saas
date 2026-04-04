@@ -81,7 +81,7 @@ function FileUploadCard() {
     <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-[0_2px_24px_rgba(45,42,38,0.05)] border border-[#EDE6DD]/50 p-6">
       {/* Section label */}
       <div className="flex items-center gap-2 mb-4">
-        <FileText className="w-4 h-4 text-[#FF7E47]" />
+        <FileText className="w-4 h-4 text-[var(--brand-primary-light)]" />
         <span className="text-sm font-semibold text-[#2D2A26]">
           {t("uploadTitle")}
         </span>
@@ -89,11 +89,11 @@ function FileUploadCard() {
 
       {isLoading ? (
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="w-6 h-6 text-[#FF7E47] animate-spin" />
+          <Loader2 className="w-6 h-6 text-[var(--brand-primary-light)] animate-spin" />
         </div>
       ) : isUploading || document?.status === "processing" ? (
         <div className="flex flex-col items-center justify-center py-12 gap-4">
-          <Loader2 className="w-10 h-10 text-[#FF7E47] animate-spin" />
+          <Loader2 className="w-10 h-10 text-[var(--brand-primary-light)] animate-spin" />
           <p className="text-sm text-[#7A7267] font-medium">
             {uploadProgress || t("processingFile")}
           </p>
@@ -102,8 +102,8 @@ function FileUploadCard() {
         <div className="space-y-4">
           <div className="bg-[#FAF7F3] rounded-xl p-4 border border-[#EDE6DD]/60">
             <div className="flex items-start gap-3">
-              <div className="p-2 bg-[#FF7E47]/10 rounded-lg shrink-0">
-                <FileText className="w-4 h-4 text-[#FF7E47]" />
+              <div className="p-2 bg-[var(--brand-primary-light)]/10 rounded-lg shrink-0">
+                <FileText className="w-4 h-4 text-[var(--brand-primary-light)]" />
               </div>
               <div className="flex-1 min-w-0 space-y-1.5">
                 <div className="flex items-center gap-2">
@@ -137,7 +137,7 @@ function FileUploadCard() {
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium text-[#FF7E47] bg-[#FF7E47]/10 hover:bg-[#FF7E47]/20 transition-colors"
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium text-[var(--brand-primary-light)] bg-[var(--brand-primary-light)]/10 hover:bg-[var(--brand-primary-light)]/20 transition-colors"
             >
               <RefreshCw className="w-4 h-4" />
               {t("replaceFile")}
@@ -181,20 +181,20 @@ function FileUploadCard() {
             className={cn(
               "flex flex-col items-center justify-center gap-3 py-12 rounded-xl border-2 border-dashed cursor-pointer transition-all duration-200",
               isDragOver
-                ? "border-[#FF7E47] bg-[#FF7E47]/5"
-                : "border-[#EDE6DD] hover:border-[#FF7E47]/40 hover:bg-[#FAF7F3]",
+                ? "border-[var(--brand-primary-light)] bg-[var(--brand-primary-light)]/5"
+                : "border-[#EDE6DD] hover:border-[var(--brand-primary-light)]/40 hover:bg-[#FAF7F3]",
             )}
           >
             <div
               className={cn(
                 "p-3 rounded-full transition-colors",
-                isDragOver ? "bg-[#FF7E47]/15" : "bg-[#EDE6DD]/60",
+                isDragOver ? "bg-[var(--brand-primary-light)]/15" : "bg-[#EDE6DD]/60",
               )}
             >
               <Upload
                 className={cn(
                   "w-6 h-6 transition-colors",
-                  isDragOver ? "text-[#FF7E47]" : "text-[#A39B90]",
+                  isDragOver ? "text-[var(--brand-primary-light)]" : "text-[#A39B90]",
                 )}
               />
             </div>
@@ -442,8 +442,8 @@ export default function KnowledgeBaseSection() {
     >
       {/* Header */}
       <motion.div variants={fadeUp} className="flex items-center gap-3">
-        <div className="p-2.5 bg-[#FF7E47]/10 rounded-xl">
-          <BookOpen className="w-5 h-5 text-[#FF7E47]" />
+        <div className="p-2.5 bg-[var(--brand-primary-light)]/10 rounded-xl">
+          <BookOpen className="w-5 h-5 text-[var(--brand-primary-light)]" />
         </div>
         <div>
           <h2 className="text-lg font-bold text-[#2D2A26]">

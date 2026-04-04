@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { motion, useInView, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Eye, Sparkles, HelpCircle, LogIn, Menu, X } from "lucide-react";
+import BrandLogo from "@/components/BrandLogo";
 import HeroSection from "./Sections/HeroSection";
 import ProductPreviewSection from "./Sections/ProductPreviewSection";
 import FeaturesSection from "./Sections/FeaturesSection";
@@ -128,10 +129,8 @@ const HomePage = () => {
               className="flex items-center gap-2 cursor-pointer group"
               aria-label="חזרה לתחילת העמוד"
             >
-              <img
-                src="/clix-logo-full.png"
-                alt="CLIX"
-                className="h-6 transition-[filter] duration-300 group-hover:drop-shadow-[0_0_8px_rgba(255,107,44,0.6)]"
+              <BrandLogo
+                className="h-6 transition-[filter] duration-300 group-hover:drop-shadow-[0_0_8px_rgba(var(--brand-primary-rgb),0.6)]"
               />
             </motion.button>
 
@@ -155,7 +154,7 @@ const HomePage = () => {
                     {activeSection === item.id && (
                       <motion.div
                         layoutId="nav-underline"
-                        className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#FF6B2C] rounded-full"
+                        className="absolute bottom-0 left-0 right-0 h-[2px] bg-[var(--brand-primary)] rounded-full"
                         transition={{
                           type: "spring",
                           stiffness: 400,
@@ -182,7 +181,7 @@ const HomePage = () => {
             <button
               type="button"
               onClick={() => navigate("/auth?mode=signup")}
-              className="bg-[#FF6B2C] text-white text-sm px-4 py-2 rounded-lg hover:bg-[#E85D04] transition-colors flex items-center gap-1.5"
+              className="bg-[var(--brand-primary)] text-white text-sm px-4 py-2 rounded-lg hover:bg-[var(--brand-primary-hover)] transition-colors flex items-center gap-1.5"
             >
               {t("navStartFree")}
               <ArrowLeft className="w-3.5 h-3.5" />
@@ -224,7 +223,7 @@ const HomePage = () => {
                       onClick={() => scrollToSection(item.id)}
                       className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${
                         activeSection === item.id
-                          ? "bg-[#FF6B2C]/10 text-[#FF6B2C]"
+                          ? "bg-[var(--brand-primary)]/10 text-[var(--brand-primary)]"
                           : "text-[#3D3630] hover:bg-[#FAF7F3]"
                       }`}
                     >
@@ -253,7 +252,7 @@ const HomePage = () => {
                     setMobileMenuOpen(false);
                     navigate("/auth?mode=signup");
                   }}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold bg-[#FF6B2C] text-white hover:bg-[#E85D04] transition-colors"
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold bg-[var(--brand-primary)] text-white hover:bg-[var(--brand-primary-hover)] transition-colors"
                 >
                   {t("navStartFree")}
                   <ArrowLeft className="w-3.5 h-3.5" />

@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Outlet, NavLink, useNavigate, useLocation } from "react-router-dom";
+import BrandLogo from "@/components/BrandLogo";
+import { isMainDomain } from "@/lib/tenant";
 import { useTranslation } from "react-i18next";
 import {
   LogOut,
@@ -82,11 +84,7 @@ export default function UserLayout() {
         <div className="max-w-full mx-auto px-3 sm:px-5 md:px-8 flex items-center justify-between h-14">
           {/* Logo */}
           <div className="flex items-center gap-3">
-            <img
-              src="/clix-logo-full.png"
-              alt="CLIX"
-              className="h-6 drop-shadow-[0_0_8px_rgba(255,107,44,0.3)]"
-            />
+            <BrandLogo className="h-6 drop-shadow-[0_0_8px_rgba(var(--brand-primary-rgb),0.3)]" />
           </div>
 
           {/* Nav Tabs */}
@@ -101,7 +99,7 @@ export default function UserLayout() {
                   cn(
                     "flex items-center gap-2 px-4 py-2 rounded-lg text-sm whitespace-nowrap transition-all duration-200",
                     isActive
-                      ? "bg-[#FF7E47]/10 text-[#FF7E47] border border-[#FF7E47]/20"
+                      ? "bg-[var(--brand-primary-light)]/10 text-[var(--brand-primary-light)] border border-[var(--brand-primary-light)]/20"
                       : "text-[#7A7267] hover:text-[#2D2A26] hover:bg-[#EDE6DD]/40 border border-transparent",
                   )
                 }
@@ -121,7 +119,7 @@ export default function UserLayout() {
               className="flex items-center gap-2 rounded-full transition-all duration-200 hover:opacity-80 active:scale-95"
               aria-label="User menu"
             >
-              <span className="w-9 h-9 rounded-full bg-[#FF7E47] text-white text-xs font-bold flex items-center justify-center shadow-sm">
+              <span className="w-9 h-9 rounded-full bg-[var(--brand-primary-light)] text-white text-xs font-bold flex items-center justify-center shadow-sm">
                 {user ? getInitials(user.full_name) : "?"}
               </span>
               <ChevronDown
@@ -191,12 +189,12 @@ export default function UserLayout() {
         <Outlet />
       </main>
 
-      {/* Floating Support Button — hidden on flow builder (has its own assistant) */}
-      {!location.pathname.includes("/flow-builder") && (
+      {/* Floating Support Button — only on main domain, hidden on flow builder */}
+      {isMainDomain() && !location.pathname.includes("/flow-builder") && (
         <button
           type="button"
           onClick={() => setSupportModalOpen(true)}
-          className="fixed bottom-6 left-6 z-40 w-12 h-12 rounded-full bg-[#FF7E47] text-white shadow-lg hover:shadow-xl hover:scale-105 active:scale-95 transition-all duration-200 flex items-center justify-center"
+          className="fixed bottom-6 left-6 z-40 w-12 h-12 rounded-full bg-[var(--brand-primary-light)] text-white shadow-lg hover:shadow-xl hover:scale-105 active:scale-95 transition-all duration-200 flex items-center justify-center"
           aria-label={t("support")}
           title={t("support")}
         >

@@ -38,20 +38,20 @@ const DockIconButton = React.forwardRef<HTMLButtonElement, DockItem>(
       className={cn(
         "relative group p-3 rounded-lg transition-colors cursor-pointer",
         isActive
-          ? "bg-[#FF7E47]/10"
+          ? "bg-[var(--brand-primary-light)]/10"
           : "hover:bg-[#FAF7F3]",
       )}
     >
       <Icon
         className={cn(
           "w-5 h-5 transition-colors",
-          isActive ? "text-[#FF7E47]" : "text-[#7A7267] group-hover:text-[#2D2A26]",
+          isActive ? "text-[var(--brand-primary-light)]" : "text-[#7A7267] group-hover:text-[#2D2A26]",
         )}
       />
       {isActive && (
         <motion.span
           layoutId="dock-active-dot"
-          className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-[#FF7E47]"
+          className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-[var(--brand-primary-light)]"
           transition={{ type: "spring", stiffness: 400, damping: 30 }}
         />
       )}

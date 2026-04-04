@@ -141,6 +141,20 @@ const admin = {
   gatewayPhoneNumber: "מספר מחובר",
   gatewayInstanceExists: "מזהה חיבור כבר קיים",
   gatewaySendError: "שגיאה בשליחת ההודעה",
+
+  // Tenants
+  navTenants: "שותפים",
+  tenantsTitle: "שותפי White-Label",
+  tenantsSubtitle: "ניהול בקשות חברות לפלטפורמה ממותגת",
+  tenantsEmpty: "אין בקשות להצגה",
+  tenantFilterPending: "ממתינים",
+  tenantFilterApproved: "מאושרים",
+  tenantFilterRejected: "נדחו",
+  tenantFilterAll: "הכל",
+  tenantVisitSite: "בקר באתר",
+  tenantBrandPreview: "תצוגה מקדימה",
+  tenantSampleButton: "כפתור לדוגמה",
+  tenantSampleOutline: "כפתור מתאר",
 };
 
 export default admin;

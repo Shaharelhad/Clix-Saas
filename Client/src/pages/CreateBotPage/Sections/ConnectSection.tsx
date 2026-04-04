@@ -66,7 +66,7 @@ const slideVariants = {
 };
 
 /* ── Confetti particle config ── */
-const PARTICLE_COLORS = ["#FF7E47", "#FFB878", "#FFC599", "#FF9A6C", "#FFD4B8"];
+const PARTICLE_COLORS = ["var(--brand-primary-light)", "#FFB878", "#FFC599", "#FF9A6C", "#FFD4B8"];
 
 function generateParticles(count: number) {
   return Array.from({ length: count }, (_, i) => ({
@@ -126,14 +126,14 @@ function SuccessOverlay({ onGoToDashboard, t }: { onGoToDashboard: () => void; t
             animate={{ scale: [1, 1.5, 1.3], opacity: [0.5, 0, 0] }}
             transition={{ duration: 1.2, delay: 0.3 }}
             className="absolute inset-0 rounded-full"
-            style={{ background: "radial-gradient(circle, rgba(255,126,71,0.3) 0%, transparent 70%)" }}
+            style={{ background: "radial-gradient(circle, rgba(var(--brand-primary-rgb),0.3) 0%, transparent 70%)" }}
           />
           <svg width="96" height="96" viewBox="0 0 96 96" className="relative">
             <motion.circle
               cx="48"
               cy="48"
               r="44"
-              fill="#FF7E47"
+              fill="var(--brand-primary-light)"
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
               transition={{ type: "spring", stiffness: 200, damping: 15, delay: 0.1 }}
@@ -175,7 +175,7 @@ function SuccessOverlay({ onGoToDashboard, t }: { onGoToDashboard: () => void; t
           whileHover={{ scale: 1.03 }}
           whileTap={{ scale: 0.97 }}
           onClick={onGoToDashboard}
-          className="inline-flex items-center gap-3 bg-[#FF7E47] hover:bg-[#E86B38] text-white font-bold text-lg rounded-2xl px-10 py-4 transition-colors duration-300 shadow-[0_4px_24px_rgba(255,126,71,0.35)] hover:shadow-[0_6px_32px_rgba(255,126,71,0.45)] cursor-pointer"
+          className="inline-flex items-center gap-3 bg-[var(--brand-primary-light)] hover:bg-[var(--brand-primary-hover)] text-white font-bold text-lg rounded-2xl px-10 py-4 transition-colors duration-300 shadow-[0_4px_24px_rgba(var(--brand-primary-rgb),0.35)] hover:shadow-[0_6px_32px_rgba(var(--brand-primary-rgb),0.45)] cursor-pointer"
         >
           {t("goToDashboard")}
           <ArrowRight className="w-5 h-5" />

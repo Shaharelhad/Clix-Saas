@@ -205,8 +205,8 @@ export default function ConversationsSection() {
     <motion.div variants={fadeUp} className="flex flex-col">
       {/* Section Header */}
       <div className="flex items-center gap-2.5 mb-3">
-        <div className="w-8 h-8 rounded-xl bg-[#FF7E47]/10 flex items-center justify-center">
-          <MessageSquare className="w-4 h-4 text-[#FF7E47]" />
+        <div className="w-8 h-8 rounded-xl bg-[var(--brand-primary-light)]/10 flex items-center justify-center">
+          <MessageSquare className="w-4 h-4 text-[var(--brand-primary-light)]" />
         </div>
         <h2 className="text-base font-bold text-[#2D2A26]">
           {t("conversationsTitle")}
@@ -256,13 +256,13 @@ export default function ConversationsSection() {
                     onClick={() => setSelectedId(session.id)}
                     className={`w-full text-start px-4 py-3.5 transition-all duration-200 border-b border-[#EDE6DD]/30 cursor-pointer group ${
                       effectiveSelectedId === session.id
-                        ? "bg-[#FF7E47]/[0.06] border-s-2 border-s-[#FF7E47]"
+                        ? "bg-[var(--brand-primary-light)]/[0.06] border-s-2 border-s-[var(--brand-primary-light)]"
                         : "hover:bg-[#FAF7F3]"
                     }`}
                   >
                     <div className="flex items-center justify-between mb-1.5">
                       <div className="flex items-center gap-2">
-                        <Phone className="w-3.5 h-3.5 text-[#A39B90] group-hover:text-[#FF7E47] transition-colors" />
+                        <Phone className="w-3.5 h-3.5 text-[#A39B90] group-hover:text-[var(--brand-primary-light)] transition-colors" />
                         <span className="text-[13px] font-bold text-[#2D2A26] tracking-tight font-mono truncate">
                           {formatPhone(session.phone)}
                         </span>

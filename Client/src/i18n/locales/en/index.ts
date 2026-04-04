@@ -11,5 +11,6 @@ import flow from "./flow";
 import rag from "./rag";
 import support from "./support";
 import profile from "./profile";
+import apply from "./apply";
 
-export default { landing, common, createBot, auth, pending, admin, sidebar, dashboard, faq, flow, rag, support, profile };
+export default { landing, common, createBot, auth, pending, admin, sidebar, dashboard, faq, flow, rag, support, profile, apply };

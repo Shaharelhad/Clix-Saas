@@ -1,4 +1,5 @@
 import { Outlet, NavLink, useNavigate } from "react-router-dom";
+import BrandLogo from "@/components/BrandLogo";
 import { useTranslation } from "react-i18next";
 import {
   LayoutDashboard,
@@ -7,6 +8,7 @@ import {
   ClipboardList,
   Ticket,
   Radio,
+  Building2,
   LogOut,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
@@ -19,6 +21,7 @@ const navItems = [
   { to: "/admin/form-builder", icon: ClipboardList, labelKey: "navFormBuilder" },
   { to: "/admin/tickets", icon: Ticket, labelKey: "navTickets" },
   { to: "/admin/gateway", icon: Radio, labelKey: "navGateway" },
+  { to: "/admin/tenants", icon: Building2, labelKey: "navTenants" },
 ];
 
 export default function AdminPage() {
@@ -41,11 +44,7 @@ export default function AdminPage() {
         <div className="flex items-center justify-between px-3 sm:px-6 h-14">
           {/* Logo */}
           <div className="flex items-center gap-2.5">
-            <img
-              src="/clix-logo-full.png"
-              alt="CLIX"
-              className="h-6 drop-shadow-[0_1px_3px_rgba(216,114,60,0.2)]"
-            />
+            <BrandLogo className="h-6 drop-shadow-[0_1px_3px_rgba(var(--brand-primary-rgb),0.2)]" />
             <span className="text-[10px] text-[#D8723C]/60 font-bold uppercase tracking-widest">
               admin
             </span>

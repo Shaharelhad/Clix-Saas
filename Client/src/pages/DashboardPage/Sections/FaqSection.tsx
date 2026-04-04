@@ -139,7 +139,7 @@ export default function FaqSection() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-32">
-        <Loader2 className="w-8 h-8 animate-spin text-[#FF7E47]" />
+        <Loader2 className="w-8 h-8 animate-spin text-[var(--brand-primary-light)]" />
       </div>
     );
   }
@@ -185,7 +185,7 @@ export default function FaqSection() {
                 value={entry.question}
                 onChange={(e) => updateField(entry.id, "question", e.target.value)}
                 placeholder={t("questionPlaceholder")}
-                className="w-full px-3 py-2 rounded-lg border border-transparent hover:border-[#EDE6DD] focus:border-[#FF7E47]/40 focus:ring-2 focus:ring-[#FF7E47]/20 bg-transparent text-sm text-[#2D2A26] placeholder-[#C5BDB4] transition-all outline-none"
+                className="w-full px-3 py-2 rounded-lg border border-transparent hover:border-[#EDE6DD] focus:border-[var(--brand-primary-light)]/40 focus:ring-2 focus:ring-[var(--brand-primary-light)]/20 bg-transparent text-sm text-[#2D2A26] placeholder-[#C5BDB4] transition-all outline-none"
               />
 
               {/* Answer */}
@@ -194,7 +194,7 @@ export default function FaqSection() {
                 value={entry.answer}
                 onChange={(e) => updateField(entry.id, "answer", e.target.value)}
                 placeholder={t("answerPlaceholder")}
-                className="w-full px-3 py-2 rounded-lg border border-transparent hover:border-[#EDE6DD] focus:border-[#FF7E47]/40 focus:ring-2 focus:ring-[#FF7E47]/20 bg-transparent text-sm text-[#2D2A26] placeholder-[#C5BDB4] transition-all outline-none"
+                className="w-full px-3 py-2 rounded-lg border border-transparent hover:border-[#EDE6DD] focus:border-[var(--brand-primary-light)]/40 focus:ring-2 focus:ring-[var(--brand-primary-light)]/20 bg-transparent text-sm text-[#2D2A26] placeholder-[#C5BDB4] transition-all outline-none"
               />
 
               {/* Active toggle */}
@@ -203,7 +203,7 @@ export default function FaqSection() {
                   type="button"
                   onClick={() => toggleActive(entry.id)}
                   className={`w-10 h-5.5 rounded-full relative transition-colors duration-200 cursor-pointer ${
-                    entry.is_active ? "bg-[#FF7E47]" : "bg-[#D9D4CE]"
+                    entry.is_active ? "bg-[var(--brand-primary-light)]" : "bg-[#D9D4CE]"
                   }`}
                 >
                   <span
@@ -240,7 +240,7 @@ export default function FaqSection() {
           <button
             type="button"
             onClick={addEntry}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium text-[#FF7E47] hover:bg-[#FF7E47]/10 transition-colors cursor-pointer"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium text-[var(--brand-primary-light)] hover:bg-[var(--brand-primary-light)]/10 transition-colors cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             {t("addRow")}
@@ -269,7 +269,7 @@ export default function FaqSection() {
             whileTap={dirty ? { scale: 0.98 } : {}}
             className={`group relative w-full sm:w-auto inline-flex items-center justify-center gap-2.5 font-bold text-base rounded-2xl px-10 py-4 transition-all duration-300 ${
               dirty
-                ? "bg-[#FF7E47] hover:bg-[#E86B38] text-white shadow-[0_4px_20px_rgba(255,126,71,0.3)] hover:shadow-[0_6px_28px_rgba(255,126,71,0.4)]"
+                ? "bg-[var(--brand-primary-light)] hover:bg-[var(--brand-primary-hover)] text-white shadow-[0_4px_20px_rgba(var(--brand-primary-rgb),0.3)] hover:shadow-[0_6px_28px_rgba(var(--brand-primary-rgb),0.4)]"
                 : "bg-[#EDE6DD] text-[#A39B90] cursor-not-allowed"
             }`}
           >

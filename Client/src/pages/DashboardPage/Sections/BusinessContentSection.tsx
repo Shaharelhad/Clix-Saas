@@ -231,8 +231,8 @@ function CategoryCard({
     <div className="bg-white rounded-2xl shadow-[0_2px_24px_rgba(45,42,38,0.05)] border border-[#EDE6DD]/50 overflow-hidden">
       {/* Category header */}
       <div className="flex items-center gap-3 px-6 py-4 border-b border-[#EDE6DD]/40">
-        <div className="w-8 h-8 rounded-lg bg-[#FF7E47]/10 flex items-center justify-center">
-          <Icon className="w-4 h-4 text-[#FF7E47]" />
+        <div className="w-8 h-8 rounded-lg bg-[var(--brand-primary-light)]/10 flex items-center justify-center">
+          <Icon className="w-4 h-4 text-[var(--brand-primary-light)]" />
         </div>
         <h3 className="font-bold text-[#2D2A26] text-sm">
           {t(category.labelKey)}
@@ -283,7 +283,7 @@ function CategoryCard({
                 type="button"
                 onClick={onSave}
                 disabled={saving}
-                className="flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-bold bg-[#FF7E47] hover:bg-[#E86B38] text-white transition-colors shadow-[0_2px_12px_rgba(255,126,71,0.25)] cursor-pointer disabled:opacity-60"
+                className="flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-bold bg-[var(--brand-primary-light)] hover:bg-[var(--brand-primary-hover)] text-white transition-colors shadow-[0_2px_12px_rgba(var(--brand-primary-rgb),0.25)] cursor-pointer disabled:opacity-60"
               >
                 {saving ? (
                   <Loader2 key="loader" className="w-4 h-4 animate-spin" />
@@ -580,7 +580,7 @@ export default function BusinessContentSection() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-32">
-        <Loader2 className="w-8 h-8 animate-spin text-[#FF7E47]" />
+        <Loader2 className="w-8 h-8 animate-spin text-[var(--brand-primary-light)]" />
       </div>
     );
   }
@@ -593,7 +593,7 @@ export default function BusinessContentSection() {
         <button
           type="button"
           onClick={() => navigate("/create-bot")}
-          className="px-6 py-2.5 bg-[#FF7E47] hover:bg-[#E86B38] text-white font-bold rounded-xl transition-colors"
+          className="px-6 py-2.5 bg-[var(--brand-primary-light)] hover:bg-[var(--brand-primary-hover)] text-white font-bold rounded-xl transition-colors"
         >
           {t("goToCreateBot")}
         </button>

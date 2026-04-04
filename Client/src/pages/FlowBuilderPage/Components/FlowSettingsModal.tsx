@@ -29,7 +29,7 @@ export default function FlowSettingsModal({ settings, onUpdate, onClose }: FlowS
         {/* Settings */}
         <div className="p-5 space-y-5">
           {/* Strict Mode */}
-          <div className="rounded-lg bg-[#FFF5F0]/60 border border-[#FF7E47]/20 p-3">
+          <div className="rounded-lg bg-[#FFF5F0]/60 border border-[var(--brand-primary-light)]/20 p-3">
             <SettingRow
               label={t("settingsStrictMode")}
               hint={t("settingsStrictModeHint")}
@@ -127,8 +127,8 @@ export default function FlowSettingsModal({ settings, onUpdate, onClose }: FlowS
                         onClick={() => onUpdate({ autoFollowUpMode: mode })}
                         className={`flex-1 px-2.5 py-1.5 rounded text-[10px] font-medium border cursor-pointer transition-colors ${
                           settings.autoFollowUpMode === mode
-                            ? "bg-[#FF7E47] text-white border-[#FF7E47]"
-                            : "bg-white text-[#7A7267] border-[#EDE6DD] hover:border-[#FF7E47]/50"
+                            ? "bg-[var(--brand-primary-light)] text-white border-[var(--brand-primary-light)]"
+                            : "bg-white text-[#7A7267] border-[#EDE6DD] hover:border-[var(--brand-primary-light)]/50"
                         }`}
                       >
                         {t(mode === "bot" ? "settingsAutoFollowUpModeBot" : "settingsAutoFollowUpModeCustom")}
@@ -214,7 +214,7 @@ export default function FlowSettingsModal({ settings, onUpdate, onClose }: FlowS
           <button
             type="button"
             onClick={onClose}
-            className="w-full py-2 rounded-lg bg-[#FF7E47] text-white text-sm font-semibold hover:bg-[#e56e3a] transition-colors cursor-pointer"
+            className="w-full py-2 rounded-lg bg-[var(--brand-primary-light)] text-white text-sm font-semibold hover:bg-[var(--brand-primary-hover)] transition-colors cursor-pointer"
           >
             {t("settingsDone")}
           </button>
@@ -233,7 +233,7 @@ export default function FlowSettingsModal({ settings, onUpdate, onClose }: FlowS
           transition: border-color 0.15s;
         }
         .field-input:focus {
-          border-color: #FF7E47;
+          border-color: var(--brand-primary-light);
         }
       `}</style>
     </div>
@@ -259,7 +259,7 @@ function SettingRow({
         type="checkbox"
         checked={checked}
         onChange={(e) => onChange(e.target.checked)}
-        className="accent-[#FF7E47] mt-0.5 shrink-0"
+        className="accent-[var(--brand-primary-light)] mt-0.5 shrink-0"
       />
       <div>
         <span className="text-xs font-semibold text-[#2D2A26] block">{label}</span>
@@ -300,8 +300,8 @@ function MinutesPresetInput({
             onClick={() => onChange(preset.value)}
             className={`px-2.5 py-1 rounded text-[10px] font-medium border cursor-pointer transition-colors ${
               value === preset.value
-                ? "bg-[#FF7E47] text-white border-[#FF7E47]"
-                : "bg-white text-[#7A7267] border-[#EDE6DD] hover:border-[#FF7E47]/50"
+                ? "bg-[var(--brand-primary-light)] text-white border-[var(--brand-primary-light)]"
+                : "bg-white text-[#7A7267] border-[#EDE6DD] hover:border-[var(--brand-primary-light)]/50"
             }`}
           >
             {preset.label}

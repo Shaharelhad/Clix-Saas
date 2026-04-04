@@ -57,7 +57,7 @@ export function SubmissionProgress({
       <motion.div
         animate={{ rotate: 360 }}
         transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-        className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#FF7E47] to-[#E86B38] flex items-center justify-center shadow-[0_4px_24px_rgba(255,126,71,0.3)] mb-6"
+        className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[var(--brand-primary-light)] to-[var(--brand-primary-hover)] flex items-center justify-center shadow-[0_4px_24px_rgba(var(--brand-primary-rgb),0.3)] mb-6"
       >
         <Icon className="w-8 h-8 text-white" />
       </motion.div>
@@ -80,13 +80,13 @@ export function SubmissionProgress({
             {scrapeProgress.pages > 0 && (
               <span>
                 {t("pagesScraped")}:{" "}
-                <strong className="text-[#FF7E47]">{scrapeProgress.pages}</strong>
+                <strong className="text-[var(--brand-primary-light)]">{scrapeProgress.pages}</strong>
               </span>
             )}
             {scrapeProgress.products > 0 && (
               <span>
                 {t("productsFound")}:{" "}
-                <strong className="text-[#FF7E47]">{scrapeProgress.products}</strong>
+                <strong className="text-[var(--brand-primary-light)]">{scrapeProgress.products}</strong>
               </span>
             )}
           </div>
@@ -94,7 +94,7 @@ export function SubmissionProgress({
 
       <motion.div className="mt-6 h-1 w-48 rounded-full bg-[#EDE6DD] overflow-hidden">
         <motion.div
-          className="h-full bg-[#FF7E47] rounded-full"
+          className="h-full bg-[var(--brand-primary-light)] rounded-full"
           initial={{ width: "0%" }}
           animate={{ width: phase === "done" ? "100%" : "70%" }}
           transition={{ duration: phase === "done" ? 0.3 : 8, ease: "easeOut" }}

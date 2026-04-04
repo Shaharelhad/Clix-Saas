@@ -20,7 +20,7 @@ const FEATURES = [
   { key: "feature6", icon: PenLine },
 ];
 
-const ORANGE = "#FF6B2C";
+const ORANGE = "var(--brand-primary)";
 
 const FeaturesSection = () => {
   const { t } = useTranslation("landing");
@@ -35,17 +35,17 @@ const FeaturesSection = () => {
     >
       {/* Floating geometric accents */}
       <motion.div
-        className="absolute top-[15%] left-[3%] w-6 h-6 rounded-full border-2 border-[#FF6B2C]/25"
+        className="absolute top-[15%] left-[3%] w-6 h-6 rounded-full border-2 border-[var(--brand-primary)]/25"
         animate={{ scale: [1, 1.15, 1], opacity: [0.25, 0.5, 0.25] }}
         transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
       />
       <motion.div
-        className="absolute bottom-[10%] right-[4%] w-5 h-5 border-2 border-[#FF6B2C]/30 rotate-45"
+        className="absolute bottom-[10%] right-[4%] w-5 h-5 border-2 border-[var(--brand-primary)]/30 rotate-45"
         animate={{ y: [0, -12, 0], rotate: [45, 50, 45] }}
         transition={{ duration: 6, repeat: Infinity, ease: "easeInOut", delay: 2 }}
       />
       <motion.div
-        className="absolute top-[60%] right-[2%] w-3 h-3 rounded-full bg-[#FF6B2C]/25"
+        className="absolute top-[60%] right-[2%] w-3 h-3 rounded-full bg-[var(--brand-primary)]/25"
         animate={{ y: [0, 8, 0], opacity: [0.25, 0.6, 0.25] }}
         transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay: 1 }}
       />
@@ -89,9 +89,9 @@ const FeaturesSection = () => {
                 key={key}
                 className={cn(
                   "p-5 sm:p-8 relative overflow-hidden cursor-default rounded-[1.25rem]",
-                  "border border-white/60 hover:border-[#FF6B2C]/40",
+                  "border border-white/60 hover:border-[var(--brand-primary)]/40",
                   "transition-[border-color,box-shadow] duration-150",
-                  "hover:shadow-[0_12px_40px_rgba(0,0,0,0.12),0_4px_16px_rgba(255,107,44,0.08)]",
+                  "hover:shadow-[0_12px_40px_rgba(0,0,0,0.12),0_4px_16px_rgba(var(--brand-primary-rgb),0.08)]",
                   isLarge ? "col-span-2" : "col-span-2 sm:col-span-1",
                 )}
                 style={{
@@ -109,11 +109,11 @@ const FeaturesSection = () => {
                 }}
               >
                 {/* Orange accent bar at top */}
-                <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-[#FF6B2C]/30 to-transparent" />
+                <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-[var(--brand-primary)]/30 to-transparent" />
 
                 {/* Decorative accent in large cards */}
                 {isLarge && (
-                  <div className="absolute top-4 left-4 w-4 h-4 border border-[#FF6B2C]/15 rotate-45 pointer-events-none" />
+                  <div className="absolute top-4 left-4 w-4 h-4 border border-[var(--brand-primary)]/15 rotate-45 pointer-events-none" />
                 )}
 
                 <div

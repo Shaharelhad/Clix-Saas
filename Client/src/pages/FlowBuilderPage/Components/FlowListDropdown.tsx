@@ -63,7 +63,7 @@ export default function FlowListDropdown({
               key={w.id}
               className={`flex items-center gap-2 px-3 py-2.5 cursor-pointer transition-colors ${
                 isActive
-                  ? "bg-[#FFF5F0] border-e-2 border-[#FF7E47]"
+                  ? "bg-[#FFF5F0] border-e-2 border-[var(--brand-primary-light)]"
                   : "hover:bg-[#FAF7F3]"
               }`}
               onClick={() => {
@@ -148,7 +148,7 @@ export default function FlowListDropdown({
           className={`flex items-center justify-center gap-1.5 w-full py-2 rounded-lg text-xs font-bold transition-colors ${
             atLimit
               ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-              : "bg-[#FF7E47] text-white hover:bg-[#E86D3A] cursor-pointer"
+              : "bg-[var(--brand-primary-light)] text-white hover:bg-[var(--brand-primary-hover)] cursor-pointer"
           }`}
         >
           <Plus className="w-4 h-4" />

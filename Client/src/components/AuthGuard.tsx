@@ -8,7 +8,7 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: "linear-gradient(170deg, #FDF8F2 0%, #F8F0E6 40%, #FBF5EE 100%)" }}>
-        <Loader2 className="w-8 h-8 animate-spin text-[#FF7E47]" />
+        <Loader2 className="w-8 h-8 animate-spin text-[var(--brand-primary-light)]" />
       </div>
     );
   }

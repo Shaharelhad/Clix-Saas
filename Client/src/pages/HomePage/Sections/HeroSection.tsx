@@ -3,8 +3,8 @@ import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { Bot, Zap } from "lucide-react";
 
-const ORANGE = "#FF6B2C";
-const ORANGE_DARK = "#E8590C";
+const ORANGE = "var(--brand-primary)";
+const ORANGE_DARK = "var(--brand-primary-hover)";
 
 /* ── stagger helpers ── */
 const stagger = (i: number, base = 0) => base + i * 0.12;
@@ -26,28 +26,28 @@ const HeroSection = () => {
 
       {/* Diamond — top-left corner */}
       <motion.div
-        className="absolute top-[6%] left-[3%] w-6 h-6 border-2 border-[#FF6B2C]/50 rotate-45"
+        className="absolute top-[6%] left-[3%] w-6 h-6 border-2 border-[var(--brand-primary)]/50 rotate-45"
         animate={{ y: [0, -18, 0], rotate: [45, 50, 45] }}
         transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
       />
 
       {/* Solid circle — top-right corner */}
       <motion.div
-        className="absolute top-[5%] right-[4%] w-4 h-4 rounded-full bg-[#FF6B2C]/40"
+        className="absolute top-[5%] right-[4%] w-4 h-4 rounded-full bg-[var(--brand-primary)]/40"
         animate={{ y: [0, 14, 0], scale: [1, 1.3, 1] }}
         transition={{ duration: 7, repeat: Infinity, ease: "easeInOut", delay: 1 }}
       />
 
       {/* Ring — bottom-right corner */}
       <motion.div
-        className="absolute bottom-[6%] right-[2%] w-8 h-8 rounded-full border-2 border-[#FF6B2C]/35"
+        className="absolute bottom-[6%] right-[2%] w-8 h-8 rounded-full border-2 border-[var(--brand-primary)]/35"
         animate={{ scale: [1, 1.15, 1], opacity: [0.35, 0.7, 0.35] }}
         transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay: 2 }}
       />
 
       {/* Horizontal line — far left edge */}
       <motion.div
-        className="absolute top-[50%] left-[1%] w-10 h-[2px] bg-[#FF6B2C]/40"
+        className="absolute top-[50%] left-[1%] w-10 h-[2px] bg-[var(--brand-primary)]/40"
         animate={{ scaleX: [1, 1.8, 1], opacity: [0.4, 0.8, 0.4] }}
         transition={{ duration: 6, repeat: Infinity, ease: "easeInOut", delay: 3 }}
       />
@@ -58,20 +58,20 @@ const HeroSection = () => {
         animate={{ rotate: [0, 90, 0], opacity: [0.4, 0.8, 0.4] }}
         transition={{ duration: 8, repeat: Infinity, ease: "easeInOut", delay: 1.5 }}
       >
-        <div className="absolute top-1/2 left-0 w-full h-[2px] bg-[#FF6B2C] -translate-y-1/2" />
-        <div className="absolute left-1/2 top-0 w-[2px] h-full bg-[#FF6B2C] -translate-x-1/2" />
+        <div className="absolute top-1/2 left-0 w-full h-[2px] bg-[var(--brand-primary)] -translate-y-1/2" />
+        <div className="absolute left-1/2 top-0 w-[2px] h-full bg-[var(--brand-primary)] -translate-x-1/2" />
       </motion.div>
 
       {/* Hollow square — top-right edge */}
       <motion.div
-        className="absolute top-[12%] right-[2%] w-5 h-5 border-2 border-[#FF6B2C]/45"
+        className="absolute top-[12%] right-[2%] w-5 h-5 border-2 border-[var(--brand-primary)]/45"
         animate={{ y: [0, 12, 0], rotate: [0, 15, 0] }}
         transition={{ duration: 9, repeat: Infinity, ease: "easeInOut", delay: 2.5 }}
       />
 
       {/* Small diamond — top center */}
       <motion.div
-        className="absolute top-[3%] left-[45%] w-4 h-4 border border-[#FF6B2C]/50 rotate-45"
+        className="absolute top-[3%] left-[45%] w-4 h-4 border border-[var(--brand-primary)]/50 rotate-45"
         animate={{ y: [0, -8, 0], opacity: [0.5, 0.9, 0.5] }}
         transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay: 4 }}
       />
@@ -82,28 +82,28 @@ const HeroSection = () => {
         animate={{ opacity: [0.3, 0.7, 0.3] }}
         transition={{ duration: 4, repeat: Infinity, ease: "easeInOut", delay: 1 }}
       >
-        <div className="w-1.5 h-1.5 rounded-full bg-[#FF6B2C]/60" />
-        <div className="w-1.5 h-1.5 rounded-full bg-[#FF6B2C]/40" />
-        <div className="w-1.5 h-1.5 rounded-full bg-[#FF6B2C]/20" />
+        <div className="w-1.5 h-1.5 rounded-full bg-[var(--brand-primary)]/60" />
+        <div className="w-1.5 h-1.5 rounded-full bg-[var(--brand-primary)]/40" />
+        <div className="w-1.5 h-1.5 rounded-full bg-[var(--brand-primary)]/20" />
       </motion.div>
 
       {/* Faint ring — center gap upper */}
       <motion.div
-        className="absolute top-[20%] left-[48%] w-7 h-7 rounded-full border border-[#FF6B2C]/25"
+        className="absolute top-[20%] left-[48%] w-7 h-7 rounded-full border border-[var(--brand-primary)]/25"
         animate={{ scale: [1, 1.15, 1], opacity: [0.25, 0.5, 0.25] }}
         transition={{ duration: 8, repeat: Infinity, ease: "easeInOut", delay: 2 }}
       />
 
       {/* Small dot — center gap lower */}
       <motion.div
-        className="absolute bottom-[18%] left-[50%] w-2.5 h-2.5 rounded-full bg-[#FF6B2C]/35"
+        className="absolute bottom-[18%] left-[50%] w-2.5 h-2.5 rounded-full bg-[var(--brand-primary)]/35"
         animate={{ y: [0, -10, 0], opacity: [0.35, 0.7, 0.35] }}
         transition={{ duration: 6, repeat: Infinity, ease: "easeInOut", delay: 3.5 }}
       />
 
       {/* Tiny diamond — center gap mid */}
       <motion.div
-        className="absolute top-[70%] left-[46%] w-3 h-3 border border-[#FF6B2C]/30 rotate-45"
+        className="absolute top-[70%] left-[46%] w-3 h-3 border border-[var(--brand-primary)]/30 rotate-45"
         animate={{ y: [0, 8, 0], rotate: [45, 50, 45] }}
         transition={{ duration: 7, repeat: Infinity, ease: "easeInOut", delay: 1.5 }}
       />
