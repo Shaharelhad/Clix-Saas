@@ -25,10 +25,11 @@ const supabaseAdmin = createClient(
 );
 
 Deno.serve(async (req) => {
+  let claims: Record<string, unknown> = {};
   try {
     const payload = await req.json();
     const userId = payload.user_id;
-    const claims = payload.claims || {};
+    claims = payload.claims || {};
 
     if (!userId) {
       // Return claims unchanged if no user_id
@@ -65,15 +66,8 @@ Deno.serve(async (req) => {
   } catch (err) {
     console.error("Custom access token hook error:", err);
     // On error, return the original claims to avoid breaking auth
-    try {
-      const payload = await req.clone().json();
-      return new Response(JSON.stringify({ claims: payload.claims || {} }), {
-        headers: { "Content-Type": "application/json" },
-      });
-    } catch {
-      return new Response(JSON.stringify({ claims: {} }), {
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+    return new Response(JSON.stringify({ claims }), {
+      headers: { "Content-Type": "application/json" },
+    });
   }
 });
