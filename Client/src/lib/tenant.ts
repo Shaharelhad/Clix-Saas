@@ -25,7 +25,7 @@ export function getTenantSlug(): string {
 
   // Custom domain detection — if hostname doesn't contain the base domain,
   // it's a custom domain. Return null to trigger domain-based lookup.
-  const baseDomain = import.meta.env.VITE_BASE_DOMAIN || "clix.com";
+  const baseDomain = import.meta.env.VITE_BASE_DOMAIN || "clix-bot.com";
   if (!hostname.endsWith(baseDomain)) {
     return ""; // empty = custom domain, resolved separately
   }
