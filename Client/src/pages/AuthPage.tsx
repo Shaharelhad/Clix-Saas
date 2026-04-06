@@ -3,6 +3,8 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
 import BrandLogo from "@/components/BrandLogo";
+import { useTenantStore } from "@/store/tenant.store";
+import LanguageToggle from "@/components/LanguageToggle";
 import {
   Eye,
   EyeOff,
@@ -21,7 +23,7 @@ type AuthMode = "login" | "signup" | "forgot";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 const ORANGE = "var(--brand-primary)";
-const ORANGE_DARK = "var(--brand-primary-hover)";
+
 
 const formVariants = {
   enter: { opacity: 0, y: 24, filter: "blur(4px)" },
@@ -203,12 +205,12 @@ function IllustrationPanel() {
             <div className="flex items-center gap-3 px-4 py-2.5 border-b border-white/10 bg-white/[0.03]">
               <div
                 className="w-8 h-8 rounded-full flex items-center justify-center"
-                style={{ background: `linear-gradient(135deg, ${ORANGE}, ${ORANGE_DARK})` }}
+                style={{ background: ORANGE }}
               >
                 <Bot className="w-4 h-4 text-white" />
               </div>
               <div className="flex-1">
-                <p className="text-sm font-bold text-white/90">CLIX Bot</p>
+                <p className="text-sm font-bold text-white/90">{useTenantStore((s) => s.config?.name) || "CLIX"} Bot</p>
                 <div className="flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-green-400" />
                   <span className="text-[11px] text-white/40">Online</span>
@@ -240,7 +242,7 @@ function IllustrationPanel() {
               >
                 <div
                   className="w-5 h-5 rounded-full flex-shrink-0 flex items-center justify-center mt-1"
-                  style={{ background: `linear-gradient(135deg, ${ORANGE}, ${ORANGE_DARK})` }}
+                  style={{ background: ORANGE }}
                 >
                   <Bot className="w-3 h-3 text-white" />
                 </div>
@@ -272,7 +274,7 @@ function IllustrationPanel() {
               >
                 <div
                   className="w-5 h-5 rounded-full flex-shrink-0 flex items-center justify-center mt-1"
-                  style={{ background: `linear-gradient(135deg, ${ORANGE}, ${ORANGE_DARK})` }}
+                  style={{ background: ORANGE }}
                 >
                   <Bot className="w-3 h-3 text-white" />
                 </div>
@@ -379,7 +381,14 @@ export default function AuthPage() {
     setIsSubmitting(true);
     try {
       const { error: authErr } = await signIn(loginEmail, loginPassword);
-      if (authErr) setError(t("errorLoginFailed"));
+      if (authErr) {
+        const msg = authErr.message?.toLowerCase() || "";
+        if (msg.includes("does not belong")) {
+          setError(t("errorTenantMismatch"));
+        } else {
+          setError(t("errorLoginFailed"));
+        }
+      }
     } catch {
       setError(t("errorLoginFailed"));
     } finally {
@@ -406,7 +415,12 @@ export default function AuthPage() {
         phone,
       );
       if (authErr) {
-        setError(authErr.message);
+        const msg = authErr.message?.toLowerCase() || "";
+        if (msg.includes("already") && msg.includes("registered")) {
+          setError(t("errorEmailTaken"));
+        } else {
+          setError(authErr.message);
+        }
         return;
       }
 
@@ -460,17 +474,20 @@ export default function AuthPage() {
           background: "linear-gradient(170deg, #FDF8F2 0%, #F8F0E6 40%, #FBF5EE 100%)",
         }}
       >
-        {/* Logo */}
-        <motion.div
-          initial={{ opacity: 0, y: -12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, ease: EASE }}
-          className="flex items-center justify-center gap-2 mb-6 cursor-pointer"
-          dir="ltr"
-          onClick={() => navigate("/")}
-        >
-          <BrandLogo className="h-7" />
-        </motion.div>
+        {/* Top bar — logo + language */}
+        <div className="flex items-center justify-between w-full max-w-sm mb-6">
+          <motion.div
+            initial={{ opacity: 0, y: -12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, ease: EASE }}
+            className="flex items-center gap-2 cursor-pointer"
+            dir="ltr"
+            onClick={() => navigate("/")}
+          >
+            <BrandLogo className="h-7" />
+          </motion.div>
+          <LanguageToggle />
+        </div>
 
         {/* Form card */}
         <motion.div
