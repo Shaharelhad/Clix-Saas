@@ -1,12 +1,10 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { Plus, Trash2, Loader2, HelpCircle, Sparkles } from "lucide-react";
 import { supabase } from "@/services/supabase";
 import { useAuth } from "@/hooks/useAuth";
-import { useAutoPublish } from "@/hooks/useAutoPublish";
-import FeedbackBanner from "@/components/FeedbackBanner";
-import { EASE, stagger, fadeUp } from "@/lib/animations";
+import { fadeUp } from "@/lib/animations";
 
 interface FaqDraftEntry {
   id: string;
@@ -19,7 +17,6 @@ interface FaqDraftEntry {
 export default function FaqSection() {
   const { t } = useTranslation("faq");
   const { user } = useAuth();
-  const { autoPublish } = useAutoPublish();
 
   const [entries, setEntries] = useState<FaqDraftEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -43,7 +40,8 @@ export default function FaqSection() {
           .single();
 
         if (!draftErr && formRow?.draft_faq_entries) {
-          const draft = formRow.draft_faq_entries as unknown as FaqDraftEntry[];
+          const raw = formRow.draft_faq_entries;
+          const draft: FaqDraftEntry[] = typeof raw === "string" ? JSON.parse(raw) : (raw as unknown as FaqDraftEntry[]);
           setEntries(draft);
           setLoading(false);
           return;
@@ -120,12 +118,13 @@ export default function FaqSection() {
 
       const { error: updateErr } = await supabase
         .from("form_responses")
-        .update({ draft_faq_entries: JSON.stringify(draftData) })
+        .update({ draft_faq_entries: draftData as unknown as string })
         .eq("user_id", user.id);
 
       if (updateErr) throw updateErr;
 
-      await autoPublish();
+      // Publish without query invalidation to avoid AnimatePresence DOM conflict
+      await supabase.rpc("publish_bot_changes", { p_user_id: user.id });
       setDirty(false);
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
@@ -145,17 +144,9 @@ export default function FaqSection() {
   }
 
   return (
-    <motion.div
-      variants={stagger}
-      initial="hidden"
-      animate="show"
-      className="flex flex-col"
-    >
+    <div className="flex flex-col">
       {/* Table */}
-      <motion.div
-        variants={fadeUp}
-        className="bg-white rounded-2xl shadow-[0_2px_24px_rgba(45,42,38,0.05)] border border-[#EDE6DD]/50 overflow-hidden"
-      >
+      <div className="bg-white rounded-2xl shadow-[0_2px_24px_rgba(45,42,38,0.05)] border border-[#EDE6DD]/50 overflow-hidden">
         {/* Table Header */}
         <div className="grid grid-cols-[40px_1fr_1fr_64px_48px] gap-3 px-5 py-3 bg-[#FAF7F3] border-b border-[#EDE6DD]/60 text-xs font-bold text-[#7A7267] uppercase tracking-wider">
           <span>#</span>
@@ -166,14 +157,9 @@ export default function FaqSection() {
         </div>
 
         {/* Entries */}
-        <AnimatePresence mode="popLayout">
           {entries.map((entry, idx) => (
-            <motion.div
+            <div
               key={entry.id}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, x: 40 }}
-              transition={{ duration: 0.25, ease: EASE }}
               className="grid grid-cols-[40px_1fr_1fr_64px_48px] gap-3 px-5 py-3 border-b border-[#EDE6DD]/30 items-center group"
             >
               {/* Row number */}
@@ -222,9 +208,8 @@ export default function FaqSection() {
               >
                 <Trash2 className="w-4 h-4" />
               </button>
-            </motion.div>
+            </div>
           ))}
-        </AnimatePresence>
 
         {/* Empty state */}
         {entries.length === 0 && (
@@ -246,16 +231,20 @@ export default function FaqSection() {
             {t("addRow")}
           </button>
         </div>
-      </motion.div>
+      </div>
 
       {/* Error */}
       {error && (
-        <FeedbackBanner variant="error" message={error} className="mt-6" />
+        <div className="flex items-center gap-3 bg-red-50 border border-red-200 text-red-700 rounded-xl px-5 py-3.5 text-sm mt-6">
+          {error}
+        </div>
       )}
 
       {/* Success feedback */}
       {saved && (
-        <FeedbackBanner variant="success" message={t("changesSaved")} className="mt-6" />
+        <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl px-5 py-3.5 text-sm mt-6">
+          {t("changesSaved")}
+        </div>
       )}
 
       {/* Save Draft Button */}
@@ -269,7 +258,7 @@ export default function FaqSection() {
             whileTap={dirty ? { scale: 0.98 } : {}}
             className={`group relative w-full sm:w-auto inline-flex items-center justify-center gap-2.5 font-bold text-base rounded-2xl px-10 py-4 transition-all duration-300 ${
               dirty
-                ? "bg-[var(--brand-primary-light)] hover:bg-[var(--brand-primary-hover)] text-white shadow-[0_4px_20px_rgba(var(--brand-primary-rgb),0.3)] hover:shadow-[0_6px_28px_rgba(var(--brand-primary-rgb),0.4)]"
+                ? "bg-[var(--brand-primary-light)] hover:brightness-90 text-white shadow-[0_4px_20px_rgba(var(--brand-primary-rgb),0.3)] hover:shadow-[0_6px_28px_rgba(var(--brand-primary-rgb),0.4)]"
                 : "bg-[#EDE6DD] text-[#A39B90] cursor-not-allowed"
             }`}
           >
@@ -287,6 +276,6 @@ export default function FaqSection() {
           </motion.button>
         </motion.div>
       )}
-    </motion.div>
+    </div>
   );
 }
