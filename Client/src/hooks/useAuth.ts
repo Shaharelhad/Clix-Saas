@@ -15,12 +15,20 @@ export function useAuth() {
     }
     const profile = data[0];
 
-    // Fetch bot_status from profiles table (not included in get_my_profile RPC)
+    // Fetch bot_status and tenant_id from profiles table (not included in get_my_profile RPC)
     const { data: profileRow } = await supabase
       .from("profiles")
-      .select("bot_status")
+      .select("bot_status, tenant_id")
       .eq("id", profile.id)
       .single();
+
+    // Tenant validation: ensure user belongs to the current tenant
+    const currentTenantId = useTenantStore.getState().config?.id;
+    if (currentTenantId && profileRow?.tenant_id && profileRow.tenant_id !== currentTenantId) {
+      await supabase.auth.signOut();
+      clear();
+      return;
+    }
 
     setUser({ ...profile, bot_status: profileRow?.bot_status });
 
@@ -28,7 +36,7 @@ export function useAuth() {
     if (profile.language && profile.language !== i18n.language) {
       i18n.changeLanguage(profile.language);
     }
-  }, [setUser]);
+  }, [setUser, clear]);
 
   useEffect(() => {
     // Get initial session
@@ -84,6 +92,26 @@ export function useAuth() {
 
   const signIn = async (email: string, password: string) => {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error || !data.session) return { data, error };
+
+    // Tenant validation: ensure user belongs to the current tenant
+    const currentTenantId = useTenantStore.getState().config?.id;
+    if (currentTenantId) {
+      const { data: profileRow } = await supabase
+        .from("profiles")
+        .select("tenant_id")
+        .eq("id", data.session.user.id)
+        .single();
+
+      if (profileRow?.tenant_id && profileRow.tenant_id !== currentTenantId) {
+        await supabase.auth.signOut();
+        return {
+          data: null,
+          error: { message: "This account does not belong to this organization." } as never,
+        };
+      }
+    }
+
     return { data, error };
   };
 
