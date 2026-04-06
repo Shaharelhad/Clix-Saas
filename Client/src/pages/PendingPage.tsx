@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Bell, LogOut, RefreshCw, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import BrandLogo from "@/components/BrandLogo";
+import { useTenantStore } from "@/store/tenant.store";
 import { useAuth } from "@/hooks/useAuth";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
@@ -166,7 +167,7 @@ export default function PendingPage() {
         >
           <BrandLogo className="h-8 drop-shadow-[0_0_12px_rgba(var(--brand-primary-rgb),0.3)]" />
           <span className="text-[#2D2A26] font-bold text-2xl tracking-wide select-none">
-            CLIX
+            {useTenantStore((s) => s.config?.name) || "CLIX"}
           </span>
         </motion.div>
 
