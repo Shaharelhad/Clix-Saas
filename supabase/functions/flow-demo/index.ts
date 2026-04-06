@@ -1070,7 +1070,7 @@ Combine multiple fields in one call.`,
 
 // ── Main Handler ────────────────────────────────────────────
 Deno.serve(async (req) => {
-  const cors = getCorsHeaders(req);
+  const cors = await getCorsHeaders(req);
 
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: cors });
