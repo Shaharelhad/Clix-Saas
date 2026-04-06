@@ -29,6 +29,7 @@ export default function FeedbackBanner({
     <motion.div
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -8 }}
       className={`flex items-center gap-3 ${colors} rounded-xl px-5 py-3.5 text-sm ${className}`}
     >
       <Icon className="w-4.5 h-4.5 flex-shrink-0" />
