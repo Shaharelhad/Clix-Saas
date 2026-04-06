@@ -2,9 +2,10 @@ import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { Bot, Zap } from "lucide-react";
+import { useTenantStore } from "@/store/tenant.store";
 
 const ORANGE = "var(--brand-primary)";
-const ORANGE_DARK = "var(--brand-primary-hover)";
+
 
 /* ── stagger helpers ── */
 const stagger = (i: number, base = 0) => base + i * 0.12;
@@ -12,6 +13,7 @@ const stagger = (i: number, base = 0) => base + i * 0.12;
 const HeroSection = () => {
   const { t } = useTranslation("landing");
   const navigate = useNavigate();
+  const tenantName = useTenantStore((s) => s.config?.name) || "CLIX";
 
   return (
     <section
@@ -138,11 +140,7 @@ const HeroSection = () => {
                 ease: [0.22, 1, 0.36, 1],
               }}
               className="inline-block"
-              style={{
-                background: `linear-gradient(135deg, ${ORANGE}, ${ORANGE_DARK})`,
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-              }}
+              style={{ color: ORANGE }}
             >
               {t("heroTitle2")}
             </motion.span>
@@ -218,13 +216,13 @@ const HeroSection = () => {
                 <div
                   className="w-9 h-9 rounded-full flex items-center justify-center"
                   style={{
-                    background: `linear-gradient(135deg, ${ORANGE}, ${ORANGE_DARK})`,
+                    background: ORANGE,
                   }}
                 >
                   <Bot className="w-5 h-5 text-white" />
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm font-bold text-gray-800">CLIX Bot</p>
+                  <p className="text-sm font-bold text-gray-800">{tenantName} Bot</p>
                   <div className="flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-green-500" />
                     <span className="text-xs text-gray-500">Online</span>
@@ -262,7 +260,7 @@ const HeroSection = () => {
                   <div
                     className="w-6 h-6 rounded-full flex-shrink-0 flex items-center justify-center mt-1"
                     style={{
-                      background: `linear-gradient(135deg, ${ORANGE}, ${ORANGE_DARK})`,
+                      background: ORANGE,
                     }}
                   >
                     <Bot className="w-3.5 h-3.5 text-white" />
@@ -303,7 +301,7 @@ const HeroSection = () => {
                   <div
                     className="w-6 h-6 rounded-full flex-shrink-0 flex items-center justify-center mt-1"
                     style={{
-                      background: `linear-gradient(135deg, ${ORANGE}, ${ORANGE_DARK})`,
+                      background: ORANGE,
                     }}
                   >
                     <Bot className="w-3.5 h-3.5 text-white" />
@@ -334,7 +332,7 @@ const HeroSection = () => {
                 <div
                   className="w-8 h-8 rounded-lg flex items-center justify-center"
                   style={{
-                    background: `linear-gradient(135deg, ${ORANGE}20, ${ORANGE}40)`,
+                    background: `rgba(var(--brand-primary-rgb), 0.15)`,
                   }}
                 >
                   <Zap className="w-4 h-4" style={{ color: ORANGE }} />
@@ -361,7 +359,7 @@ const HeroSection = () => {
                 <div
                   className="w-7 h-7 rounded-full flex items-center justify-center"
                   style={{
-                    background: `linear-gradient(135deg, ${ORANGE}, ${ORANGE_DARK})`,
+                    background: ORANGE,
                   }}
                 >
                   <Bot className="w-3.5 h-3.5 text-white" />
