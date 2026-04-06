@@ -124,7 +124,8 @@ export default function ApplyPage() {
 
       if (rpcErr) throw rpcErr;
       setSubmitted(true);
-    } catch {
+    } catch (err) {
+      console.error("Apply form submission error:", err);
       setError(t("errorGeneric"));
     } finally {
       setIsSubmitting(false);
