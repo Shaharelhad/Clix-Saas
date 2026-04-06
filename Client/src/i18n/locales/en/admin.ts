@@ -8,7 +8,7 @@ const admin = {
   dashboardGreetingMorning: "Good morning",
   dashboardGreetingAfternoon: "Good afternoon",
   dashboardGreetingEvening: "Good evening",
-  dashboardSubtitle: "Here's what's happening in CLIX",
+  dashboardSubtitle: "Here's what's happening in {{brandName}}",
   statTotalUsers: "Total Users",
   statPendingApprovals: "Pending Approvals",
   statOpenTickets: "Open Tickets",
