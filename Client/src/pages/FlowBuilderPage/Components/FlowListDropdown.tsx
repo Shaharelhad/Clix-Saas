@@ -148,7 +148,7 @@ export default function FlowListDropdown({
           className={`flex items-center justify-center gap-1.5 w-full py-2 rounded-lg text-xs font-bold transition-colors ${
             atLimit
               ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-              : "bg-[var(--brand-primary-light)] text-white hover:bg-[var(--brand-primary-hover)] cursor-pointer"
+              : "bg-[var(--brand-primary-light)] text-white hover:brightness-90 cursor-pointer"
           }`}
         >
           <Plus className="w-4 h-4" />
