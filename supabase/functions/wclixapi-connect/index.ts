@@ -10,7 +10,7 @@ const WA_GATEWAY_BASE = "https://wa.clixwapp.online";
 const WA_GATEWAY_API_KEY = Deno.env.get("WA_GATEWAY_API_KEY")!;
 
 Deno.serve(async (req) => {
-  const cors = getCorsHeaders(req);
+  const cors = await getCorsHeaders(req);
 
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: cors });
