@@ -83,7 +83,7 @@ const SYSTEM_PROMPT = `אתה עוזר חכם של בונה התהליכים (Fl
 - השתמש במצב קפדני אם אתה רוצה שהבוט יעקוב רק אחרי התהליך.`;
 
 Deno.serve(async (req) => {
-  const cors = getCorsHeaders(req);
+  const cors = await getCorsHeaders(req);
 
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: cors });
