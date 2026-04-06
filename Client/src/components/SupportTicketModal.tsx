@@ -271,7 +271,7 @@ export default function SupportTicketModal({
                 <button
                   type="button"
                   onClick={startNew}
-                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-[var(--brand-primary-light)] hover:bg-[var(--brand-primary-hover)] text-white text-sm font-bold transition-colors cursor-pointer shadow-sm shadow-[var(--brand-primary-light)]/20"
+                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-[var(--brand-primary-light)] hover:brightness-90 text-white text-sm font-bold transition-colors cursor-pointer shadow-sm shadow-[var(--brand-primary-light)]/20"
                 >
                   <Plus className="w-4 h-4" />
                   {t("newConversation")}
@@ -371,7 +371,7 @@ export default function SupportTicketModal({
                   disabled={
                     !subject.trim() || !message.trim() || createMutation.isPending
                   }
-                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-[var(--brand-primary-light)] hover:bg-[var(--brand-primary-hover)] disabled:opacity-50 text-white text-sm font-bold transition-colors cursor-pointer disabled:cursor-not-allowed"
+                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-[var(--brand-primary-light)] hover:brightness-90 disabled:opacity-50 text-white text-sm font-bold transition-colors cursor-pointer disabled:cursor-not-allowed"
                 >
                   <Send className="w-4 h-4" />
                   {createMutation.isPending ? t("submitting") : t("submit")}
@@ -477,7 +477,7 @@ export default function SupportTicketModal({
                       type="button"
                       onClick={() => replyMutation.mutate()}
                       disabled={!replyText.trim() || replyMutation.isPending}
-                      className="w-9 h-9 rounded-xl bg-[var(--brand-primary-light)] hover:bg-[var(--brand-primary-hover)] disabled:opacity-40 flex items-center justify-center transition-colors cursor-pointer disabled:cursor-not-allowed shrink-0 shadow-sm shadow-[var(--brand-primary-light)]/20"
+                      className="w-9 h-9 rounded-xl bg-[var(--brand-primary-light)] hover:brightness-90 disabled:opacity-40 flex items-center justify-center transition-colors cursor-pointer disabled:cursor-not-allowed shrink-0 shadow-sm shadow-[var(--brand-primary-light)]/20"
                     >
                       <Send className="w-4 h-4 text-white" />
                     </button>
