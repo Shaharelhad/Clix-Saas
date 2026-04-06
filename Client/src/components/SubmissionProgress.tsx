@@ -57,7 +57,7 @@ export function SubmissionProgress({
       <motion.div
         animate={{ rotate: 360 }}
         transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-        className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[var(--brand-primary-light)] to-[var(--brand-primary-hover)] flex items-center justify-center shadow-[0_4px_24px_rgba(var(--brand-primary-rgb),0.3)] mb-6"
+        className="w-16 h-16 rounded-2xl bg-[var(--brand-primary)] flex items-center justify-center shadow-[0_4px_24px_rgba(var(--brand-primary-rgb),0.3)] mb-6"
       >
         <Icon className="w-8 h-8 text-white" />
       </motion.div>
