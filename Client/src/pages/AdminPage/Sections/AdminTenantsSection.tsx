@@ -47,7 +47,9 @@ export default function AdminTenantsSection() {
         p_status: filter === "all" ? undefined : filter,
       });
       if (error) throw error;
-      return data as TenantRow[];
+      // Hide the default platform tenant — it's the main site, not a white-label customer
+      const defaultSlug = import.meta.env.VITE_DEFAULT_TENANT_SLUG || "clix";
+      return (data as TenantRow[]).filter((t) => t.slug !== defaultSlug);
     },
   });
 
@@ -177,7 +179,7 @@ export default function AdminTenantsSection() {
                 <div className="flex items-center gap-4 text-sm text-[#888888] flex-wrap">
                   <span className="flex items-center gap-1 font-mono">
                     <Globe className="w-3.5 h-3.5" />
-                    {tenant.slug}.clix.com
+                    {tenant.slug}.{import.meta.env.VITE_BASE_DOMAIN || "clix-bot.com"}
                   </span>
                   <span className="flex items-center gap-1">
                     <Mail className="w-3.5 h-3.5" />
