@@ -3,12 +3,14 @@ import { motion, useInView } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Clock, Headphones } from "lucide-react";
+import { useTenantStore } from "@/store/tenant.store";
 
 const ORANGE = "var(--brand-primary)";
-const ORANGE_DARK = "var(--brand-primary-hover)";
+
 
 const CtaSection = () => {
   const { t } = useTranslation("landing");
+  const tenantName = useTenantStore((s) => s.config?.name) || "CLIX";
   const navigate = useNavigate();
   const ref = useRef(null);
   const inView = useInView(ref, { once: true, margin: "-80px" });
@@ -70,11 +72,7 @@ const CtaSection = () => {
           >
             <span className="text-[#1A1A1A]">{t("ctaTitle").split("?")[0]}</span>
             <span
-              style={{
-                background: `linear-gradient(135deg, ${ORANGE}, ${ORANGE_DARK})`,
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-              }}
+              style={{ color: ORANGE }}
             >
               ?
             </span>
@@ -86,7 +84,7 @@ const CtaSection = () => {
             animate={inView ? { opacity: 1, y: 0 } : {}}
             transition={{ duration: 0.6, delay: 0.25, ease: [0.22, 1, 0.36, 1] }}
           >
-            {t("ctaSubtitle")}
+            {t("ctaSubtitle", { brandName: tenantName })}
           </motion.p>
 
           <motion.div
@@ -118,7 +116,7 @@ const CtaSection = () => {
           <div className="flex items-center gap-2.5">
             <div
               className="w-8 h-8 rounded-lg flex items-center justify-center"
-              style={{ background: `linear-gradient(135deg, ${ORANGE}20, ${ORANGE}40)` }}
+              style={{ background: "rgba(var(--brand-primary-rgb), 0.15)" }}
             >
               <Clock className="w-4 h-4" style={{ color: ORANGE }} />
             </div>
@@ -142,7 +140,7 @@ const CtaSection = () => {
           <div className="flex items-center gap-2">
             <div
               className="w-7 h-7 rounded-full flex items-center justify-center"
-              style={{ background: `linear-gradient(135deg, ${ORANGE}, ${ORANGE_DARK})` }}
+              style={{ background: ORANGE }}
             >
               <Headphones className="w-3.5 h-3.5 text-white" />
             </div>
