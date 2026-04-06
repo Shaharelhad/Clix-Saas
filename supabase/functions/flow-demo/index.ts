@@ -517,6 +517,20 @@ async function executeNodeDemo(
         variables.extra_adult_charge = String(extraCharge);
         const basePrice = parseFloat(variables.price) || 0;
         variables.total_price = String(basePrice + extraCharge);
+
+        // Calculate number of nights from startDate/endDate
+        const startInput = (node.data.inputValues as Record<string, string>)?.startDate || "";
+        const endInput = (node.data.inputValues as Record<string, string>)?.endDate || "";
+        const startVar = startInput.match(/\{\{(\w+)\}\}/)?.[1];
+        const endVar = endInput.match(/\{\{(\w+)\}\}/)?.[1];
+        const startVal = startVar ? variables[startVar] : startInput;
+        const endVal = endVar ? variables[endVar] : endInput;
+        if (startVal && endVal) {
+          const startD = new Date(startVal);
+          const endD = new Date(endVal);
+          const nights = Math.round((endD.getTime() - startD.getTime()) / (1000 * 60 * 60 * 24));
+          if (nights > 0) variables.num_nights = String(nights);
+        }
       }
 
       // Convert price, total_price, and extra_adult_charge to ILS if requested
