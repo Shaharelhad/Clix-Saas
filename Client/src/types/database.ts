@@ -12,31 +12,6 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.1"
   }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       bot_edit_history: {
@@ -629,6 +604,7 @@ export type Database = {
           status: string
           subscription_end_date: string | null
           subscription_start_date: string | null
+          tenant_id: string | null
           updated_at: string
           website_url: string | null
           workflow_id: string | null
@@ -651,6 +627,7 @@ export type Database = {
           status?: string
           subscription_end_date?: string | null
           subscription_start_date?: string | null
+          tenant_id?: string | null
           updated_at?: string
           website_url?: string | null
           workflow_id?: string | null
@@ -673,6 +650,7 @@ export type Database = {
           status?: string
           subscription_end_date?: string | null
           subscription_start_date?: string | null
+          tenant_id?: string | null
           updated_at?: string
           website_url?: string | null
           workflow_id?: string | null
@@ -683,6 +661,13 @@ export type Database = {
             columns: ["active_flow_id"]
             isOneToOne: false
             referencedRelation: "workflows"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profiles_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -905,6 +890,69 @@ export type Database = {
           },
         ]
       }
+      tenants: {
+        Row: {
+          app_title: string
+          contact_email: string
+          contact_phone: string | null
+          created_at: string
+          custom_domain: string | null
+          default_language: string
+          icon_url: string | null
+          id: string
+          is_active: boolean
+          logo_url: string | null
+          name: string
+          owner_user_id: string | null
+          primary_color: string
+          primary_hover: string
+          slug: string
+          status: string
+          updated_at: string
+          website_url: string | null
+        }
+        Insert: {
+          app_title?: string
+          contact_email: string
+          contact_phone?: string | null
+          created_at?: string
+          custom_domain?: string | null
+          default_language?: string
+          icon_url?: string | null
+          id?: string
+          is_active?: boolean
+          logo_url?: string | null
+          name: string
+          owner_user_id?: string | null
+          primary_color?: string
+          primary_hover?: string
+          slug: string
+          status?: string
+          updated_at?: string
+          website_url?: string | null
+        }
+        Update: {
+          app_title?: string
+          contact_email?: string
+          contact_phone?: string | null
+          created_at?: string
+          custom_domain?: string | null
+          default_language?: string
+          icon_url?: string | null
+          id?: string
+          is_active?: boolean
+          logo_url?: string | null
+          name?: string
+          owner_user_id?: string | null
+          primary_color?: string
+          primary_hover?: string
+          slug?: string
+          status?: string
+          updated_at?: string
+          website_url?: string | null
+        }
+        Relationships: []
+      }
       ticket_messages: {
         Row: {
           bot_response: string
@@ -1096,6 +1144,7 @@ export type Database = {
           status: string
           subscription_end_date: string | null
           subscription_start_date: string | null
+          tenant_id: string | null
           updated_at: string
           website_url: string | null
           workflow_id: string | null
@@ -1103,6 +1152,35 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "profiles"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      admin_get_tenant: {
+        Args: { p_id: string }
+        Returns: {
+          app_title: string
+          contact_email: string
+          contact_phone: string | null
+          created_at: string
+          custom_domain: string | null
+          default_language: string
+          icon_url: string | null
+          id: string
+          is_active: boolean
+          logo_url: string | null
+          name: string
+          owner_user_id: string | null
+          primary_color: string
+          primary_hover: string
+          slug: string
+          status: string
+          updated_at: string
+          website_url: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "tenants"
           isOneToOne: false
           isSetofReturn: true
         }
@@ -1142,6 +1220,7 @@ export type Database = {
           status: string
           subscription_end_date: string | null
           subscription_start_date: string | null
+          tenant_id: string | null
           updated_at: string
           website_url: string | null
           workflow_id: string | null
@@ -1149,6 +1228,35 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "profiles"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      admin_list_tenants: {
+        Args: { p_status?: string }
+        Returns: {
+          app_title: string
+          contact_email: string
+          contact_phone: string | null
+          created_at: string
+          custom_domain: string | null
+          default_language: string
+          icon_url: string | null
+          id: string
+          is_active: boolean
+          logo_url: string | null
+          name: string
+          owner_user_id: string | null
+          primary_color: string
+          primary_hover: string
+          slug: string
+          status: string
+          updated_at: string
+          website_url: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "tenants"
           isOneToOne: false
           isSetofReturn: true
         }
@@ -1202,6 +1310,11 @@ export type Database = {
         Args: { p_id: string; p_status: string }
         Returns: undefined
       }
+      admin_update_tenant_status: {
+        Args: { p_id: string; p_status: string }
+        Returns: undefined
+      }
+      check_slug_available: { Args: { p_slug: string }; Returns: boolean }
       claim_pending_delayed_jobs: {
         Args: { p_limit?: number }
         Returns: {
@@ -1220,6 +1333,8 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      current_tenant_id: { Args: never; Returns: string }
+      current_user_role: { Args: never; Returns: string }
       discard_bot_draft: { Args: { p_user_id: string }; Returns: Json }
       get_max_revisions: {
         Args: { tier: Database["public"]["Enums"]["subscription_tier"] }
@@ -1240,6 +1355,34 @@ export type Database = {
           phone: string
           role: string
           status: string
+        }[]
+      }
+      get_tenant_by_domain: {
+        Args: { p_domain: string }
+        Returns: {
+          app_title: string
+          default_language: string
+          icon_url: string
+          id: string
+          logo_url: string
+          name: string
+          primary_color: string
+          primary_hover: string
+          slug: string
+        }[]
+      }
+      get_tenant_config: {
+        Args: { p_slug: string }
+        Returns: {
+          app_title: string
+          default_language: string
+          icon_url: string
+          id: string
+          logo_url: string
+          name: string
+          primary_color: string
+          primary_hover: string
+          slug: string
         }[]
       }
       is_admin: { Args: never; Returns: boolean }
@@ -1277,6 +1420,21 @@ export type Database = {
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
+      submit_tenant_application: {
+        Args: {
+          p_app_title?: string
+          p_contact_email: string
+          p_contact_phone?: string
+          p_icon_url?: string
+          p_logo_url?: string
+          p_name: string
+          p_primary_color?: string
+          p_primary_hover?: string
+          p_slug: string
+          p_website_url?: string
+        }
+        Returns: string
+      }
     }
     Enums: {
       subscription_tier: "basic" | "pro" | "premium"
@@ -1405,9 +1563,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       subscription_tier: ["basic", "pro", "premium"],

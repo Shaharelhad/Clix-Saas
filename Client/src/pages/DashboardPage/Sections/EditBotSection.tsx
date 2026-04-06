@@ -90,7 +90,7 @@ export default function EditBotSection({ onEditApplied }: EditBotSectionProps) {
       {/* ── Chat Panel ── */}
       <ChatPanel
         title={t("editBotTitle")}
-        icon={<Sparkles className="w-4 h-4 text-[#FF7E47]" />}
+        icon={<Sparkles className="w-4 h-4 text-[var(--brand-primary-light)]" />}
         statusText={t("editBotStatus")}
         statusColor="orange"
         messages={messages}

@@ -87,7 +87,7 @@ function extractOldUrls(additionalInfo: string | Record<string, unknown> | null)
 }
 
 Deno.serve(async (req) => {
-  const cors = getCorsHeaders(req);
+  const cors = await getCorsHeaders(req);
 
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: cors });

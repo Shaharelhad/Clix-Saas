@@ -2,6 +2,9 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
+import BrandLogo from "@/components/BrandLogo";
+import { useTenantStore } from "@/store/tenant.store";
+import LanguageToggle from "@/components/LanguageToggle";
 import {
   Eye,
   EyeOff,
@@ -19,8 +22,8 @@ import { useAuth } from "@/hooks/useAuth";
 type AuthMode = "login" | "signup" | "forgot";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
-const ORANGE = "#FF6B2C";
-const ORANGE_DARK = "#E8590C";
+const ORANGE = "var(--brand-primary)";
+
 
 const formVariants = {
   enter: { opacity: 0, y: 24, filter: "blur(4px)" },
@@ -57,7 +60,7 @@ function InputField({
     <div>
       <label className="block text-[#2D2A26]/60 text-sm mb-1">{label}</label>
       <div className="relative group">
-        <Icon className="absolute right-3 top-1/2 -translate-y-1/2 w-[17px] h-[17px] text-[#A39B90] transition-colors group-focus-within:text-[#FF6B2C]/70" />
+        <Icon className="absolute right-3 top-1/2 -translate-y-1/2 w-[17px] h-[17px] text-[#A39B90] transition-colors group-focus-within:text-[var(--brand-primary)]/70" />
         <input
           type={showToggle ? (isVisible ? "text" : "password") : type}
           value={value}
@@ -67,7 +70,7 @@ function InputField({
           className={cn(
             "w-full bg-white border border-[#EDE6DD] rounded-xl text-[#2D2A26] text-sm",
             "placeholder:text-[#A39B90]/60 transition-all duration-200",
-            "focus:outline-none focus:border-[#FF6B2C]/50 focus:shadow-[0_0_0_3px_rgba(255,107,44,0.08)]",
+            "focus:outline-none focus:border-[var(--brand-primary)]/50 focus:shadow-[0_0_0_3px_rgba(var(--brand-primary-rgb),0.08)]",
             "hover:border-[#D5CEC5]",
             "py-2.5 pr-10",
             showToggle ? "pl-10" : "pl-3.5",
@@ -145,27 +148,27 @@ function IllustrationPanel() {
 
       {/* Floating accents */}
       <motion.div
-        className="absolute top-[8%] right-[8%] w-5 h-5 border-2 border-[#FF6B2C]/40 rotate-45"
+        className="absolute top-[8%] right-[8%] w-5 h-5 border-2 border-[var(--brand-primary)]/40 rotate-45"
         animate={{ y: [0, -14, 0], rotate: [45, 52, 45] }}
         transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
       />
       <motion.div
-        className="absolute top-[15%] left-[6%] w-3 h-3 rounded-full bg-[#FF6B2C]/30"
+        className="absolute top-[15%] left-[6%] w-3 h-3 rounded-full bg-[var(--brand-primary)]/30"
         animate={{ y: [0, 12, 0], scale: [1, 1.4, 1] }}
         transition={{ duration: 8, repeat: Infinity, ease: "easeInOut", delay: 1.5 }}
       />
       <motion.div
-        className="absolute bottom-[12%] right-[10%] w-7 h-7 rounded-full border-2 border-[#FF6B2C]/25"
+        className="absolute bottom-[12%] right-[10%] w-7 h-7 rounded-full border-2 border-[var(--brand-primary)]/25"
         animate={{ scale: [1, 1.2, 1], opacity: [0.25, 0.5, 0.25] }}
         transition={{ duration: 6, repeat: Infinity, ease: "easeInOut", delay: 2 }}
       />
       <motion.div
-        className="absolute bottom-[25%] left-[8%] w-4 h-4 border-2 border-[#FF6B2C]/30"
+        className="absolute bottom-[25%] left-[8%] w-4 h-4 border-2 border-[var(--brand-primary)]/30"
         animate={{ y: [0, 10, 0], rotate: [0, 12, 0] }}
         transition={{ duration: 9, repeat: Infinity, ease: "easeInOut", delay: 3 }}
       />
       <motion.div
-        className="absolute top-[50%] left-[4%] w-9 h-[2px] bg-[#FF6B2C]/25"
+        className="absolute top-[50%] left-[4%] w-9 h-[2px] bg-[var(--brand-primary)]/25"
         animate={{ scaleX: [1, 1.6, 1], opacity: [0.25, 0.5, 0.25] }}
         transition={{ duration: 7, repeat: Infinity, ease: "easeInOut", delay: 4 }}
       />
@@ -202,12 +205,12 @@ function IllustrationPanel() {
             <div className="flex items-center gap-3 px-4 py-2.5 border-b border-white/10 bg-white/[0.03]">
               <div
                 className="w-8 h-8 rounded-full flex items-center justify-center"
-                style={{ background: `linear-gradient(135deg, ${ORANGE}, ${ORANGE_DARK})` }}
+                style={{ background: ORANGE }}
               >
                 <Bot className="w-4 h-4 text-white" />
               </div>
               <div className="flex-1">
-                <p className="text-sm font-bold text-white/90">CLIX Bot</p>
+                <p className="text-sm font-bold text-white/90">{useTenantStore((s) => s.config?.name) || "CLIX"} Bot</p>
                 <div className="flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-green-400" />
                   <span className="text-[11px] text-white/40">Online</span>
@@ -239,7 +242,7 @@ function IllustrationPanel() {
               >
                 <div
                   className="w-5 h-5 rounded-full flex-shrink-0 flex items-center justify-center mt-1"
-                  style={{ background: `linear-gradient(135deg, ${ORANGE}, ${ORANGE_DARK})` }}
+                  style={{ background: ORANGE }}
                 >
                   <Bot className="w-3 h-3 text-white" />
                 </div>
@@ -271,7 +274,7 @@ function IllustrationPanel() {
               >
                 <div
                   className="w-5 h-5 rounded-full flex-shrink-0 flex items-center justify-center mt-1"
-                  style={{ background: `linear-gradient(135deg, ${ORANGE}, ${ORANGE_DARK})` }}
+                  style={{ background: ORANGE }}
                 >
                   <Bot className="w-3 h-3 text-white" />
                 </div>
@@ -354,7 +357,7 @@ export default function AuthPage() {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: "linear-gradient(170deg, #FDF8F2 0%, #F8F0E6 40%, #FBF5EE 100%)" }}>
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-          <Loader2 className="w-8 h-8 animate-spin text-[#FF6B2C]" />
+          <Loader2 className="w-8 h-8 animate-spin text-[var(--brand-primary)]" />
         </motion.div>
       </div>
     );
@@ -378,7 +381,14 @@ export default function AuthPage() {
     setIsSubmitting(true);
     try {
       const { error: authErr } = await signIn(loginEmail, loginPassword);
-      if (authErr) setError(t("errorLoginFailed"));
+      if (authErr) {
+        const msg = authErr.message?.toLowerCase() || "";
+        if (msg.includes("does not belong")) {
+          setError(t("errorTenantMismatch"));
+        } else {
+          setError(t("errorLoginFailed"));
+        }
+      }
     } catch {
       setError(t("errorLoginFailed"));
     } finally {
@@ -405,7 +415,12 @@ export default function AuthPage() {
         phone,
       );
       if (authErr) {
-        setError(authErr.message);
+        const msg = authErr.message?.toLowerCase() || "";
+        if (msg.includes("already") && msg.includes("registered")) {
+          setError(t("errorEmailTaken"));
+        } else {
+          setError(authErr.message);
+        }
         return;
       }
 
@@ -459,21 +474,20 @@ export default function AuthPage() {
           background: "linear-gradient(170deg, #FDF8F2 0%, #F8F0E6 40%, #FBF5EE 100%)",
         }}
       >
-        {/* Logo */}
-        <motion.div
-          initial={{ opacity: 0, y: -12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, ease: EASE }}
-          className="flex items-center justify-center gap-2 mb-6 cursor-pointer"
-          dir="ltr"
-          onClick={() => navigate("/")}
-        >
-          <img
-            src="/clix-logo-full.png"
-            alt="CLIX"
-            className="h-7"
-          />
-        </motion.div>
+        {/* Top bar — logo + language */}
+        <div className="flex items-center justify-between w-full max-w-sm mb-6">
+          <motion.div
+            initial={{ opacity: 0, y: -12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, ease: EASE }}
+            className="flex items-center gap-2 cursor-pointer"
+            dir="ltr"
+            onClick={() => navigate("/")}
+          >
+            <BrandLogo className="h-7" />
+          </motion.div>
+          <LanguageToggle />
+        </div>
 
         {/* Form card */}
         <motion.div
@@ -528,7 +542,7 @@ export default function AuthPage() {
                     <button
                       type="button"
                       onClick={() => switchMode("forgot")}
-                      className="text-[#A39B90] hover:text-[#FF6B2C] text-xs transition-colors"
+                      className="text-[#A39B90] hover:text-[var(--brand-primary)] text-xs transition-colors"
                     >
                       {t("forgotPassword")}
                     </button>
@@ -541,7 +555,7 @@ export default function AuthPage() {
                     <button
                       type="button"
                       onClick={() => switchMode("signup")}
-                      className="text-[#FF6B2C] hover:text-[#FF8F5C] transition-colors font-bold"
+                      className="text-[var(--brand-primary)] hover:text-[var(--brand-primary-lighter)] transition-colors font-bold"
                     >
                       {t("signupLink")}
                     </button>
@@ -617,7 +631,7 @@ export default function AuthPage() {
                     <button
                       type="button"
                       onClick={() => switchMode("login")}
-                      className="text-[#FF6B2C] hover:text-[#FF8F5C] transition-colors font-bold"
+                      className="text-[var(--brand-primary)] hover:text-[var(--brand-primary-lighter)] transition-colors font-bold"
                     >
                       {t("loginLink")}
                     </button>
@@ -654,7 +668,7 @@ export default function AuthPage() {
                     <button
                       type="button"
                       onClick={() => switchMode("login")}
-                      className="inline-flex items-center gap-1.5 text-[#FF6B2C] hover:text-[#FF8F5C] transition-colors text-sm font-bold"
+                      className="inline-flex items-center gap-1.5 text-[var(--brand-primary)] hover:text-[var(--brand-primary-lighter)] transition-colors text-sm font-bold"
                     >
                       <ArrowRight className="w-3.5 h-3.5" />
                       {t("backToLogin")}

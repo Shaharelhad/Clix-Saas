@@ -52,7 +52,7 @@ export default function TemplatePickerModal({ onSelect, onClose }: TemplatePicke
               className={`group relative flex flex-col items-center gap-3 p-6 rounded-xl border-2 transition-all cursor-pointer text-center ${
                 isBlank
                   ? "border-dashed border-[#EDE6DD] hover:border-[#A39B90] bg-white/50"
-                  : "border-[#EDE6DD]/60 hover:border-[#FF7E47]/50 hover:shadow-md bg-white"
+                  : "border-[#EDE6DD]/60 hover:border-[var(--brand-primary-light)]/50 hover:shadow-md bg-white"
               }`}
             >
               {/* Icon */}
@@ -67,7 +67,7 @@ export default function TemplatePickerModal({ onSelect, onClose }: TemplatePicke
                   className={`w-6 h-6 ${
                     isBlank
                       ? "text-[#A39B90] group-hover:text-[#7A7267]"
-                      : "text-[#FF7E47]"
+                      : "text-[var(--brand-primary-light)]"
                   }`}
                 />
               </div>
@@ -87,7 +87,7 @@ export default function TemplatePickerModal({ onSelect, onClose }: TemplatePicke
                 className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
                   isBlank
                     ? "bg-[#EDE6DD]/50 text-[#A39B90]"
-                    : "bg-[#FFF5F0] text-[#FF7E47]"
+                    : "bg-[#FFF5F0] text-[var(--brand-primary-light)]"
                 }`}
               >
                 {t("templateSteps", { count: nodeCount })}

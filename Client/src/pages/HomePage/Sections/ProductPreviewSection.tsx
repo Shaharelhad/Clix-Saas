@@ -6,6 +6,7 @@ import {
   type Variants,
 } from "framer-motion";
 import { useTranslation } from "react-i18next";
+import { useTenantStore } from "@/store/tenant.store";
 import {
   ClipboardList,
   MessageSquareText,
@@ -55,9 +56,9 @@ const fadeUp = (delay = 0) => ({
 /* ── Browser chrome bar ── */
 const BrowserChrome = ({ label }: { label: string }) => (
   <div className="flex items-center gap-2 px-4 py-3 border-b border-white/[0.06] bg-white/[0.02]">
-    <div className="w-2.5 h-2.5 rounded-full bg-[#FF6B2C]/40" />
-    <div className="w-2.5 h-2.5 rounded-full bg-[#FF6B2C]/25" />
-    <div className="w-2.5 h-2.5 rounded-full bg-[#FF6B2C]/15" />
+    <div className="w-2.5 h-2.5 rounded-full bg-[var(--brand-primary)]/40" />
+    <div className="w-2.5 h-2.5 rounded-full bg-[var(--brand-primary)]/25" />
+    <div className="w-2.5 h-2.5 rounded-full bg-[var(--brand-primary)]/15" />
     <span className="text-[#FDF8F2]/25 text-xs tracking-wider mr-auto">
       {label}
     </span>
@@ -65,9 +66,9 @@ const BrowserChrome = ({ label }: { label: string }) => (
 );
 
 /* ── Step 1: Form wizard mock ── */
-const FormMock = ({ t }: { t: (k: string) => string }) => (
+const FormMock = ({ t, tenantName }: { t: (k: string) => string; tenantName: string }) => (
   <div className="bg-[#1A1510] rounded-2xl overflow-hidden border border-[#2A2318]/60 shadow-[0_20px_60px_rgba(0,0,0,0.25)]">
-    <BrowserChrome label="CLIX" />
+    <BrowserChrome label={tenantName} />
     <div
       className="p-6 sm:p-8 min-h-[320px] flex flex-col justify-between"
       style={{
@@ -83,9 +84,9 @@ const FormMock = ({ t }: { t: (k: string) => string }) => (
             key={i}
             className={`h-1.5 rounded-full ${
               i < 3
-                ? "bg-[#FF6B2C]"
+                ? "bg-[var(--brand-primary)]"
                 : i === 3
-                  ? "bg-[#FF6B2C]/40"
+                  ? "bg-[var(--brand-primary)]/40"
                   : "bg-white/10"
             }`}
             style={{ width: i === 3 ? 24 : i < 3 ? 16 : 8 }}
@@ -139,7 +140,7 @@ const FormMock = ({ t }: { t: (k: string) => string }) => (
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 1, duration: 0.4 }}
       >
-        <div className="flex items-center gap-2 bg-[#FF6B2C] hover:bg-[#E8590C] text-white text-sm font-medium px-6 py-2.5 rounded-xl transition-colors">
+        <div className="flex items-center gap-2 bg-[var(--brand-primary)] hover:brightness-90 text-white text-sm font-medium px-6 py-2.5 rounded-xl transition-colors">
           {t("mockFormNext")}
           <ArrowLeft className="w-4 h-4" />
         </div>
@@ -149,14 +150,14 @@ const FormMock = ({ t }: { t: (k: string) => string }) => (
 );
 
 /* ── Step 2: Preview & Edit dual chat mock ── */
-const PreviewMock = ({ t }: { t: (k: string) => string }) => (
+const PreviewMock = ({ t, tenantName }: { t: (k: string) => string; tenantName: string }) => (
   <div className="bg-[#1A1510] rounded-2xl overflow-hidden border border-[#2A2318]/60 shadow-[0_20px_60px_rgba(0,0,0,0.25)]">
-    <BrowserChrome label="CLIX" />
+    <BrowserChrome label={tenantName} />
     <div className="flex min-h-[320px]">
       {/* Demo chat panel */}
       <div className="flex-[3] border-l border-white/[0.06] flex flex-col">
         <div className="flex items-center gap-2 px-4 py-2.5 border-b border-white/[0.06]">
-          <MessageCircle className="w-3.5 h-3.5 text-[#FF6B2C]/60" />
+          <MessageCircle className="w-3.5 h-3.5 text-[var(--brand-primary)]/60" />
           <span className="text-xs text-[#FDF8F2]/40 font-medium">
             {t("mockDemoTitle")}
           </span>
@@ -193,7 +194,7 @@ const PreviewMock = ({ t }: { t: (k: string) => string }) => (
       {/* Edit chat panel */}
       <div className="flex-[2] hidden sm:flex flex-col">
         <div className="flex items-center gap-2 px-4 py-2.5 border-b border-white/[0.06]">
-          <Sparkles className="w-3.5 h-3.5 text-amber-400/60" />
+          <Sparkles className="w-3.5 h-3.5 text-[var(--brand-primary)]/60" />
           <span className="text-xs text-[#FDF8F2]/40 font-medium">
             {t("mockEditTitle")}
           </span>
@@ -206,8 +207,8 @@ const PreviewMock = ({ t }: { t: (k: string) => string }) => (
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 1.5, duration: 0.4 }}
           >
-            <div className="bg-amber-400/15 border border-amber-400/20 rounded-2xl rounded-se-sm px-3 py-2 max-w-[90%]">
-              <p className="text-xs text-amber-200/80">{t("mockEditUser1")}</p>
+            <div className="bg-[var(--brand-primary)]/15 border border-[var(--brand-primary)]/20 rounded-2xl rounded-se-sm px-3 py-2 max-w-[90%]">
+              <p className="text-xs text-[var(--brand-primary-light)]/80">{t("mockEditUser1")}</p>
             </div>
           </motion.div>
           {/* Bot confirmation */}
@@ -228,7 +229,7 @@ const PreviewMock = ({ t }: { t: (k: string) => string }) => (
 );
 
 /* ── Step 3: WhatsApp connect mock ── */
-const ConnectMock = ({ t }: { t: (k: string) => string }) => {
+const ConnectMock = ({ t, tenantName }: { t: (k: string) => string; tenantName: string }) => {
   const [showConnected, setShowConnected] = useState(false);
 
   useEffect(() => {
@@ -238,7 +239,7 @@ const ConnectMock = ({ t }: { t: (k: string) => string }) => {
 
   return (
     <div className="bg-[#111B21] rounded-2xl overflow-hidden border border-[#2A2F33]/60 shadow-[0_20px_60px_rgba(0,0,0,0.3)]">
-      <BrowserChrome label="CLIX" />
+      <BrowserChrome label={tenantName} />
       <div className="min-h-[320px] flex flex-col items-center justify-center p-8 relative">
         {/* QR code fake pattern */}
         <motion.div
@@ -349,13 +350,13 @@ const ConnectMock = ({ t }: { t: (k: string) => string }) => {
 };
 
 /* ── Step 4: Flow Builder mock ── */
-const FlowBuilderMock = ({ t }: { t: (k: string, opts?: Record<string, boolean>) => string }) => {
+const FlowBuilderMock = ({ t, tenantName }: { t: (k: string, opts?: Record<string, boolean>) => string; tenantName: string }) => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const btnLabels = (t as any)("mockFlowBtnLabels", { returnObjects: true }) as string[];
 
   return (
     <div className="bg-[#1A1510] rounded-2xl overflow-hidden border border-[#2A2318]/60 shadow-[0_20px_60px_rgba(0,0,0,0.25)]">
-      <BrowserChrome label="CLIX — Flow Builder" />
+      <BrowserChrome label={`${tenantName} — Flow Builder`} />
       <div className="flex min-h-[320px]">
         {/* Node palette sidebar */}
         <div className="hidden sm:flex flex-col w-14 border-l border-white/[0.06] bg-white/[0.02] py-3 items-center gap-1">
@@ -365,7 +366,7 @@ const FlowBuilderMock = ({ t }: { t: (k: string, opts?: Record<string, boolean>)
           {[
             { icon: "T", color: "text-blue-400/50", bg: "bg-blue-400/8" },
             { icon: "☰", color: "text-green-400/50", bg: "bg-green-400/8" },
-            { icon: "◇", color: "text-amber-400/50", bg: "bg-amber-400/8" },
+            { icon: "◇", color: "text-[var(--brand-primary)]/50", bg: "bg-[var(--brand-primary)]/8" },
             { icon: "⏱", color: "text-purple-400/50", bg: "bg-purple-400/8" },
           ].map((node, i) => (
             <motion.div
@@ -458,17 +459,17 @@ const FlowBuilderMock = ({ t }: { t: (k: string, opts?: Record<string, boolean>)
               transition={{ delay: 1, duration: 0.5 }}
             >
               <motion.div
-                className="w-28 sm:w-32 rounded-xl border border-[#FF6B2C]/30 bg-[#FF6B2C]/10 p-2.5 text-center backdrop-blur-sm"
+                className="w-28 sm:w-32 rounded-xl border border-[var(--brand-primary)]/30 bg-[var(--brand-primary)]/10 p-2.5 text-center backdrop-blur-sm"
                 animate={{
                   boxShadow: [
-                    "0 0 15px rgba(255,107,44,0.06)",
-                    "0 0 25px rgba(255,107,44,0.15)",
-                    "0 0 15px rgba(255,107,44,0.06)",
+                    "0 0 15px rgba(var(--brand-primary-rgb),0.06)",
+                    "0 0 25px rgba(var(--brand-primary-rgb),0.15)",
+                    "0 0 15px rgba(var(--brand-primary-rgb),0.06)",
                   ],
                 }}
                 transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
               >
-                <div className="text-[9px] text-[#FF6B2C]/50 mb-1 font-medium tracking-wide">
+                <div className="text-[9px] text-[var(--brand-primary)]/50 mb-1 font-medium tracking-wide">
                   {t("mockFlowButtons")}
                 </div>
                 <div className="flex flex-col gap-0.5 mt-1">
@@ -487,13 +488,13 @@ const FlowBuilderMock = ({ t }: { t: (k: string, opts?: Record<string, boolean>)
 
           {/* Floating "selected" indicator on buttons node */}
           <motion.div
-            className="absolute bottom-3 right-3 flex items-center gap-1.5 px-2 py-1 rounded-md bg-[#FF6B2C]/10 border border-[#FF6B2C]/20"
+            className="absolute bottom-3 right-3 flex items-center gap-1.5 px-2 py-1 rounded-md bg-[var(--brand-primary)]/10 border border-[var(--brand-primary)]/20"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 1.5, duration: 0.4 }}
           >
-            <div className="w-1.5 h-1.5 rounded-full bg-[#FF6B2C] animate-pulse" />
-            <span className="text-[8px] text-[#FF6B2C]/60 font-medium">Editing</span>
+            <div className="w-1.5 h-1.5 rounded-full bg-[var(--brand-primary)] animate-pulse" />
+            <span className="text-[8px] text-[var(--brand-primary)]/60 font-medium">Editing</span>
           </motion.div>
         </div>
       </div>
@@ -507,6 +508,7 @@ const FlowBuilderMock = ({ t }: { t: (k: string, opts?: Record<string, boolean>)
 
 const ProductPreviewSection = () => {
   const { t } = useTranslation("landing");
+  const tenantName = useTenantStore((s) => s.config?.name) || "CLIX";
   const ref = useRef<HTMLDivElement>(null);
   const inView = useInView(ref, { once: true, margin: "-100px" });
 
@@ -581,12 +583,12 @@ const ProductPreviewSection = () => {
     >
       {/* ── Floating accents ── */}
       <motion.div
-        className="absolute top-[10%] right-[4%] w-5 h-5 border-2 border-[#FF6B2C]/20 rotate-45"
+        className="absolute top-[10%] right-[4%] w-5 h-5 border-2 border-[var(--brand-primary)]/20 rotate-45"
         animate={{ y: [0, -14, 0], rotate: [45, 50, 45] }}
         transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
       />
       <motion.div
-        className="absolute bottom-[12%] left-[3%] w-7 h-7 rounded-full border-2 border-[#FF6B2C]/15"
+        className="absolute bottom-[12%] left-[3%] w-7 h-7 rounded-full border-2 border-[var(--brand-primary)]/15"
         animate={{ scale: [1, 1.2, 1], opacity: [0.15, 0.4, 0.15] }}
         transition={{
           duration: 6,
@@ -605,12 +607,12 @@ const ProductPreviewSection = () => {
           delay: 2,
         }}
       >
-        <div className="w-1.5 h-1.5 rounded-full bg-[#FF6B2C]/40" />
-        <div className="w-1.5 h-1.5 rounded-full bg-[#FF6B2C]/25" />
-        <div className="w-1.5 h-1.5 rounded-full bg-[#FF6B2C]/12" />
+        <div className="w-1.5 h-1.5 rounded-full bg-[var(--brand-primary)]/40" />
+        <div className="w-1.5 h-1.5 rounded-full bg-[var(--brand-primary)]/25" />
+        <div className="w-1.5 h-1.5 rounded-full bg-[var(--brand-primary)]/12" />
       </motion.div>
       <motion.div
-        className="absolute bottom-[20%] right-[3%] w-4 h-4 border border-[#FF6B2C]/20 rotate-45"
+        className="absolute bottom-[20%] right-[3%] w-4 h-4 border border-[var(--brand-primary)]/20 rotate-45"
         animate={{ y: [0, 10, 0], rotate: [45, 50, 45] }}
         transition={{
           duration: 8,
@@ -657,7 +659,7 @@ const ProductPreviewSection = () => {
               onClick={() => goToStep(idx)}
               className={`relative flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-xl text-sm font-medium transition-colors cursor-pointer ${
                 isActive
-                  ? "text-[#FF6B2C]"
+                  ? "text-[var(--brand-primary)]"
                   : "text-[#1A1A1A]/45 hover:text-[#1A1A1A]/70"
               }`}
             >
@@ -671,7 +673,7 @@ const ProductPreviewSection = () => {
               {isActive && (
                 <motion.div
                   layoutId="step-underline"
-                  className="absolute -bottom-1 left-2 right-2 h-[3px] rounded-full bg-[#FF6B2C]/20 overflow-hidden"
+                  className="absolute -bottom-1 left-2 right-2 h-[3px] rounded-full bg-[var(--brand-primary)]/20 overflow-hidden"
                   transition={{
                     type: "spring",
                     stiffness: 400,
@@ -679,7 +681,7 @@ const ProductPreviewSection = () => {
                   }}
                 >
                   <motion.div
-                    className="h-full bg-[#FF6B2C] rounded-full"
+                    className="h-full bg-[var(--brand-primary)] rounded-full"
                     style={{ width: `${progress}%` }}
                   />
                 </motion.div>
@@ -711,7 +713,7 @@ const ProductPreviewSection = () => {
               >
                 {/* Step badge */}
                 <div className="inline-flex items-center gap-2 mb-4">
-                  <span className="text-4xl sm:text-5xl font-bold text-[#FF6B2C]/15">
+                  <span className="text-4xl sm:text-5xl font-bold text-[var(--brand-primary)]/15">
                     {String(activeStep + 1).padStart(2, "0")}
                   </span>
                 </div>
@@ -725,8 +727,8 @@ const ProductPreviewSection = () => {
                 <ul className="space-y-3 mb-6">
                   {bulletKeys[activeStep].map((key) => (
                     <li key={key} className="flex items-start gap-3">
-                      <div className="w-5 h-5 rounded-full bg-[#FF6B2C]/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-                        <Check className="w-3 h-3 text-[#FF6B2C]" />
+                      <div className="w-5 h-5 rounded-full bg-[var(--brand-primary)]/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <Check className="w-3 h-3 text-[var(--brand-primary)]" />
                       </div>
                       <span className="text-gray-600 text-sm leading-relaxed">
                         {t(key)}
@@ -737,9 +739,9 @@ const ProductPreviewSection = () => {
 
                 {/* Time badge */}
                 {badgeKeys[activeStep] && (
-                  <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#FF6B2C]/8 border border-[#FF6B2C]/15">
-                    <div className="w-1.5 h-1.5 rounded-full bg-[#FF6B2C] animate-pulse" />
-                    <span className="text-xs font-medium text-[#FF6B2C]">
+                  <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--brand-primary)]/8 border border-[var(--brand-primary)]/15">
+                    <div className="w-1.5 h-1.5 rounded-full bg-[var(--brand-primary)] animate-pulse" />
+                    <span className="text-xs font-medium text-[var(--brand-primary)]">
                       {t(badgeKeys[activeStep]!)}
                     </span>
                   </div>
@@ -758,7 +760,7 @@ const ProductPreviewSection = () => {
                   (activeStep === 0 ? 3 : activeStep - 1) as StepIdx,
                 )
               }
-              className="hidden lg:flex absolute -left-5 top-1/2 -translate-y-1/2 z-10 w-9 h-9 rounded-full bg-white/80 backdrop-blur border border-[#FF6B2C]/10 items-center justify-center text-[#FF6B2C]/60 hover:text-[#FF6B2C] hover:border-[#FF6B2C]/30 transition-colors shadow-sm cursor-pointer"
+              className="hidden lg:flex absolute -left-5 top-1/2 -translate-y-1/2 z-10 w-9 h-9 rounded-full bg-white/80 backdrop-blur border border-[var(--brand-primary)]/10 items-center justify-center text-[var(--brand-primary)]/60 hover:text-[var(--brand-primary)] hover:border-[var(--brand-primary)]/30 transition-colors shadow-sm cursor-pointer"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
@@ -767,7 +769,7 @@ const ProductPreviewSection = () => {
               onClick={() =>
                 goToStep(((activeStep + 1) % 4) as StepIdx)
               }
-              className="hidden lg:flex absolute -right-5 top-1/2 -translate-y-1/2 z-10 w-9 h-9 rounded-full bg-white/80 backdrop-blur border border-[#FF6B2C]/10 items-center justify-center text-[#FF6B2C]/60 hover:text-[#FF6B2C] hover:border-[#FF6B2C]/30 transition-colors shadow-sm cursor-pointer"
+              className="hidden lg:flex absolute -right-5 top-1/2 -translate-y-1/2 z-10 w-9 h-9 rounded-full bg-white/80 backdrop-blur border border-[var(--brand-primary)]/10 items-center justify-center text-[var(--brand-primary)]/60 hover:text-[var(--brand-primary)] hover:border-[var(--brand-primary)]/30 transition-colors shadow-sm cursor-pointer"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
@@ -782,10 +784,10 @@ const ProductPreviewSection = () => {
                 exit="exit"
                 transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
               >
-                {activeStep === 0 && <FormMock t={t} />}
-                {activeStep === 1 && <PreviewMock t={t} />}
-                {activeStep === 2 && <ConnectMock t={t} />}
-                {activeStep === 3 && <FlowBuilderMock t={t} />}
+                {activeStep === 0 && <FormMock t={t} tenantName={tenantName} />}
+                {activeStep === 1 && <PreviewMock t={t} tenantName={tenantName} />}
+                {activeStep === 2 && <ConnectMock t={t} tenantName={tenantName} />}
+                {activeStep === 3 && <FlowBuilderMock t={t} tenantName={tenantName} />}
               </motion.div>
             </AnimatePresence>
           </div>

@@ -28,7 +28,7 @@ function isUrlSafe(urlStr: string): boolean {
 /* ── Handler ── */
 
 Deno.serve(async (req: Request) => {
-  const cors = getCorsHeaders(req);
+  const cors = await getCorsHeaders(req);
 
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: cors });

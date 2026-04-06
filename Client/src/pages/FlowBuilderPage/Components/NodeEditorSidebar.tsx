@@ -176,7 +176,7 @@ export default function NodeEditorSidebar({ node, onUpdate, onClose, isLocked, s
                   onChange={(e) => update({ continueAuto: e.target.checked, ...(e.target.checked ? { expectedReply: "", allowSkip: false } : {}) })}
                   className="sr-only peer"
                 />
-                <div className="w-8 h-[18px] bg-[#EDE6DD] rounded-full peer peer-checked:bg-[#FF7E47] after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-[14px] after:w-[14px] after:transition-all peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full after:shadow-sm" />
+                <div className="w-8 h-[18px] bg-[#EDE6DD] rounded-full peer peer-checked:bg-[var(--brand-primary-light)] after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-[14px] after:w-[14px] after:transition-all peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full after:shadow-sm" />
               </label>
             </div>
             {/* Allow Skip */}
@@ -404,8 +404,8 @@ export default function NodeEditorSidebar({ node, onUpdate, onClose, isLocked, s
           transition: border-color 0.2s;
         }
         .field-input:focus {
-          border-color: #FF7E47;
-          box-shadow: 0 0 0 2px rgba(255,126,71,0.1);
+          border-color: var(--brand-primary-light);
+          box-shadow: 0 0 0 2px rgba(var(--brand-primary-rgb),0.1);
         }
       `}</style>
     </div>
@@ -484,7 +484,7 @@ function ButtonsEditor({ buttons, onChange }: { buttons: ButtonItem[]; onChange:
         <button
           type="button"
           onClick={addButton}
-          className="flex items-center gap-1 mt-2 text-xs text-[#FF7E47] hover:text-[#E86B38] cursor-pointer"
+          className="flex items-center gap-1 mt-2 text-xs text-[var(--brand-primary-light)] hover:text-[var(--brand-primary)] cursor-pointer"
         >
           <Plus className="w-3 h-3" /> {t("addButton")}
         </button>
@@ -567,7 +567,7 @@ function ImageUploadField({ imageUrl, onUpdate }: { imageUrl: string; onUpdate: 
         type="button"
         onClick={() => fileRef.current?.click()}
         disabled={uploading}
-        className="w-full flex flex-col items-center justify-center gap-1.5 py-4 rounded-lg border-2 border-dashed border-[#EDE6DD] hover:border-[#FF7E47]/40 hover:bg-[#FFF5F0]/30 transition-colors cursor-pointer disabled:cursor-wait"
+        className="w-full flex flex-col items-center justify-center gap-1.5 py-4 rounded-lg border-2 border-dashed border-[#EDE6DD] hover:border-[var(--brand-primary-light)]/40 hover:bg-[#FFF5F0]/30 transition-colors cursor-pointer disabled:cursor-wait"
       >
         {uploading ? (
           <>
@@ -1295,7 +1295,7 @@ function ResponseMappingEditor({
         <button
           type="button"
           onClick={addMapping}
-          className="flex items-center gap-1 mt-2 text-xs text-[#FF7E47] hover:text-[#E86B38] cursor-pointer"
+          className="flex items-center gap-1 mt-2 text-xs text-[var(--brand-primary-light)] hover:text-[var(--brand-primary)] cursor-pointer"
         >
           <Plus className="w-3 h-3" /> {t("apiCallAddMapping")}
         </button>
@@ -1356,7 +1356,7 @@ function KeywordsEditor({ keywords, disabled, onChange }: { keywords: string[]; 
       <button
         type="button"
         onClick={addKeyword}
-        className="flex items-center gap-1 mt-2 text-xs text-[#FF7E47] hover:text-[#E86B38] cursor-pointer"
+        className="flex items-center gap-1 mt-2 text-xs text-[var(--brand-primary-light)] hover:text-[var(--brand-primary)] cursor-pointer"
       >
         <Plus className="w-3 h-3" /> {t("addKeyword")}
       </button>

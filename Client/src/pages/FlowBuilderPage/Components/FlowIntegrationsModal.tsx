@@ -301,7 +301,7 @@ export default function FlowIntegrationsModal({ onClose }: FlowIntegrationsModal
 
   /* ── Field input class ── */
   const fieldCls =
-    "w-full border border-[#EDE6DD] rounded-md px-2.5 py-1.5 text-xs text-[#2D2A26] bg-white focus:outline-none focus:border-[#FF7E47] transition-colors";
+    "w-full border border-[#EDE6DD] rounded-md px-2.5 py-1.5 text-xs text-[#2D2A26] bg-white focus:outline-none focus:border-[var(--brand-primary-light)] transition-colors";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -313,7 +313,7 @@ export default function FlowIntegrationsModal({ onClose }: FlowIntegrationsModal
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-[#EDE6DD]/40">
           <div className="flex items-center gap-2">
-            <Plug className="w-4 h-4 text-[#FF7E47]" />
+            <Plug className="w-4 h-4 text-[var(--brand-primary-light)]" />
             <span className="text-sm font-bold text-[#2D2A26]">{t("integrationsTitle")}</span>
           </div>
           <button type="button" onClick={onClose} className="p-1 rounded hover:bg-[#EDE6DD]/40 cursor-pointer" aria-label="Close">
@@ -333,7 +333,7 @@ export default function FlowIntegrationsModal({ onClose }: FlowIntegrationsModal
             <button
               type="button"
               onClick={openAdd}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#FF7E47] hover:bg-[#E86B38] text-white text-xs font-bold transition-colors cursor-pointer mb-4"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--brand-primary-light)] hover:brightness-90 text-white text-xs font-bold transition-colors cursor-pointer mb-4"
             >
               <Plus className="w-3.5 h-3.5" />
               {t("addIntegration")}
@@ -561,7 +561,7 @@ export default function FlowIntegrationsModal({ onClose }: FlowIntegrationsModal
                         ...f,
                         customHeaders: [...f.customHeaders, { key: "", value: "" }],
                       }))}
-                      className="flex items-center gap-1 text-[10px] text-[#FF7E47] hover:text-[#e66a33] font-medium mt-1"
+                      className="flex items-center gap-1 text-[10px] text-[var(--brand-primary-light)] hover:text-[var(--brand-primary)] font-medium mt-1"
                     >
                       <Plus className="w-3 h-3" />
                       {t("integrationAddHeader")}
@@ -609,7 +609,7 @@ export default function FlowIntegrationsModal({ onClose }: FlowIntegrationsModal
                   type="button"
                   onClick={handleSave}
                   disabled={!isFormValid || saveMutation.isPending || testStatus !== "success"}
-                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#FF7E47] hover:bg-[#E86B38] disabled:opacity-50 text-white text-xs font-bold transition-colors cursor-pointer disabled:cursor-not-allowed"
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[var(--brand-primary-light)] hover:brightness-90 disabled:opacity-50 text-white text-xs font-bold transition-colors cursor-pointer disabled:cursor-not-allowed"
                 >
                   {saveMutation.isPending && <Loader2 className="w-3 h-3 animate-spin" />}
                   {editingId ? t("editIntegration") : t("addIntegration")}
@@ -692,7 +692,7 @@ export default function FlowIntegrationsModal({ onClose }: FlowIntegrationsModal
                     <button
                       type="button"
                       onClick={() => openEdit(item)}
-                      className="p-1 rounded text-[#A39B90] hover:text-[#FF7E47] hover:bg-[#FF7E47]/10 transition-colors cursor-pointer"
+                      className="p-1 rounded text-[#A39B90] hover:text-[var(--brand-primary-light)] hover:bg-[var(--brand-primary-light)]/10 transition-colors cursor-pointer"
                       title={t("editIntegration")}
                       aria-label={t("editIntegration")}
                     >
@@ -730,7 +730,7 @@ export default function FlowIntegrationsModal({ onClose }: FlowIntegrationsModal
           <button
             type="button"
             onClick={onClose}
-            className="w-full py-2 rounded-lg bg-[#FF7E47] text-white text-sm font-semibold hover:bg-[#e56e3a] transition-colors cursor-pointer"
+            className="w-full py-2 rounded-lg bg-[var(--brand-primary-light)] text-white text-sm font-semibold hover:brightness-90 transition-colors cursor-pointer"
           >
             {t("integrationDone", "Done")}
           </button>

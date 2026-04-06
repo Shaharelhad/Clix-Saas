@@ -68,7 +68,7 @@ export default function FlowToolbar({
               className={`text-sm font-bold text-[#2D2A26] bg-transparent border-b border-transparent ${
                 isLocked
                   ? "cursor-default opacity-60"
-                  : "hover:border-[#EDE6DD] focus:border-[#FF7E47]"
+                  : "hover:border-[#EDE6DD] focus:border-[var(--brand-primary-light)]"
               } outline-none px-1 py-0.5 transition-colors`}
               dir="rtl"
             />

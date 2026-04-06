@@ -18,7 +18,7 @@ interface FileUploadZoneProps {
 }
 
 const inputClass =
-  "w-full bg-[#FAF7F3] border border-[#E5DDD3] rounded-xl px-4 py-2.5 text-sm text-[#2D2A26] placeholder-[#B8AFA4] focus:border-[#FF7E47] focus:ring-2 focus:ring-[#FF7E47]/15 outline-none transition-all duration-200";
+  "w-full bg-[#FAF7F3] border border-[#E5DDD3] rounded-xl px-4 py-2.5 text-sm text-[#2D2A26] placeholder-[#B8AFA4] focus:border-[var(--brand-primary-light)] focus:ring-2 focus:ring-[var(--brand-primary-light)]/15 outline-none transition-all duration-200";
 
 export function FileUploadZone({
   uploads,
@@ -79,7 +79,7 @@ export function FileUploadZone({
       <div
         className={cn(
           "border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all duration-200",
-          "border-[#E5DDD3] hover:border-[#FF7E47]/40 hover:bg-[#FF7E47]/[0.03]",
+          "border-[#E5DDD3] hover:border-[var(--brand-primary-light)]/40 hover:bg-[var(--brand-primary-light)]/[0.03]",
         )}
         onClick={() => inputRef.current?.click()}
       >
@@ -93,7 +93,7 @@ export function FileUploadZone({
         />
         <div className="flex flex-col items-center gap-2">
           {isAnyUploading ? (
-            <Loader2 className="w-6 h-6 text-[#FF7E47] animate-spin" />
+            <Loader2 className="w-6 h-6 text-[var(--brand-primary-light)] animate-spin" />
           ) : (
             <Upload className="w-6 h-6 text-[#B8AFA4]" />
           )}
@@ -131,7 +131,7 @@ export function FileUploadZone({
                       {t("file")} {idx + 1}
                     </span>
                     {item.uploading && (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin text-[#FF7E47]" />
+                      <Loader2 className="w-3.5 h-3.5 animate-spin text-[var(--brand-primary-light)]" />
                     )}
                     {item.uploaded && (
                       <span className="text-xs text-emerald-500 font-medium">

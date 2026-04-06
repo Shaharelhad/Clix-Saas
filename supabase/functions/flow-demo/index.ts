@@ -517,6 +517,20 @@ async function executeNodeDemo(
         variables.extra_adult_charge = String(extraCharge);
         const basePrice = parseFloat(variables.price) || 0;
         variables.total_price = String(basePrice + extraCharge);
+
+        // Calculate number of nights from startDate/endDate
+        const startInput = (node.data.inputValues as Record<string, string>)?.startDate || "";
+        const endInput = (node.data.inputValues as Record<string, string>)?.endDate || "";
+        const startVar = startInput.match(/\{\{(\w+)\}\}/)?.[1];
+        const endVar = endInput.match(/\{\{(\w+)\}\}/)?.[1];
+        const startVal = startVar ? variables[startVar] : startInput;
+        const endVal = endVar ? variables[endVar] : endInput;
+        if (startVal && endVal) {
+          const startD = new Date(startVal);
+          const endD = new Date(endVal);
+          const nights = Math.round((endD.getTime() - startD.getTime()) / (1000 * 60 * 60 * 24));
+          if (nights > 0) variables.num_nights = String(nights);
+        }
       }
 
       // Convert price, total_price, and extra_adult_charge to ILS if requested
@@ -598,16 +612,108 @@ async function executeNotionAgent(
   agentHistory: AgentMessage[],
   userId: string,
   workflowRecord?: string,
+  businessContent?: string,
 ): Promise<{ response: string; toolCalls: Array<{ name: string; input: Record<string, unknown>; result: unknown }>; updatedHistory: AgentMessage[] }> {
+  // ── Code-level "not interested" detection — bypass LLM entirely ──
+  const notInterestedPatterns = [
+    "לא מעוניין", "לא מעונינת", "לא רוצה", "לא צריך", "לא רלוונטי",
+    "לא מתאים", "תסגור", "סגור את", "תמחק", "לא תודה", "not interested",
+  ];
+  const msgLower = userMessage.trim().toLowerCase();
+  const isNotInterested = notInterestedPatterns.some(p => msgLower.includes(p));
+
+  if (isNotInterested && variables.page_id) {
+    console.log("[notion_ai_agent] Not-interested detected, bypassing LLM. Updating Notion status.");
+    // Load Notion credentials for the update
+    let notionKey = "";
+    if (node.data.agentIntegrationId) {
+      const { data: intg } = await supabase.from("integrations").select("config").eq("id", node.data.agentIntegrationId as string).single();
+      if (intg?.config) notionKey = ((intg.config as Record<string, unknown>).apiKey as string) || "";
+    }
+    const toolCalls: Array<{ name: string; input: Record<string, unknown>; result: unknown }> = [];
+    if (notionKey) {
+      const updateBody = { properties: { "סטטוס": { status: { name: "לא מעוניין / סגירת פנייה" } } } };
+      const resp = await fetch(`https://api.notion.com/v1/pages/${variables.page_id}`, {
+        method: "PATCH",
+        headers: { "Authorization": `Bearer ${notionKey}`, "Notion-Version": "2022-06-28", "Content-Type": "application/json" },
+        body: JSON.stringify(updateBody),
+      });
+      const result = resp.ok ? { success: true } : { error: `HTTP ${resp.status}` };
+      toolCalls.push({ name: "update_notion", input: { page_id: variables.page_id, properties: updateBody.properties }, result });
+      console.log("[notion_ai_agent] Notion status update:", result);
+    }
+    const farewell = "מבין לגמרי, תודה על הזמן ובהצלחה עם האירוע! אם משהו ישתנה, אני כאן";
+    return {
+      response: farewell,
+      toolCalls,
+      updatedHistory: [...agentHistory, { role: "user", content: userMessage }, { role: "assistant", content: farewell }],
+    };
+  }
+
   const integrationId = node.data.agentIntegrationId as string | undefined;
   const databaseId = node.data.agentDatabaseId as string | undefined;
   const userPrompt = resolveVariables(node.data.agentSystemPrompt as string || "", variables);
   // Inject today's date so LLM can resolve "tomorrow", "next week", etc.
   const today = new Date().toLocaleDateString("he-IL", { weekday: "long", year: "numeric", month: "long", day: "numeric", timeZone: "Asia/Jerusalem" });
-  const todayISO = new Date().toISOString().split("T")[0];
+  const israelNow = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Jerusalem" }));
+  const todayISO = israelNow.toISOString().split("T")[0];
   const dateContext = `התאריך של היום: ${today} (${todayISO})\n\n`;
-  // Prepend date + workflow_record (business content) to the system prompt
-  const systemPrompt = dateContext + (workflowRecord ? workflowRecord + "\n\n" : "") + userPrompt;
+  // Gallery URLs by audience type (used in checking availability message)
+  const galleryUrls: Record<string, string> = {
+    "כללי": "https://elironvisual.pic-time.com/Sl3voE4qLcpx3?v=10",
+    "דתי": "https://elironvisual.pic-time.com/Sl3voE4qLcpx3?v=10",
+    "בני העדה": "https://elironvisual.pic-time.com/Sl3voE4qLcpx3?v=10",
+  };
+
+  // Build status-aware guardrails
+  const status = variables.status || "";
+  const filledVars: string[] = [];
+  if (variables.event_date) filledVars.push(`תאריך אירוע: ${variables.event_date}`);
+  if (variables.venue_name) filledVars.push(`מקום אירוע: ${variables.venue_name}`);
+  if (variables.audience) filledVars.push(`סוג קהל: ${variables.audience}`);
+
+  let guardrails = "";
+
+  // Terminal statuses — minimal engagement
+  if (status === "לא מעוניין / סגירת פנייה") {
+    guardrails = `הנחיות חשובות — עדיפות עליונה:\nהלקוח הזה כבר סגר פנייה (סטטוס: לא מעוניין / סגירת פנייה).\nאם הלקוח חוזר ופונה — ענה בחביבות ושאל אם משהו השתנה. אל תנסה למכור.\nאם הלקוח מעוניין מחדש, עדכן נוטיון לסטטוס "תהליך מכירה" ואסוף את הפרטים החסרים.\n\n`;
+  } else if (status === "ניהול לקוח/אירוע") {
+    guardrails = `הנחיות חשובות — עדיפות עליונה:\nהלקוח הזה כבר לקוח קיים (סטטוס: ניהול לקוח/אירוע). ענה על שאלות בנימוס ובקיצור.\n\n`;
+  } else {
+    // Active statuses — inject filled vars + not-interested detection
+    const varSection = filledVars.length > 0
+      ? `הפרטים הבאים כבר נאספו מהלקוח — אל תבקש אותם שוב:\n${filledVars.join("\n")}\n`
+      : "";
+
+    const statusSection = status && status !== "ליד חדש"
+      ? `הסטטוס הנוכחי הוא "${status}" — אל תבקש תאריך/אולם/קהל, המידע כבר נאסף. עבור ישר לשלב הבא.\n`
+      : "";
+
+    // Missing fields check for new leads
+    let missingSection = "";
+    if (status === "ליד חדש" || !status) {
+      const missing: string[] = [];
+      if (!variables.event_date) missing.push("תאריך אירוע");
+      if (!variables.venue_name) missing.push("שם אולם");
+      if (!variables.audience) missing.push("סוג קהל (כללי/דתי/בני העדה)");
+      if (missing.length > 0) {
+        missingSection = `לפי הנתונים בנוטיון, עדיין חסרים: ${missing.join(", ")}.\nאם הלקוח כבר נתן את הפרטים בשיחה — אתה יכול להמשיך לבדוק יומן ולשריין תאריך.\nאם לא — שאל את הלקוח.\n`;
+      }
+    }
+
+    const galleryUrl = galleryUrls[variables.audience] || galleryUrls["כללי"];
+
+    const toolGuide = `סדר שימוש בכלים (חובה לעקוב!):\n1. אסוף תאריך + אולם + סוג קהל מהלקוח. אם חסר פרט — שאל את הלקוח ואל תמשיך.\n2. כשיש את כל 3 — קרא מיד ל-calendar_check (המערכת תשלח הודעת "בודק זמינות" אוטומטית). אל תשלח הודעת טקסט לפני הקריאה לכלי!\n3. book_event_date — שריין את תאריך האירוע (יום שלם, לא פגישה!)\n4. update_notion — עדכן נוטיון עם כל 3 הפרטים + שנה סטטוס לתהליך מכירה\n5. find_slots — חפש 2 זמנים פנויים לשיחה/פגישה ב-3 ימים הקרובים\n6. הצע ללקוח 2 זמנים + אפשרות "זמן אחר"\n7. כשלקוח בוחר זמן — שאל: "שיחת טלפון או פגישה פרונטלית?"\n8. create_meeting — צור פגישה בזמן שהלקוח בחר (לא בתאריך האירוע!)\n9. update_notion — נקבע פגישה = false, כמות אין מענה = 0\nחשוב: book_event_date ≠ create_meeting. אל תערבב ביניהם!\nחשוב: כשאתה מוכן להפעיל כלים — קרא לכלי מיד, אל תשלח טקסט בלבד!\n`;
+
+    guardrails = `הנחיות חשובות — עדיפות עליונה:\n${varSection}${statusSection}${missingSection}${toolGuide}כשלקוח אומר שהוא לא מעוניין, מסרב, או מבקש לסגור — חובה לבצע 2 פעולות:\n1. קרא ל-update_notion ועדכן סטטוס ל"לא מעוניין / סגירת פנייה"\n2. שלח הודעת פרידה: "מבין לגמרי, תודה על הזמן ובהצלחה עם האירוע! אם משהו ישתנה, אני כאן"\nזה הכרחי — אל תנסה לשכנע לקוח שאמר לא.\n\n`;
+  }
+
+  const businessSection = businessContent
+    ? `מידע עסקי (השתמש במידע הזה לענות על שאלות לגבי מחירים, שירותים, פרטי העסק):\n${businessContent}\n\n`
+    : "";
+
+  // Prompt order: date → business content → workflow record → guardrails → user system prompt
+  const systemPrompt = dateContext + businessSection + (workflowRecord ? workflowRecord + "\n\n" : "") + guardrails + userPrompt;
   const tools = node.data.agentTools as Record<string, unknown> || {};
 
   console.log("[notion_ai_agent] Config:", { integrationId: integrationId || "EMPTY", databaseId, toolsConfig: JSON.stringify(tools).substring(0, 200), promptLen: systemPrompt.length, historyLen: agentHistory.length });
@@ -662,7 +768,7 @@ Combine multiple fields in one call.`,
   if (bookEventDate?.enabled && bookEventDate.webhookUrl) {
     toolDefs.push({
       name: "book_event_date",
-      description: "Book an ALL-DAY event in Google Calendar to reserve the wedding/event date. Call this immediately after calendar_check confirms the date is available. This does NOT schedule a meeting call — it only blocks the event date.",
+      description: "Reserve the customer's WEDDING/EVENT DATE as an all-day block in the calendar. This is NOT for scheduling a phone call or meeting — it only marks the event date as taken. Use ONLY after collecting date + venue + audience and after calendar_check confirms availability.",
       parameters: {
         type: "object",
         properties: {
@@ -681,11 +787,13 @@ Combine multiple fields in one call.`,
   if (calendarCheck?.enabled && calendarCheck.webhookUrl) {
     toolDefs.push({
       name: "calendar_check",
-      description: "Check Google Calendar availability for a specific date. Returns whether the date is available or too busy.",
+      description: "Check Google Calendar availability for a specific date. Pass venue and audience if known — the system will automatically reserve the date, update Notion, and find meeting slots. The result includes slot1/slot2 — you MUST propose them to the customer.",
       parameters: {
         type: "object",
         properties: {
-          date: { type: "string", description: "Date to check in YYYY-MM-DD format" },
+          date: { type: "string", description: "Date to check YYYY-MM-DD" },
+          venue: { type: "string", description: "Venue/hall name (e.g., אלגריה)" },
+          audience: { type: "string", description: "Audience type: כללי, דתי, or בני העדה" },
         },
         required: ["date"],
       },
@@ -696,7 +804,7 @@ Combine multiple fields in one call.`,
   if (findSlots?.enabled && findSlots.webhookUrl) {
     toolDefs.push({
       name: "find_slots",
-      description: "Find 2 free time slots for a meeting in the next 3 days. Returns two available times.",
+      description: "Find 2 available time slots for a SHORT MEETING (phone call or face-to-face) with the customer in the next 3 business days. Use this to propose meeting times AFTER the event date has been booked. Returns slot1 and slot2.",
       parameters: {
         type: "object",
         properties: {
@@ -711,7 +819,7 @@ Combine multiple fields in one call.`,
   if (createMeeting?.enabled && createMeeting.webhookUrl) {
     toolDefs.push({
       name: "create_meeting",
-      description: "Create a meeting in Google Calendar. Use after customer confirms a time.",
+      description: "Schedule a 1-HOUR MEETING (phone call or face-to-face) in the calendar. ONLY use times from the slot1/slot2 that were proposed to the customer. If the customer wants a different time, call find_slots again first. Do NOT accept arbitrary times.",
       parameters: {
         type: "object",
         properties: {
@@ -728,13 +836,50 @@ Combine multiple fields in one call.`,
 
   console.log("[notion_ai_agent] Tools defined:", toolDefs.map(t => t.name), "notionApiKey:", notionApiKey ? "SET" : "EMPTY");
 
+  // Track calendar_check calls for auto-prepending the "checking availability" message
+  let calendarCheckCalled = false;
+
   // Tool executor
   const executeTool = async (name: string, args: Record<string, unknown>): Promise<unknown> => {
     if (name === "update_notion") {
       const pageId = args.page_id as string || variables.page_id;
+      const props = (args.properties || {}) as Record<string, unknown>;
       console.log("[notion_ai_agent] update_notion called:", { pageId: pageId || "EMPTY", hasApiKey: !!notionApiKey, args: JSON.stringify(args).substring(0, 500) });
       if (!pageId || !notionApiKey) return { error: `Missing ${!pageId ? "page_id" : "Notion credentials"}. page_id=${pageId}, hasKey=${!!notionApiKey}` };
-      const body = JSON.stringify({ properties: args.properties });
+
+      // Block status change to "תהליך מכירה" if required fields are missing
+      const statusProp = props["סטטוס"] as Record<string, unknown> | undefined;
+      const newStatus = (statusProp?.status as Record<string, unknown>)?.name as string | undefined;
+      let strippedStatusMissing: string[] = [];
+      if (newStatus === "תהליך מכירה") {
+        const missingFields: string[] = [];
+        if (!variables.event_date && !props["תאריך ושעת האירוע"]) missingFields.push("תאריך אירוע");
+        if (!variables.venue_name && !props["שם מקום אירוע"]) missingFields.push("שם אולם");
+        if (!variables.audience && !props["סוג קהל"]) missingFields.push("סוג קהל (כללי/דתי/בני העדה)");
+        if (missingFields.length > 0) {
+          // Remove ONLY the status change, allow other properties (date/venue) to be saved
+          delete props["סטטוס"];
+          strippedStatusMissing = missingFields;
+          console.log("[notion_ai_agent] Removed status change — missing:", missingFields.join(", "), "— saving other properties");
+          if (Object.keys(props).length === 0) {
+            return { blocked: true, reason: `אי אפשר לעבור לתהליך מכירה. חסרים: ${missingFields.join(", ")}. שאל את הלקוח קודם.` };
+          }
+          // Proceed with partial update (save date/venue without status change)
+          // After the PATCH, return a message about what's missing
+        }
+        // Auto-enrich: add available fields the LLM forgot to include
+        if (variables.event_date && !props["תאריך ושעת האירוע"]) {
+          props["תאריך ושעת האירוע"] = { date: { start: variables.event_date } };
+        }
+        if (variables.venue_name && !props["שם מקום אירוע"]) {
+          props["שם מקום אירוע"] = { rich_text: [{ text: { content: variables.venue_name } }] };
+        }
+        if (variables.audience && !props["סוג קהל"]) {
+          props["סוג קהל"] = { select: { name: variables.audience } };
+        }
+      }
+
+      const body = JSON.stringify({ properties: props });
       console.log("[notion_ai_agent] Notion PATCH body:", body.substring(0, 500));
       const response = await fetch(`https://api.notion.com/v1/pages/${pageId}`, {
         method: "PATCH",
@@ -747,6 +892,9 @@ Combine multiple fields in one call.`,
         return { error: `Notion API error ${response.status}: ${errText.substring(0, 200)}` };
       }
       console.log("[notion_ai_agent] update_notion SUCCESS for page:", pageId);
+      if (strippedStatusMissing.length > 0) {
+        return { success: true, partial: true, message: `הנתונים נשמרו אבל שינוי סטטוס נחסם. חסרים: ${strippedStatusMissing.join(", ")}. שאל את הלקוח קודם.` };
+      }
       return { success: true };
     }
 
@@ -761,12 +909,97 @@ Combine multiple fields in one call.`,
     }
 
     if (name === "calendar_check" && calendarCheck?.webhookUrl) {
-      const response = await fetch(calendarCheck.webhookUrl, {
+      calendarCheckCalled = true;
+      const checkResp = await fetch(calendarCheck.webhookUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ date: args.date }),
       });
-      return await response.json();
+      const checkResult = await checkResp.json();
+
+      // Auto-chain: if available AND all data collected, book date + find slots in one go
+      const bookDate = (args.date as string) || variables.event_date || "";
+      const hasAllData = !!bookDate; // LLM only calls calendar_check when it has the data
+      if (checkResult.status === "available" && hasAllData && bookEventDate?.webhookUrl && findSlots?.webhookUrl) {
+        const venue = (args.venue as string) || variables.venue_name || "";
+        const audience = (args.audience as string) || variables.audience || "";
+        console.log("[notion_ai_agent] Auto-chaining: book_event_date + find_slots after calendar_check", { venue, audience });
+        const [bookResp, slotsResp] = await Promise.all([
+          fetch(bookEventDate.webhookUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ date: bookDate, name: variables.customer_name || "", venue, phone: variables.phone || "", audience }),
+          }),
+          fetch(findSlots.webhookUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ date: bookDate }),
+          }),
+        ]);
+        const bookResult = await bookResp.json();
+        const slotsResult = await slotsResp.json();
+
+        // Store proposed slots in variables for later validation
+        variables.__proposed_slot1 = slotsResult.slot1 || "";
+        variables.__proposed_slot2 = slotsResult.slot2 || "";
+
+        // Auto-update Notion: save date, venue, audience + change status to תהליך מכירה
+        let notionUpdated = false;
+        if (notionApiKey && variables.page_id) {
+          const notionProps: Record<string, unknown> = {
+            "סטטוס": { status: { name: "תהליך מכירה" } },
+            "נקבע פגישה": { checkbox: true },
+          };
+          if (bookDate) notionProps["תאריך ושעת האירוע"] = { date: { start: bookDate } };
+          if (venue) notionProps["שם מקום אירוע"] = { rich_text: [{ text: { content: venue } }] };
+          if (audience) notionProps["סוג קהל"] = { select: { name: audience } };
+          try {
+            const notionResp = await fetch(`https://api.notion.com/v1/pages/${variables.page_id}`, {
+              method: "PATCH",
+              headers: notionHeaders,
+              body: JSON.stringify({ properties: notionProps }),
+            });
+            notionUpdated = notionResp.ok;
+            console.log("[notion_ai_agent] Auto-chain Notion update:", notionUpdated ? "SUCCESS" : "FAILED");
+          } catch (e) {
+            console.error("[notion_ai_agent] Auto-chain Notion update error:", e);
+          }
+        }
+
+        return {
+          ...checkResult,
+          event_booked: bookResult.success || false,
+          event_id: bookResult.event_id || null,
+          slot1: slotsResult.slot1 || null,
+          slot2: slotsResult.slot2 || null,
+          notion_updated: notionUpdated,
+          auto_chained: true,
+          message: `התאריך פנוי ושוריין ביומן. הנתונים עודכנו בנוטיון.\n\nחובה להציע ללקוח בדיוק את 2 הזמנים האלה לשיחה:\nזמן 1: ${slotsResult.slot1 || "?"}\nזמן 2: ${slotsResult.slot2 || "?"}\nתוסיף גם אפשרות "או זמן אחר שנוח לך".\nשאל: מעדיפים שיחת טלפון או פגישה פרונטלית?`,
+        };
+      }
+
+      // Escalate case: 4+ events — tell customer to wait, update Notion, stop bot
+      if (checkResult.status === "escalate") {
+        if (notionApiKey && variables.page_id) {
+          try {
+            await fetch(`https://api.notion.com/v1/pages/${variables.page_id}`, {
+              method: "PATCH",
+              headers: notionHeaders,
+              body: JSON.stringify({ properties: { "סטטוס": { status: { name: "לטיפול אישי של אלירון" } } } }),
+            });
+            console.log("[notion_ai_agent] Escalated: status changed to לטיפול אישי של אלירון");
+          } catch (e) {
+            console.error("[notion_ai_agent] Escalate Notion update error:", e);
+          }
+        }
+        return {
+          ...checkResult,
+          escalated: true,
+          message: `התאריך תפוס (${checkResult.event_count || "4+"} אירועים). שלח ללקוח: "יש לי כמה אירועים בתאריך הזה. תן לי לבדוק ולחזור אליך בהקדם" ואל תמשיך את השיחה.`,
+        };
+      }
+
+      return checkResult;
     }
 
     if (name === "find_slots" && findSlots?.webhookUrl) {
@@ -779,6 +1012,20 @@ Combine multiple fields in one call.`,
     }
 
     if (name === "create_meeting" && createMeeting?.webhookUrl) {
+      // Re-check calendar availability for the meeting date before creating
+      if (calendarCheck?.webhookUrl) {
+        try {
+          const recheck = await fetch(calendarCheck.webhookUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ date: args.date }),
+          });
+          const recheckResult = await recheck.json();
+          if (recheckResult.status === "escalate") {
+            return { error: `היום ${args.date} עמוס מדי (${recheckResult.event_count} אירועים). הצע ללקוח תאריך אחר לשיחה.` };
+          }
+        } catch { /* proceed if recheck fails */ }
+      }
       const response = await fetch(createMeeting.webhookUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -807,8 +1054,15 @@ Combine multiple fields in one call.`,
   ];
   const trimmedHistory = newHistory.length > 20 ? newHistory.slice(-20) : newHistory;
 
+  // Prepend "checking availability" message if calendar was checked
+  let finalResponse = result.response;
+  if (calendarCheckCalled) {
+    const checkingMsg = `תודה! בודק זמינות אצלנו ביומן, רק דקה... בינתיים מוזמנים להתרשם מהעבודות שלנו: ${galleryUrls[variables.audience] || galleryUrls["כללי"]}\n\n`;
+    finalResponse = checkingMsg + finalResponse;
+  }
+
   return {
-    response: result.response,
+    response: finalResponse,
     toolCalls: result.toolCalls,
     updatedHistory: trimmedHistory,
   };
@@ -816,7 +1070,7 @@ Combine multiple fields in one call.`,
 
 // ── Main Handler ────────────────────────────────────────────
 Deno.serve(async (req) => {
-  const cors = getCorsHeaders(req);
+  const cors = await getCorsHeaders(req);
 
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: cors });
@@ -893,6 +1147,20 @@ Deno.serve(async (req) => {
 
     const flow = workflow.flow_json as FlowJSON;
     const workflowRecord = (workflow.workflow_record as string) || undefined;
+
+    // Load business content from form_responses for AI agent context
+    let businessContent: string | undefined;
+    const { data: formRow } = await supabase
+      .from("form_responses")
+      .select("bot_prompt, draft_bot_prompt")
+      .eq("user_id", user_id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .single();
+    if (formRow) {
+      const raw = ((formRow.draft_bot_prompt || formRow.bot_prompt) as string) || "";
+      businessContent = raw.substring(0, 6000) || undefined;
+    }
 
     if (!flow?.nodes?.length) {
       const botResponse = await callLLMFallback(user_id, message, convId, workflowRecord, session_state?.variables?.language, session_state?.variables);
@@ -1097,7 +1365,7 @@ Deno.serve(async (req) => {
 
     // Notion AI Agent node — conversational agent with tool calling
     if (currentNode.type === "notion_ai_agent") {
-      const agentResult = await executeNotionAgent(currentNode, message, variables, session_state?.agent_history || [], user_id, workflowRecord);
+      const agentResult = await executeNotionAgent(currentNode, message, variables, session_state?.agent_history || [], user_id, workflowRecord, businessContent);
       // Save conversation to demo_conversations
       await supabase.from("demo_conversations").insert({
         user_id, conversation_id: convId,
@@ -1467,7 +1735,7 @@ Deno.serve(async (req) => {
           user_message: message, bot_response: flowText,
         });
       }
-      const agentResult = await executeNotionAgent(finalNode, message, variables, session_state?.agent_history || [], user_id, workflowRecord);
+      const agentResult = await executeNotionAgent(finalNode, message, variables, session_state?.agent_history || [], user_id, workflowRecord, businessContent);
       await supabase.from("demo_conversations").insert({
         user_id, conversation_id: convId,
         user_message: message, bot_response: agentResult.response,

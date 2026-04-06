@@ -103,7 +103,7 @@ export default function FlowHelpAssistant() {
             <button
               type="button"
               onClick={() => setIsOpen(true)}
-              className="w-12 h-12 rounded-full bg-[#FF7E47] text-white shadow-lg hover:shadow-xl hover:scale-105 active:scale-95 transition-all duration-200 flex items-center justify-center cursor-pointer"
+              className="w-12 h-12 rounded-full bg-[var(--brand-primary-light)] text-white shadow-lg hover:shadow-xl hover:scale-105 active:scale-95 transition-all duration-200 flex items-center justify-center cursor-pointer"
             >
               <Bot className="w-5 h-5" />
             </button>
@@ -123,7 +123,7 @@ export default function FlowHelpAssistant() {
           >
             <ChatPanel
               title={t("helpTitle")}
-              icon={<Bot className="w-4 h-4 text-[#FF7E47]" />}
+              icon={<Bot className="w-4 h-4 text-[var(--brand-primary-light)]" />}
               statusText={t("helpStatus")}
               statusColor="emerald"
               messages={messages}
@@ -142,7 +142,7 @@ export default function FlowHelpAssistant() {
                     title={t("helpReset")}
                     aria-label={t("helpReset")}
                   >
-                    <RotateCcw className="w-3.5 h-3.5 text-[#A39B90] hover:text-[#FF7E47]" />
+                    <RotateCcw className="w-3.5 h-3.5 text-[#A39B90] hover:text-[var(--brand-primary-light)]" />
                   </button>
                   <button
                     type="button"
@@ -151,7 +151,7 @@ export default function FlowHelpAssistant() {
                     title={t("helpClose")}
                     aria-label={t("helpClose")}
                   >
-                    <X className="w-3.5 h-3.5 text-[#A39B90] hover:text-[#FF7E47]" />
+                    <X className="w-3.5 h-3.5 text-[#A39B90] hover:text-[var(--brand-primary-light)]" />
                   </button>
                 </div>
               }

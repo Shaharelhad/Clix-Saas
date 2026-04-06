@@ -16,13 +16,17 @@ import FlowBuilderPage from "./pages/FlowBuilderPage/FlowBuilderPage";
 import DashboardSection from "./pages/AdminPage/Sections/DashboardSection";
 import AdminTicketsSection from "./pages/AdminPage/Sections/AdminTicketsSection";
 import GatewaySection from "./pages/AdminPage/Sections/GatewaySection";
+import AdminTenantsSection from "./pages/AdminPage/Sections/AdminTenantsSection";
 import ProfilePage from "./pages/ProfilePage";
+import ApplyPage from "./pages/ApplyPage";
+import { isMainDomain } from "@/lib/tenant";
 
 function App() {
   return (
     <Routes>
       <Route path="/" element={<HomePage />} />
       <Route path="/auth" element={<AuthPage />} />
+      <Route path="/apply" element={isMainDomain() ? <ApplyPage /> : <Navigate to="/" replace />} />
       <Route path="/pending" element={<PendingPage />} />
 {/* /profile redirects into dashboard layout */}
       <Route path="/create-bot" element={<AuthGuard><CreateBotPage /></AuthGuard>} />
@@ -58,6 +62,7 @@ function App() {
         <Route path="form-builder" element={<FormBuilderSection />} />
         <Route path="tickets" element={<AdminTicketsSection />} />
         <Route path="gateway" element={<GatewaySection />} />
+        <Route path="tenants" element={<AdminTenantsSection />} />
       </Route>
     </Routes>
   );

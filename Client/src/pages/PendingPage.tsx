@@ -4,6 +4,8 @@ import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
 import { Bell, LogOut, RefreshCw, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import BrandLogo from "@/components/BrandLogo";
+import { useTenantStore } from "@/store/tenant.store";
 import { useAuth } from "@/hooks/useAuth";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
@@ -74,7 +76,7 @@ export default function PendingPage() {
         }}
       >
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-          <Loader2 className="w-8 h-8 animate-spin text-[#FF6B2C]" />
+          <Loader2 className="w-8 h-8 animate-spin text-[var(--brand-primary)]" />
         </motion.div>
       </div>
     );
@@ -94,12 +96,12 @@ export default function PendingPage() {
 
       {/* Floating geometric accents */}
       <motion.div
-        className="absolute top-[12%] right-[10%] w-5 h-5 border-2 border-[#FF6B2C]/20 rotate-45"
+        className="absolute top-[12%] right-[10%] w-5 h-5 border-2 border-[var(--brand-primary)]/20 rotate-45"
         animate={{ y: [0, -14, 0], rotate: [45, 52, 45] }}
         transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
       />
       <motion.div
-        className="absolute top-[18%] left-[8%] w-3.5 h-3.5 rounded-full bg-[#FF6B2C]/15"
+        className="absolute top-[18%] left-[8%] w-3.5 h-3.5 rounded-full bg-[var(--brand-primary)]/15"
         animate={{ y: [0, 12, 0], scale: [1, 1.4, 1] }}
         transition={{
           duration: 8,
@@ -109,7 +111,7 @@ export default function PendingPage() {
         }}
       />
       <motion.div
-        className="absolute top-[50%] right-[6%] w-7 h-7 rounded-full border-2 border-[#FF6B2C]/15"
+        className="absolute top-[50%] right-[6%] w-7 h-7 rounded-full border-2 border-[var(--brand-primary)]/15"
         animate={{ scale: [1, 1.2, 1], opacity: [0.15, 0.35, 0.15] }}
         transition={{
           duration: 6,
@@ -119,7 +121,7 @@ export default function PendingPage() {
         }}
       />
       <motion.div
-        className="absolute bottom-[22%] left-[12%] w-4 h-4 border-2 border-[#FF6B2C]/20"
+        className="absolute bottom-[22%] left-[12%] w-4 h-4 border-2 border-[var(--brand-primary)]/20"
         animate={{ y: [0, 10, 0], rotate: [0, 12, 0] }}
         transition={{
           duration: 9,
@@ -129,7 +131,7 @@ export default function PendingPage() {
         }}
       />
       <motion.div
-        className="absolute top-[60%] left-[5%] w-9 h-[2px] bg-[#FF6B2C]/15"
+        className="absolute top-[60%] left-[5%] w-9 h-[2px] bg-[var(--brand-primary)]/15"
         animate={{ scaleX: [1, 1.6, 1], opacity: [0.15, 0.35, 0.15] }}
         transition={{
           duration: 7,
@@ -148,9 +150,9 @@ export default function PendingPage() {
           delay: 1,
         }}
       >
-        <div className="w-1.5 h-1.5 rounded-full bg-[#FF6B2C]/30" />
-        <div className="w-1.5 h-1.5 rounded-full bg-[#FF6B2C]/20" />
-        <div className="w-1.5 h-1.5 rounded-full bg-[#FF6B2C]/10" />
+        <div className="w-1.5 h-1.5 rounded-full bg-[var(--brand-primary)]/30" />
+        <div className="w-1.5 h-1.5 rounded-full bg-[var(--brand-primary)]/20" />
+        <div className="w-1.5 h-1.5 rounded-full bg-[var(--brand-primary)]/10" />
       </motion.div>
 
       {/* Centered content */}
@@ -163,13 +165,9 @@ export default function PendingPage() {
           className="flex items-center justify-center gap-2.5 mb-8"
           dir="ltr"
         >
-          <img
-            src="/clix-logo-full.png"
-            alt="CLIX"
-            className="h-8 drop-shadow-[0_0_12px_rgba(255,107,44,0.3)]"
-          />
+          <BrandLogo className="h-8 drop-shadow-[0_0_12px_rgba(var(--brand-primary-rgb),0.3)]" />
           <span className="text-[#2D2A26] font-bold text-2xl tracking-wide select-none">
-            CLIX
+            {useTenantStore((s) => s.config?.name) || "CLIX"}
           </span>
         </motion.div>
 
@@ -202,11 +200,11 @@ export default function PendingPage() {
                 className="w-16 h-16 rounded-2xl flex items-center justify-center"
                 style={{
                   background:
-                    "linear-gradient(135deg, rgba(255,107,44,0.12), rgba(255,107,44,0.22))",
-                  border: "1px solid rgba(255,107,44,0.18)",
+                    "linear-gradient(135deg, rgba(var(--brand-primary-rgb),0.12), rgba(var(--brand-primary-rgb),0.22))",
+                  border: "1px solid rgba(var(--brand-primary-rgb),0.18)",
                 }}
               >
-                <Bell className="w-8 h-8 text-[#FF6B2C] bell-rock" />
+                <Bell className="w-8 h-8 text-[var(--brand-primary)] bell-rock" />
               </div>
             </motion.div>
 

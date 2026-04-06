@@ -62,7 +62,7 @@ export default function NodePalette({ isLocked, onLockedDrag, strictMode }: Node
               className={`flex items-center gap-2.5 p-2.5 rounded-lg border border-[#EDE6DD]/60 transition-all ${
                 isItemDisabled
                   ? "opacity-50 cursor-not-allowed"
-                  : "hover:border-[#FF7E47]/30 hover:bg-[#FFF5F0]/50 cursor-grab active:cursor-grabbing"
+                  : "hover:border-[var(--brand-primary-light)]/30 hover:bg-[#FFF5F0]/50 cursor-grab active:cursor-grabbing"
               }`}
             >
               <div

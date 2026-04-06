@@ -47,8 +47,8 @@ function SectionCard({
     >
       <div className="flex items-center justify-between mb-5">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-[#FF6B2C]/10 flex items-center justify-center">
-            <Icon className="w-4 h-4 text-[#FF6B2C]" />
+          <div className="w-8 h-8 rounded-lg bg-[var(--brand-primary)]/10 flex items-center justify-center">
+            <Icon className="w-4 h-4 text-[var(--brand-primary)]" />
           </div>
           <h2 className="text-base font-bold text-[#2D2A26]">{title}</h2>
         </div>
@@ -110,7 +110,7 @@ function InputField({
               ? "bg-[#F5F2EE] text-[#A39B90] cursor-not-allowed"
               : readOnly
                 ? "bg-[#FAF7F4] cursor-default"
-                : "bg-white focus:outline-none focus:border-[#FF6B2C]/50 focus:shadow-[0_0_0_3px_rgba(255,107,44,0.08)] hover:border-[#D5CEC5] transition-all duration-200",
+                : "bg-white focus:outline-none focus:border-[var(--brand-primary)]/50 focus:shadow-[0_0_0_3px_rgba(var(--brand-primary-rgb),0.08)] hover:border-[#D5CEC5] transition-all duration-200",
           )}
         />
         {showToggle && (
@@ -186,7 +186,7 @@ function EditBtn({ onClick, label }: { onClick: () => void; label: string }) {
     <button
       type="button"
       onClick={onClick}
-      className="flex items-center gap-1.5 text-sm text-[#FF6B2C] hover:text-[#E8590C] transition-colors cursor-pointer"
+      className="flex items-center gap-1.5 text-sm text-[var(--brand-primary)] hover:brightness-75 transition-colors cursor-pointer"
     >
       <Pencil className="w-3.5 h-3.5" />
       {label}

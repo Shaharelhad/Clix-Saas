@@ -8,7 +8,7 @@ const admin = {
   dashboardGreetingMorning: "Good morning",
   dashboardGreetingAfternoon: "Good afternoon",
   dashboardGreetingEvening: "Good evening",
-  dashboardSubtitle: "Here's what's happening in CLIX",
+  dashboardSubtitle: "Here's what's happening in {{brandName}}",
   statTotalUsers: "Total Users",
   statPendingApprovals: "Pending Approvals",
   statOpenTickets: "Open Tickets",
@@ -141,6 +141,20 @@ const admin = {
   gatewayPhoneNumber: "Connected number",
   gatewayInstanceExists: "Connection ID already exists",
   gatewaySendError: "Failed to send message",
+
+  // Tenants
+  navTenants: "Tenants",
+  tenantsTitle: "White-Label Tenants",
+  tenantsSubtitle: "Manage company applications for branded platforms",
+  tenantsEmpty: "No tenant applications to show",
+  tenantFilterPending: "Pending",
+  tenantFilterApproved: "Approved",
+  tenantFilterRejected: "Rejected",
+  tenantFilterAll: "All",
+  tenantVisitSite: "Visit site",
+  tenantBrandPreview: "Brand Preview",
+  tenantSampleButton: "Sample Button",
+  tenantSampleOutline: "Sample Outline",
 };
 
 export default admin;

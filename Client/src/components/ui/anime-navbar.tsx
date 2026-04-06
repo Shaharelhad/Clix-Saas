@@ -1,6 +1,7 @@
 import { useState, useEffect, type ReactNode } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import BrandLogo from "@/components/BrandLogo";
 
 interface NavItem {
   name: string;
@@ -61,7 +62,7 @@ export function AnimeNavBar({
               {isActive && (
                 <motion.div
                   layoutId="nav-glow"
-                  className="absolute inset-0 rounded-full bg-[#FF6B2C]/15"
+                  className="absolute inset-0 rounded-full bg-[var(--brand-primary)]/15"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
@@ -83,11 +84,9 @@ export function AnimeNavBar({
                 >
                   {/* Stem pointing up */}
                   <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-[#111111] rotate-45" />
-                  <img
-                    src="/clix-logo-full.png"
+                  <BrandLogo
+                    className="h-7 drop-shadow-[0_0_6px_rgba(var(--brand-primary-rgb),0.4)]"
                     alt=""
-                    aria-hidden="true"
-                    className="h-7 drop-shadow-[0_0_6px_rgba(255,107,44,0.4)]"
                   />
                 </motion.div>
               )}

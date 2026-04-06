@@ -52,7 +52,7 @@ interface FormFieldRendererProps {
 
 /* ── Shared input styling ── */
 const inputBase =
-  "w-full bg-[#FAF7F3] border border-[#E5DDD3] rounded-xl px-4 py-3 text-sm text-[#2D2A26] placeholder-[#B8AFA4] focus:border-[#FF7E47] focus:ring-2 focus:ring-[#FF7E47]/15 outline-none transition-all duration-200";
+  "w-full bg-[#FAF7F3] border border-[#E5DDD3] rounded-xl px-4 py-3 text-sm text-[#2D2A26] placeholder-[#B8AFA4] focus:border-[var(--brand-primary-light)] focus:ring-2 focus:ring-[var(--brand-primary-light)]/15 outline-none transition-all duration-200";
 
 
 /* ── Warm-themed checkbox (matches OrangeCheck pattern) ── */
@@ -75,7 +75,7 @@ function WarmCheckbox({
       className={cn(
         "group flex items-center gap-3 w-full rounded-xl px-4 py-3.5 text-start transition-all duration-300",
         checked
-          ? "bg-[#FF7E47]/8 border-2 border-[#FF7E47]/40"
+          ? "bg-[var(--brand-primary-light)]/8 border-2 border-[var(--brand-primary-light)]/40"
           : "bg-[#FAF7F3] border-2 border-transparent hover:border-[#EDE6DD]",
         disabled && "opacity-50 cursor-not-allowed",
       )}
@@ -84,8 +84,8 @@ function WarmCheckbox({
         className={cn(
           "flex-shrink-0 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all duration-200",
           checked
-            ? "bg-[#FF7E47] border-[#FF7E47]"
-            : "border-[#D5CCBF] group-hover:border-[#FF7E47]/40",
+            ? "bg-[var(--brand-primary-light)] border-[var(--brand-primary-light)]"
+            : "border-[#D5CCBF] group-hover:border-[var(--brand-primary-light)]/40",
         )}
       >
         {checked && (
@@ -138,7 +138,7 @@ function WarmRadio({
       className={cn(
         "rounded-full px-5 py-2.5 text-sm font-bold transition-all duration-300",
         selected
-          ? "bg-[#FF7E47] text-white shadow-[0_2px_12px_rgba(255,126,71,0.3)]"
+          ? "bg-[var(--brand-primary-light)] text-white shadow-[0_2px_12px_rgba(var(--brand-primary-rgb),0.3)]"
           : "bg-[#FAF7F3] text-[#7A7267] hover:bg-[#F3ECE3] border border-[#EDE6DD]",
       )}
     >
@@ -164,7 +164,7 @@ function WarmToggle({
       className={cn(
         "relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 transition-colors duration-200",
         checked
-          ? "bg-[#FF7E47] border-[#FF7E47]"
+          ? "bg-[var(--brand-primary-light)] border-[var(--brand-primary-light)]"
           : "bg-[#EDE6DD] border-[#E5DDD3]",
       )}
     >
@@ -386,7 +386,7 @@ export function FormFieldRenderer({
           <button
             type="button"
             onClick={() => addUrlEntry(field.id)}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold text-[#FF7E47] bg-[#FF7E47]/8 hover:bg-[#FF7E47]/15 border border-[#FF7E47]/20 transition-all duration-200"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold text-[var(--brand-primary-light)] bg-[var(--brand-primary-light)]/8 hover:bg-[var(--brand-primary-light)]/15 border border-[var(--brand-primary-light)]/20 transition-all duration-200"
           >
             <Plus className="w-4 h-4" /> {t("addLink")}
           </button>
@@ -438,7 +438,7 @@ export function FormFieldRenderer({
           <button
             type="button"
             onClick={() => addQaEntry(field.id)}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold text-[#FF7E47] bg-[#FF7E47]/8 hover:bg-[#FF7E47]/15 border border-[#FF7E47]/20 transition-all duration-200"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold text-[var(--brand-primary-light)] bg-[var(--brand-primary-light)]/8 hover:bg-[var(--brand-primary-light)]/15 border border-[var(--brand-primary-light)]/20 transition-all duration-200"
           >
             <Plus className="w-4 h-4" /> {t("addQuestion")}
           </button>
@@ -460,7 +460,7 @@ export function FormFieldRenderer({
                   key={catIdx}
                   className="bg-white rounded-2xl border border-[#EDE6DD] p-5 shadow-[0_1px_8px_rgba(45,42,38,0.04)]"
                 >
-                  <h4 className="text-sm font-bold text-[#FF7E47] mb-3">
+                  <h4 className="text-sm font-bold text-[var(--brand-primary-light)] mb-3">
                     {catLabel}
                   </h4>
                   <div className="space-y-2">
@@ -489,7 +489,7 @@ export function FormFieldRenderer({
                   <button
                     type="button"
                     onClick={() => addRulesItem(field.id, catIdx)}
-                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold text-[#FF7E47] bg-[#FF7E47]/8 hover:bg-[#FF7E47]/15 border border-[#FF7E47]/20 transition-all duration-200 mt-3"
+                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold text-[var(--brand-primary-light)] bg-[var(--brand-primary-light)]/8 hover:bg-[var(--brand-primary-light)]/15 border border-[var(--brand-primary-light)]/20 transition-all duration-200 mt-3"
                   >
                     <Plus className="w-3.5 h-3.5" /> {t("addRule")}
                   </button>
@@ -533,7 +533,7 @@ export function FormFieldRenderer({
                 className={cn(
                   "group flex items-center gap-3 w-full rounded-xl px-4 py-3.5 text-start transition-all duration-300",
                   selected.includes("__other__")
-                    ? "bg-[#FF7E47]/8 border-2 border-[#FF7E47]/40"
+                    ? "bg-[var(--brand-primary-light)]/8 border-2 border-[var(--brand-primary-light)]/40"
                     : "bg-[#FAF7F3] border-2 border-transparent hover:border-[#EDE6DD]",
                 )}
               >
@@ -541,8 +541,8 @@ export function FormFieldRenderer({
                   className={cn(
                     "flex-shrink-0 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all duration-200",
                     selected.includes("__other__")
-                      ? "bg-[#FF7E47] border-[#FF7E47]"
-                      : "border-[#D5CCBF] group-hover:border-[#FF7E47]/40",
+                      ? "bg-[var(--brand-primary-light)] border-[var(--brand-primary-light)]"
+                      : "border-[#D5CCBF] group-hover:border-[var(--brand-primary-light)]/40",
                   )}
                 >
                   {selected.includes("__other__") && (

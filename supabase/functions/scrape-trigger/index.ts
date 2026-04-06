@@ -5,7 +5,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const FIRECRAWL_API_KEY = Deno.env.get("FIRECRAWL_API_KEY") || "";
 
 Deno.serve(async (req) => {
-  const cors = getCorsHeaders(req);
+  const cors = await getCorsHeaders(req);
 
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: cors });
@@ -169,8 +169,8 @@ Deno.serve(async (req) => {
 
     // ── Re-generate enhanced bot prompt with full website content ──
     if (fullScrapedContent.trim()) {
-      const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
-      if (anthropicKey) {
+      const openrouterKey = Deno.env.get("OPENROUTER_API_KEY");
+      if (openrouterKey) {
         try {
           const { data: formRow } = await supabase
             .from("form_responses")
@@ -186,17 +186,19 @@ Deno.serve(async (req) => {
                 : formRow.additional_info)
             : (form_fields || {});
 
-          const anthropicRes = await fetch("https://api.anthropic.com/v1/messages", {
+          const orRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              "x-api-key": anthropicKey,
-              "anthropic-version": "2023-06-01",
+              "Authorization": `Bearer ${openrouterKey}`,
             },
             body: JSON.stringify({
-              model: "claude-sonnet-4-5-20250929",
+              model: "anthropic/claude-sonnet-4-5-20250929",
               max_tokens: 4096,
-              system: `אתה יוצר פרומפטים לבוטי וואטסאפ עבור עסקים. הפרומפט מגדיר איך הבוט מדבר עם לקוחות.
+              messages: [
+                {
+                  role: "system",
+                  content: `אתה יוצר פרומפטים לבוטי וואטסאפ עבור עסקים. הפרומפט מגדיר איך הבוט מדבר עם לקוחות.
 
 הבוט חייב להרגיש כמו בעל העסק עצמו מדבר.
 
@@ -216,7 +218,7 @@ Deno.serve(async (req) => {
 חשוב: הפרומפט חייב לכלול את כל המידע העסקי מהאתר כדי שהבוט יוכל לענות על כל שאלה.
 
 החזר רק טקסט פשוט.`,
-              messages: [
+                },
                 {
                   role: "user",
                   content: `Business form data:\n${JSON.stringify(formData, null, 2)}\n\nFull website content (all pages):\n${fullScrapedContent.substring(0, 30000)}`,
@@ -225,9 +227,9 @@ Deno.serve(async (req) => {
             }),
           });
 
-          if (anthropicRes.ok) {
-            const anthropicData = await anthropicRes.json();
-            const rawPrompt = anthropicData.content?.[0]?.text || "";
+          if (orRes.ok) {
+            const orData = await orRes.json();
+            const rawPrompt = orData.choices?.[0]?.message?.content || "";
             const enhancedPrompt = rawPrompt.replace(/^```[\s\S]*?\n/, "").replace(/\n```\s*$/, "").trim();
 
             if (enhancedPrompt) {
