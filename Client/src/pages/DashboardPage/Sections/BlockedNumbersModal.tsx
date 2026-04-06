@@ -222,7 +222,7 @@ export default function BlockedNumbersModal({
                 type="button"
                 onClick={handleAdd}
                 disabled={!input.trim() || addMutation.isPending}
-                className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-[var(--brand-primary-light)] hover:bg-[var(--brand-primary-hover)] disabled:opacity-50 text-white text-sm font-bold transition-colors cursor-pointer disabled:cursor-not-allowed"
+                className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-[var(--brand-primary-light)] hover:brightness-90 disabled:opacity-50 text-white text-sm font-bold transition-colors cursor-pointer disabled:cursor-not-allowed"
               >
                 <Plus className="w-4 h-4" />
                 {t("blockedNumbersAdd")}
