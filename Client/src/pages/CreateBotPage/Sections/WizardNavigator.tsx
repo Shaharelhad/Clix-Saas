@@ -97,7 +97,7 @@ const WizardNavigator = ({
         className={cn(
           "inline-flex items-center gap-2 font-bold text-sm rounded-xl px-6 py-3 transition-all duration-200 cursor-pointer",
           isSubmit
-            ? "bg-[var(--brand-primary-light)] hover:bg-[var(--brand-primary-hover)] text-white shadow-[0_4px_20px_rgba(var(--brand-primary-rgb),0.3)] hover:shadow-[0_6px_28px_rgba(var(--brand-primary-rgb),0.4)]"
+            ? "bg-[var(--brand-primary-light)] hover:brightness-90 text-white shadow-[0_4px_20px_rgba(var(--brand-primary-rgb),0.3)] hover:shadow-[0_6px_28px_rgba(var(--brand-primary-rgb),0.4)]"
             : "bg-[#6C5CE7] hover:bg-[#5A4BD6] text-white shadow-[0_4px_20px_rgba(108,92,231,0.25)]",
           nextDisabled && "opacity-50 cursor-not-allowed",
         )}
