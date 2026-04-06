@@ -214,7 +214,7 @@ export default function FlowSettingsModal({ settings, onUpdate, onClose }: FlowS
           <button
             type="button"
             onClick={onClose}
-            className="w-full py-2 rounded-lg bg-[var(--brand-primary-light)] text-white text-sm font-semibold hover:bg-[var(--brand-primary-hover)] transition-colors cursor-pointer"
+            className="w-full py-2 rounded-lg bg-[var(--brand-primary-light)] text-white text-sm font-semibold hover:brightness-90 transition-colors cursor-pointer"
           >
             {t("settingsDone")}
           </button>
