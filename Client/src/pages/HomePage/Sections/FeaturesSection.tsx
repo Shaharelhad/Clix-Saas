@@ -10,6 +10,7 @@ import {
   PenLine,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTenantStore } from "@/store/tenant.store";
 
 const FEATURES = [
   { key: "feature1", icon: Zap },
@@ -24,6 +25,7 @@ const ORANGE = "var(--brand-primary)";
 
 const FeaturesSection = () => {
   const { t } = useTranslation("landing");
+  const tenantName = useTenantStore((s) => s.config?.name) || "CLIX";
   const ref = useRef(null);
   const inView = useInView(ref, { once: true, margin: "-80px" });
 
@@ -60,7 +62,7 @@ const FeaturesSection = () => {
             animate={inView ? { opacity: 1, y: 0 } : {}}
             transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
           >
-            {t("whyClix")}
+            {t("whyClix", { brandName: tenantName })}
           </motion.span>
           <motion.h2
             className="text-3xl sm:text-4xl md:text-5xl font-bold text-[#1A1A1A] mb-4"
@@ -119,7 +121,7 @@ const FeaturesSection = () => {
                 <div
                   className="w-14 h-14 rounded-xl flex items-center justify-center mb-4"
                   style={{
-                    background: `linear-gradient(135deg, ${ORANGE}15, ${ORANGE}30)`,
+                    background: "rgba(var(--brand-primary-rgb), 0.12)",
                   }}
                 >
                   <Icon className="w-6 h-6" style={{ color: ORANGE }} />
