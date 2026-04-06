@@ -30,11 +30,18 @@ export function getTenantSlug(): string {
     return ""; // empty = custom domain, resolved separately
   }
 
-  // Subdomain extraction: "acme.clix.com" → "acme"
+  // Subdomain extraction: "acme.clix-bot.com" → "acme"
   const subdomain = hostname.replace(`.${baseDomain}`, "");
 
-  // If no subdomain (just "clix.com"), use default
+  // If no subdomain (just "clix-bot.com"), use default
   if (!subdomain || subdomain === hostname) return "clix";
+
+  // Redirect default tenant subdomain (clix.clix-bot.com) to bare domain
+  const defaultSlug = import.meta.env.VITE_DEFAULT_TENANT_SLUG || "clix";
+  if (subdomain === defaultSlug) {
+    window.location.replace(`https://${baseDomain}${window.location.pathname}${window.location.search}`);
+    return defaultSlug; // returned while redirect is in progress
+  }
 
   return subdomain;
 }
