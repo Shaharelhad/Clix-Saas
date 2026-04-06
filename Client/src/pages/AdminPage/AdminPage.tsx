@@ -1,5 +1,6 @@
 import { Outlet, NavLink, useNavigate } from "react-router-dom";
 import BrandLogo from "@/components/BrandLogo";
+import LanguageToggle from "@/components/LanguageToggle";
 import { useTranslation } from "react-i18next";
 import {
   LayoutDashboard,
@@ -73,6 +74,7 @@ export default function AdminPage() {
 
           {/* User + Logout */}
           <div className="flex items-center gap-3">
+            <LanguageToggle />
             {user && (
               <span className="text-xs text-[#AAAAAA] hidden sm:block">
                 {user.full_name}
