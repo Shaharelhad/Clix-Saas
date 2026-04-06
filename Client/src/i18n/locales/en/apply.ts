@@ -5,7 +5,7 @@ export default {
   companyNamePlaceholder: "e.g. Acme Corp",
   subdomain: "Desired Subdomain",
   subdomainPlaceholder: "e.g. acme",
-  subdomainSuffix: ".clix.com",
+  subdomainSuffix: ".clix-bot.com",
   subdomainAvailable: "Available!",
   subdomainTaken: "Already taken",
   subdomainInvalid: "Only lowercase letters, numbers, and hyphens",

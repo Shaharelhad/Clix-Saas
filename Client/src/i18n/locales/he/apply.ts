@@ -5,7 +5,7 @@ export default {
   companyNamePlaceholder: "לדוגמה: חברת אקמה",
   subdomain: "סאבדומיין רצוי",
   subdomainPlaceholder: "לדוגמה: acme",
-  subdomainSuffix: ".clix.com",
+  subdomainSuffix: ".clix-bot.com",
   subdomainAvailable: "!פנוי",
   subdomainTaken: "כבר תפוס",
   subdomainInvalid: "רק אותיות קטנות באנגלית, מספרים ומקפים",
