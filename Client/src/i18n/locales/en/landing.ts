@@ -64,7 +64,7 @@ export default {
   mockFlowPalette: "Nodes",
 
   /* ── why clix / features ── */
-  whyClix: "Why CLIX?",
+  whyClix: "Why {{brandName}}?",
   whyClixTitle: "Automation Without Unnecessary Complications",
   whyClixDesc: "The tool built for business owners, not programmers",
   feature1: "No Coding Required",
@@ -86,17 +86,17 @@ export default {
   faqQ1: "How long does it take to set up a bot?",
   faqA1: "Less than 2 minutes! Just fill out the form, our AI builds the bot, and you can start right away.",
   faqQ2: "Do I need programming knowledge?",
-  faqA2: "Not at all. CLIX is built for business owners. The interface is intuitive and requires no technical knowledge.",
+  faqA2: "Not at all. {{brandName}} is built for business owners. The interface is intuitive and requires no technical knowledge.",
   faqQ3: "How do I connect WhatsApp?",
   faqA3: "Simple QR scan from your dashboard. Setup takes less than a minute and is completely secure.",
   faqQ4: "What happens when the bot doesn't know the answer?",
   faqA4: "The bot uses advanced AI that learns from your content. If unsure, it forwards the customer to a human agent.",
   faqQ5: "Can I try for free?",
-  faqA5: "Of course! The free plan includes 100 messages per month, enough to feel the power of CLIX.",
+  faqA5: "Of course! The free plan includes 100 messages per month, enough to feel the power of {{brandName}}.",
 
   /* ── final CTA ── */
   ctaTitle: "Ready to upgrade your business WhatsApp?",
-  ctaSubtitle: "Join thousands of businesses already using CLIX",
+  ctaSubtitle: "Join thousands of businesses already using {{brandName}}",
   ctaBtn: "Start Free Now",
   ctaStatSetup: "Setup in minutes",
   ctaStat247: "24/7 support",
