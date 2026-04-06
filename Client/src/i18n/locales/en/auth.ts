@@ -40,6 +40,8 @@ const auth = {
   errorNameRequired: "Full name is required",
   errorPhoneRequired: "Phone number is required",
   errorLoginFailed: "Invalid email or password",
+  errorEmailTaken: "This email is already registered with another organization.",
+  errorTenantMismatch: "This account does not belong to this organization.",
 
   // Email confirmation
   signupConfirmEmail: "Account created! Check your email to confirm, then log in.",

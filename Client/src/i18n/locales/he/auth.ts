@@ -40,6 +40,8 @@ const auth = {
   errorNameRequired: "שם מלא נדרש",
   errorPhoneRequired: "מספר טלפון נדרש",
   errorLoginFailed: "אימייל או סיסמה שגויים",
+  errorEmailTaken: "כתובת האימייל הזו כבר רשומה בארגון אחר.",
+  errorTenantMismatch: "חשבון זה אינו שייך לארגון זה.",
 
   // Email confirmation
   signupConfirmEmail: "החשבון נוצר! בדוק את האימייל שלך לאישור, ואז התחבר.",
