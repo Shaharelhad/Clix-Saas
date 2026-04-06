@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { motion, useInView, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Eye, Sparkles, HelpCircle, LogIn, Menu, X } from "lucide-react";
 import BrandLogo from "@/components/BrandLogo";
+import LanguageToggle from "@/components/LanguageToggle";
 import HeroSection from "./Sections/HeroSection";
 import ProductPreviewSection from "./Sections/ProductPreviewSection";
 import FeaturesSection from "./Sections/FeaturesSection";
@@ -170,6 +171,7 @@ const HomePage = () => {
 
           {/* Desktop auth buttons */}
           <div className="hidden md:flex items-center gap-3">
+            <LanguageToggle />
             <button
               type="button"
               onClick={() => navigate("/auth")}
@@ -181,7 +183,7 @@ const HomePage = () => {
             <button
               type="button"
               onClick={() => navigate("/auth?mode=signup")}
-              className="bg-[var(--brand-primary)] text-white text-sm px-4 py-2 rounded-lg hover:bg-[var(--brand-primary-hover)] transition-colors flex items-center gap-1.5"
+              className="bg-[var(--brand-primary)] text-white text-sm px-4 py-2 rounded-lg hover:brightness-90 transition-colors flex items-center gap-1.5"
             >
               {t("navStartFree")}
               <ArrowLeft className="w-3.5 h-3.5" />
@@ -233,6 +235,10 @@ const HomePage = () => {
                   );
                 })}
 
+                <div className="px-4 py-2">
+                  <LanguageToggle />
+                </div>
+
                 <div className="border-t border-[#EDE6DD]/50 my-2" />
 
                 <button
@@ -252,7 +258,7 @@ const HomePage = () => {
                     setMobileMenuOpen(false);
                     navigate("/auth?mode=signup");
                   }}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold bg-[var(--brand-primary)] text-white hover:bg-[var(--brand-primary-hover)] transition-colors"
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold bg-[var(--brand-primary)] text-white hover:brightness-90 transition-colors"
                 >
                   {t("navStartFree")}
                   <ArrowLeft className="w-3.5 h-3.5" />
