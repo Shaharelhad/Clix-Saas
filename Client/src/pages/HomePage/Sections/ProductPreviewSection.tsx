@@ -6,6 +6,7 @@ import {
   type Variants,
 } from "framer-motion";
 import { useTranslation } from "react-i18next";
+import { useTenantStore } from "@/store/tenant.store";
 import {
   ClipboardList,
   MessageSquareText,
@@ -65,9 +66,9 @@ const BrowserChrome = ({ label }: { label: string }) => (
 );
 
 /* ── Step 1: Form wizard mock ── */
-const FormMock = ({ t }: { t: (k: string) => string }) => (
+const FormMock = ({ t, tenantName }: { t: (k: string) => string; tenantName: string }) => (
   <div className="bg-[#1A1510] rounded-2xl overflow-hidden border border-[#2A2318]/60 shadow-[0_20px_60px_rgba(0,0,0,0.25)]">
-    <BrowserChrome label="CLIX" />
+    <BrowserChrome label={tenantName} />
     <div
       className="p-6 sm:p-8 min-h-[320px] flex flex-col justify-between"
       style={{
@@ -139,7 +140,7 @@ const FormMock = ({ t }: { t: (k: string) => string }) => (
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 1, duration: 0.4 }}
       >
-        <div className="flex items-center gap-2 bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-hover)] text-white text-sm font-medium px-6 py-2.5 rounded-xl transition-colors">
+        <div className="flex items-center gap-2 bg-[var(--brand-primary)] hover:brightness-90 text-white text-sm font-medium px-6 py-2.5 rounded-xl transition-colors">
           {t("mockFormNext")}
           <ArrowLeft className="w-4 h-4" />
         </div>
@@ -149,9 +150,9 @@ const FormMock = ({ t }: { t: (k: string) => string }) => (
 );
 
 /* ── Step 2: Preview & Edit dual chat mock ── */
-const PreviewMock = ({ t }: { t: (k: string) => string }) => (
+const PreviewMock = ({ t, tenantName }: { t: (k: string) => string; tenantName: string }) => (
   <div className="bg-[#1A1510] rounded-2xl overflow-hidden border border-[#2A2318]/60 shadow-[0_20px_60px_rgba(0,0,0,0.25)]">
-    <BrowserChrome label="CLIX" />
+    <BrowserChrome label={tenantName} />
     <div className="flex min-h-[320px]">
       {/* Demo chat panel */}
       <div className="flex-[3] border-l border-white/[0.06] flex flex-col">
@@ -193,7 +194,7 @@ const PreviewMock = ({ t }: { t: (k: string) => string }) => (
       {/* Edit chat panel */}
       <div className="flex-[2] hidden sm:flex flex-col">
         <div className="flex items-center gap-2 px-4 py-2.5 border-b border-white/[0.06]">
-          <Sparkles className="w-3.5 h-3.5 text-amber-400/60" />
+          <Sparkles className="w-3.5 h-3.5 text-[var(--brand-primary)]/60" />
           <span className="text-xs text-[#FDF8F2]/40 font-medium">
             {t("mockEditTitle")}
           </span>
@@ -206,8 +207,8 @@ const PreviewMock = ({ t }: { t: (k: string) => string }) => (
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 1.5, duration: 0.4 }}
           >
-            <div className="bg-amber-400/15 border border-amber-400/20 rounded-2xl rounded-se-sm px-3 py-2 max-w-[90%]">
-              <p className="text-xs text-amber-200/80">{t("mockEditUser1")}</p>
+            <div className="bg-[var(--brand-primary)]/15 border border-[var(--brand-primary)]/20 rounded-2xl rounded-se-sm px-3 py-2 max-w-[90%]">
+              <p className="text-xs text-[var(--brand-primary-light)]/80">{t("mockEditUser1")}</p>
             </div>
           </motion.div>
           {/* Bot confirmation */}
@@ -228,7 +229,7 @@ const PreviewMock = ({ t }: { t: (k: string) => string }) => (
 );
 
 /* ── Step 3: WhatsApp connect mock ── */
-const ConnectMock = ({ t }: { t: (k: string) => string }) => {
+const ConnectMock = ({ t, tenantName }: { t: (k: string) => string; tenantName: string }) => {
   const [showConnected, setShowConnected] = useState(false);
 
   useEffect(() => {
@@ -238,7 +239,7 @@ const ConnectMock = ({ t }: { t: (k: string) => string }) => {
 
   return (
     <div className="bg-[#111B21] rounded-2xl overflow-hidden border border-[#2A2F33]/60 shadow-[0_20px_60px_rgba(0,0,0,0.3)]">
-      <BrowserChrome label="CLIX" />
+      <BrowserChrome label={tenantName} />
       <div className="min-h-[320px] flex flex-col items-center justify-center p-8 relative">
         {/* QR code fake pattern */}
         <motion.div
@@ -349,13 +350,13 @@ const ConnectMock = ({ t }: { t: (k: string) => string }) => {
 };
 
 /* ── Step 4: Flow Builder mock ── */
-const FlowBuilderMock = ({ t }: { t: (k: string, opts?: Record<string, boolean>) => string }) => {
+const FlowBuilderMock = ({ t, tenantName }: { t: (k: string, opts?: Record<string, boolean>) => string; tenantName: string }) => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const btnLabels = (t as any)("mockFlowBtnLabels", { returnObjects: true }) as string[];
 
   return (
     <div className="bg-[#1A1510] rounded-2xl overflow-hidden border border-[#2A2318]/60 shadow-[0_20px_60px_rgba(0,0,0,0.25)]">
-      <BrowserChrome label="CLIX — Flow Builder" />
+      <BrowserChrome label={`${tenantName} — Flow Builder`} />
       <div className="flex min-h-[320px]">
         {/* Node palette sidebar */}
         <div className="hidden sm:flex flex-col w-14 border-l border-white/[0.06] bg-white/[0.02] py-3 items-center gap-1">
@@ -365,7 +366,7 @@ const FlowBuilderMock = ({ t }: { t: (k: string, opts?: Record<string, boolean>)
           {[
             { icon: "T", color: "text-blue-400/50", bg: "bg-blue-400/8" },
             { icon: "☰", color: "text-green-400/50", bg: "bg-green-400/8" },
-            { icon: "◇", color: "text-amber-400/50", bg: "bg-amber-400/8" },
+            { icon: "◇", color: "text-[var(--brand-primary)]/50", bg: "bg-[var(--brand-primary)]/8" },
             { icon: "⏱", color: "text-purple-400/50", bg: "bg-purple-400/8" },
           ].map((node, i) => (
             <motion.div
@@ -507,6 +508,7 @@ const FlowBuilderMock = ({ t }: { t: (k: string, opts?: Record<string, boolean>)
 
 const ProductPreviewSection = () => {
   const { t } = useTranslation("landing");
+  const tenantName = useTenantStore((s) => s.config?.name) || "CLIX";
   const ref = useRef<HTMLDivElement>(null);
   const inView = useInView(ref, { once: true, margin: "-100px" });
 
@@ -782,10 +784,10 @@ const ProductPreviewSection = () => {
                 exit="exit"
                 transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
               >
-                {activeStep === 0 && <FormMock t={t} />}
-                {activeStep === 1 && <PreviewMock t={t} />}
-                {activeStep === 2 && <ConnectMock t={t} />}
-                {activeStep === 3 && <FlowBuilderMock t={t} />}
+                {activeStep === 0 && <FormMock t={t} tenantName={tenantName} />}
+                {activeStep === 1 && <PreviewMock t={t} tenantName={tenantName} />}
+                {activeStep === 2 && <ConnectMock t={t} tenantName={tenantName} />}
+                {activeStep === 3 && <FlowBuilderMock t={t} tenantName={tenantName} />}
               </motion.div>
             </AnimatePresence>
           </div>
