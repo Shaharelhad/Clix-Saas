@@ -6,7 +6,7 @@
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { getAuthenticatedUserId } from "../_shared/auth.ts";
 
-const SYSTEM_PROMPT = `אתה עוזר חכם של בונה התהליכים (Flow Builder) במערכת CLIX — פלטפורמה לבניית בוטים לוואטסאפ.
+const SYSTEM_PROMPT = `אתה עוזר חכם של בונה התהליכים (Flow Builder) במערכת Ortam — פלטפורמה לבניית בוטים לוואטסאפ.
 תפקידך לענות על שאלות של משתמשים לגבי איך להשתמש בבונה התהליכים, מה כל צומת עושה, ואיך לבנות תהליכים אפקטיביים.
 
 ## כללי תשובה
