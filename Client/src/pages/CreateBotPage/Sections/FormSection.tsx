@@ -522,7 +522,7 @@ const FormSection = ({ onNext }: FormSectionProps) => {
                   }}
                   className="inline-block mb-6"
                 >
-                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[var(--brand-primary-light)] to-[var(--brand-primary-hover)] flex items-center justify-center shadow-[0_4px_24px_rgba(var(--brand-primary-rgb),0.3)]">
+                  <div className="w-16 h-16 rounded-2xl bg-[var(--brand-primary)] flex items-center justify-center shadow-[0_4px_24px_rgba(var(--brand-primary-rgb),0.3)]">
                     <Bot className="w-8 h-8 text-white" />
                   </div>
                 </motion.div>
