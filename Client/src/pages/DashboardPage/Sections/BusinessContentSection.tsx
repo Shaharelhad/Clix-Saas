@@ -283,7 +283,7 @@ function CategoryCard({
                 type="button"
                 onClick={onSave}
                 disabled={saving}
-                className="flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-bold bg-[var(--brand-primary-light)] hover:bg-[var(--brand-primary-hover)] text-white transition-colors shadow-[0_2px_12px_rgba(var(--brand-primary-rgb),0.25)] cursor-pointer disabled:opacity-60"
+                className="flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-bold bg-[var(--brand-primary-light)] hover:brightness-90 text-white transition-colors shadow-[0_2px_12px_rgba(var(--brand-primary-rgb),0.25)] cursor-pointer disabled:opacity-60"
               >
                 {saving ? (
                   <Loader2 key="loader" className="w-4 h-4 animate-spin" />
@@ -593,7 +593,7 @@ export default function BusinessContentSection() {
         <button
           type="button"
           onClick={() => navigate("/create-bot")}
-          className="px-6 py-2.5 bg-[var(--brand-primary-light)] hover:bg-[var(--brand-primary-hover)] text-white font-bold rounded-xl transition-colors"
+          className="px-6 py-2.5 bg-[var(--brand-primary-light)] hover:brightness-90 text-white font-bold rounded-xl transition-colors"
         >
           {t("goToCreateBot")}
         </button>
