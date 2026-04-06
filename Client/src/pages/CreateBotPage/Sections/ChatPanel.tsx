@@ -294,7 +294,7 @@ const ChatPanel = ({
               whileTap={{ scale: 0.9 }}
               onClick={onSend}
               disabled={!input.trim() || isSending}
-              className="absolute top-1/2 -translate-y-1/2 end-1.5 p-1.5 rounded-lg bg-[var(--brand-primary-light)] hover:bg-[var(--brand-primary-hover)] transition-all duration-200 disabled:opacity-40 disabled:hover:bg-[var(--brand-primary-light)] cursor-pointer disabled:cursor-not-allowed"
+              className="absolute top-1/2 -translate-y-1/2 end-1.5 p-1.5 rounded-lg bg-[var(--brand-primary-light)] hover:brightness-90 transition-all duration-200 disabled:opacity-40 disabled:hover:bg-[var(--brand-primary-light)] cursor-pointer disabled:cursor-not-allowed"
             >
               {isSending ? (
                 <Loader2 className="w-3.5 h-3.5 text-white animate-spin" />
