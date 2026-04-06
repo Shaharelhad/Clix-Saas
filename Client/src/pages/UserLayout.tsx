@@ -16,6 +16,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useAuth } from "@/hooks/useAuth";
 import SupportTicketModal from "@/components/SupportTicketModal";
 import { cn } from "@/lib/utils";
+import LanguageToggle from "@/components/LanguageToggle";
 
 const navItems = [
   { to: "/dashboard", icon: LayoutDashboard, label: "dashboard", end: true },
@@ -110,7 +111,9 @@ export default function UserLayout() {
             ))}
           </nav>
 
-          {/* Avatar Dropdown */}
+          {/* Language + Avatar Dropdown */}
+          <div className="flex items-center gap-2">
+          <LanguageToggle />
           <div className="relative">
             <button
               ref={triggerRef}
@@ -180,6 +183,7 @@ export default function UserLayout() {
                 </motion.div>
               )}
             </AnimatePresence>
+          </div>
           </div>
         </div>
       </header>
