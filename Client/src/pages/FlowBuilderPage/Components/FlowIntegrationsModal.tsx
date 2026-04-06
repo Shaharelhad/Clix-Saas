@@ -333,7 +333,7 @@ export default function FlowIntegrationsModal({ onClose }: FlowIntegrationsModal
             <button
               type="button"
               onClick={openAdd}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--brand-primary-light)] hover:bg-[var(--brand-primary-hover)] text-white text-xs font-bold transition-colors cursor-pointer mb-4"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--brand-primary-light)] hover:brightness-90 text-white text-xs font-bold transition-colors cursor-pointer mb-4"
             >
               <Plus className="w-3.5 h-3.5" />
               {t("addIntegration")}
@@ -561,7 +561,7 @@ export default function FlowIntegrationsModal({ onClose }: FlowIntegrationsModal
                         ...f,
                         customHeaders: [...f.customHeaders, { key: "", value: "" }],
                       }))}
-                      className="flex items-center gap-1 text-[10px] text-[var(--brand-primary-light)] hover:text-[var(--brand-primary-hover)] font-medium mt-1"
+                      className="flex items-center gap-1 text-[10px] text-[var(--brand-primary-light)] hover:text-[var(--brand-primary)] font-medium mt-1"
                     >
                       <Plus className="w-3 h-3" />
                       {t("integrationAddHeader")}
@@ -609,7 +609,7 @@ export default function FlowIntegrationsModal({ onClose }: FlowIntegrationsModal
                   type="button"
                   onClick={handleSave}
                   disabled={!isFormValid || saveMutation.isPending || testStatus !== "success"}
-                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[var(--brand-primary-light)] hover:bg-[var(--brand-primary-hover)] disabled:opacity-50 text-white text-xs font-bold transition-colors cursor-pointer disabled:cursor-not-allowed"
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[var(--brand-primary-light)] hover:brightness-90 disabled:opacity-50 text-white text-xs font-bold transition-colors cursor-pointer disabled:cursor-not-allowed"
                 >
                   {saveMutation.isPending && <Loader2 className="w-3 h-3 animate-spin" />}
                   {editingId ? t("editIntegration") : t("addIntegration")}
@@ -730,7 +730,7 @@ export default function FlowIntegrationsModal({ onClose }: FlowIntegrationsModal
           <button
             type="button"
             onClick={onClose}
-            className="w-full py-2 rounded-lg bg-[var(--brand-primary-light)] text-white text-sm font-semibold hover:bg-[var(--brand-primary-hover)] transition-colors cursor-pointer"
+            className="w-full py-2 rounded-lg bg-[var(--brand-primary-light)] text-white text-sm font-semibold hover:brightness-90 transition-colors cursor-pointer"
           >
             {t("integrationDone", "Done")}
           </button>
