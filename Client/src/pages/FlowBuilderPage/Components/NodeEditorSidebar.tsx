@@ -484,7 +484,7 @@ function ButtonsEditor({ buttons, onChange }: { buttons: ButtonItem[]; onChange:
         <button
           type="button"
           onClick={addButton}
-          className="flex items-center gap-1 mt-2 text-xs text-[var(--brand-primary-light)] hover:text-[var(--brand-primary-hover)] cursor-pointer"
+          className="flex items-center gap-1 mt-2 text-xs text-[var(--brand-primary-light)] hover:text-[var(--brand-primary)] cursor-pointer"
         >
           <Plus className="w-3 h-3" /> {t("addButton")}
         </button>
@@ -1295,7 +1295,7 @@ function ResponseMappingEditor({
         <button
           type="button"
           onClick={addMapping}
-          className="flex items-center gap-1 mt-2 text-xs text-[var(--brand-primary-light)] hover:text-[var(--brand-primary-hover)] cursor-pointer"
+          className="flex items-center gap-1 mt-2 text-xs text-[var(--brand-primary-light)] hover:text-[var(--brand-primary)] cursor-pointer"
         >
           <Plus className="w-3 h-3" /> {t("apiCallAddMapping")}
         </button>
@@ -1356,7 +1356,7 @@ function KeywordsEditor({ keywords, disabled, onChange }: { keywords: string[]; 
       <button
         type="button"
         onClick={addKeyword}
-        className="flex items-center gap-1 mt-2 text-xs text-[var(--brand-primary-light)] hover:text-[var(--brand-primary-hover)] cursor-pointer"
+        className="flex items-center gap-1 mt-2 text-xs text-[var(--brand-primary-light)] hover:text-[var(--brand-primary)] cursor-pointer"
       >
         <Plus className="w-3 h-3" /> {t("addKeyword")}
       </button>
