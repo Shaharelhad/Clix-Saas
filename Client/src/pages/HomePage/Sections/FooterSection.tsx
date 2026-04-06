@@ -1,8 +1,10 @@
 import { useTranslation } from "react-i18next";
 import BrandLogo from "@/components/BrandLogo";
+import { useTenantStore } from "@/store/tenant.store";
 
 const FooterSection = () => {
   const { t } = useTranslation("landing");
+  const tenantName = useTenantStore((s) => s.config?.name) || "CLIX";
 
   return (
     <footer className="relative bg-[#1A1510] pt-16 pb-8 px-6 overflow-hidden">
@@ -82,7 +84,7 @@ const FooterSection = () => {
         {/* Bottom bar */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
           <p className="text-[#FDF8F2]/25 text-sm">
-            &copy; {new Date().getFullYear()} CLIX. {t("allRightsReserved")}
+            &copy; {new Date().getFullYear()} {tenantName}. {t("allRightsReserved")}
           </p>
         </div>
       </div>
