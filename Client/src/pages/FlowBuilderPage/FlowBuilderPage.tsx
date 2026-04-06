@@ -183,7 +183,7 @@ export default function FlowBuilderPage() {
           <button
             type="button"
             onClick={() => navigate("/dashboard")}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--brand-primary-light)] text-white text-sm font-bold hover:bg-[var(--brand-primary-hover)] transition-colors"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--brand-primary-light)] text-white text-sm font-bold hover:brightness-90 transition-colors"
           >
             {t("desktopOnlyBack")}
             <ArrowRight className="w-4 h-4" />
