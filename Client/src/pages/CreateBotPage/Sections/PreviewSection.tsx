@@ -266,7 +266,7 @@ const PreviewSection = ({ onNext }: PreviewSectionProps) => {
           onClick={onNext}
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
-          className="group relative w-full sm:w-auto inline-flex items-center justify-center gap-2.5 bg-[var(--brand-primary-light)] hover:bg-[var(--brand-primary-hover)] text-white font-bold text-lg rounded-2xl px-14 py-4 transition-all duration-300 shadow-[0_4px_20px_rgba(var(--brand-primary-rgb),0.3)] hover:shadow-[0_6px_28px_rgba(var(--brand-primary-rgb),0.4)] cursor-pointer"
+          className="group relative w-full sm:w-auto inline-flex items-center justify-center gap-2.5 bg-[var(--brand-primary-light)] hover:brightness-90 text-white font-bold text-lg rounded-2xl px-14 py-4 transition-all duration-300 shadow-[0_4px_20px_rgba(var(--brand-primary-rgb),0.3)] hover:shadow-[0_6px_28px_rgba(var(--brand-primary-rgb),0.4)] cursor-pointer"
         >
           {t("letsGo")}
           <ArrowLeft className="w-5 h-5 rtl:rotate-0 ltr:rotate-180 transition-transform group-hover:ltr:-translate-x-1 group-hover:rtl:translate-x-1" />
