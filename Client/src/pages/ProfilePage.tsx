@@ -186,7 +186,7 @@ function EditBtn({ onClick, label }: { onClick: () => void; label: string }) {
     <button
       type="button"
       onClick={onClick}
-      className="flex items-center gap-1.5 text-sm text-[var(--brand-primary)] hover:text-[var(--brand-primary-hover)] transition-colors cursor-pointer"
+      className="flex items-center gap-1.5 text-sm text-[var(--brand-primary)] hover:brightness-75 transition-colors cursor-pointer"
     >
       <Pencil className="w-3.5 h-3.5" />
       {label}
