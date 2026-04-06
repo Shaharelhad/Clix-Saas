@@ -7,11 +7,13 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { useTenantStore } from "@/store/tenant.store";
 
 const FAQ_KEYS = [1, 2, 3, 4, 5];
 
 const FaqSection = () => {
   const { t } = useTranslation("landing");
+  const tenantName = useTenantStore((s) => s.config?.name) || "CLIX";
   const ref = useRef(null);
   const inView = useInView(ref, { once: true, margin: "-80px" });
 
@@ -84,7 +86,7 @@ const FaqSection = () => {
                   {t(`faqQ${n}`)}
                 </AccordionTrigger>
                 <AccordionContent className="text-gray-600 text-sm sm:text-base leading-relaxed">
-                  {t(`faqA${n}`)}
+                  {t(`faqA${n}`, { brandName: tenantName })}
                 </AccordionContent>
               </AccordionItem>
             </motion.div>
