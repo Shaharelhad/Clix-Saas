@@ -27,6 +27,7 @@ type TenantRow = {
   contact_email: string;
   contact_phone: string | null;
   website_url: string | null;
+  custom_domain: string | null;
   app_title: string;
   status: string;
   is_active: boolean;
@@ -179,7 +180,7 @@ export default function AdminTenantsSection() {
                 <div className="flex items-center gap-4 text-sm text-[#888888] flex-wrap">
                   <span className="flex items-center gap-1 font-mono">
                     <Globe className="w-3.5 h-3.5" />
-                    {tenant.slug}.{import.meta.env.VITE_BASE_DOMAIN || "clix-bot.com"}
+                    {tenant.custom_domain || `${tenant.slug}.${import.meta.env.VITE_BASE_DOMAIN || "clix-bot.com"}`}
                   </span>
                   <span className="flex items-center gap-1">
                     <Mail className="w-3.5 h-3.5" />
