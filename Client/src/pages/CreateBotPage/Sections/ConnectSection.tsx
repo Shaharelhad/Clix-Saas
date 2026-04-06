@@ -175,7 +175,7 @@ function SuccessOverlay({ onGoToDashboard, t }: { onGoToDashboard: () => void; t
           whileHover={{ scale: 1.03 }}
           whileTap={{ scale: 0.97 }}
           onClick={onGoToDashboard}
-          className="inline-flex items-center gap-3 bg-[var(--brand-primary-light)] hover:bg-[var(--brand-primary-hover)] text-white font-bold text-lg rounded-2xl px-10 py-4 transition-colors duration-300 shadow-[0_4px_24px_rgba(var(--brand-primary-rgb),0.35)] hover:shadow-[0_6px_32px_rgba(var(--brand-primary-rgb),0.45)] cursor-pointer"
+          className="inline-flex items-center gap-3 bg-[var(--brand-primary-light)] hover:brightness-90 text-white font-bold text-lg rounded-2xl px-10 py-4 transition-colors duration-300 shadow-[0_4px_24px_rgba(var(--brand-primary-rgb),0.35)] hover:shadow-[0_6px_32px_rgba(var(--brand-primary-rgb),0.45)] cursor-pointer"
         >
           {t("goToDashboard")}
           <ArrowRight className="w-5 h-5" />
