@@ -180,6 +180,27 @@ const flow = {
   aiRouterContextPlaceholder: "Status: {{notation_status}}, Date: {{event_date}}",
   aiRouterNoIntents: "לא הוגדרו כוונות",
 
+  // Buttons — answer variable
+  answerVariable: "שמור תשובה כמשתנה",
+  answerVariableHint: "שם המשתנה שבו תישמר התווית של הכפתור שנלחץ. השאר ריק כדי לא לשמור.",
+
+  // IF node (condition)
+  nodeCondition: "אם (IF)",
+  nodeConditionDesc: "אם משתנה מתאים — אמת או שקר",
+  conditionInfo: "הצומת בודק משתנה מהשיחה ומנתב לאמת (True) או שקר (False). לא נשלחת הודעה ללקוח.",
+  conditionVariable: "שם המשתנה",
+  conditionVariableHint: "המשתנה לבדיקה (לדוגמה q1)",
+  conditionOperator: "אופרטור",
+  conditionValue: "ערך",
+  conditionValueHint: "הערך להשוואה (לדוגמה כן)",
+  conditionOpEquals: "שווה ל",
+  conditionOpNotEquals: "שונה מ",
+  conditionOpExists: "קיים",
+  conditionOpNotExists: "לא קיים",
+  conditionTrue: "אמת",
+  conditionFalse: "שקר",
+  conditionNotConfigured: "לא הוגדר תנאי",
+
   // Notion AI Agent node
   nodeNotionAiAgent: "סוכן AI נוטיון",
   nodeNotionAiAgentDesc: "סוכן AI עם כלי נוטיון ויומן",
