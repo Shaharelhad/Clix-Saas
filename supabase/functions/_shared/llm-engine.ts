@@ -892,7 +892,9 @@ export async function callAgentLLM(params: {
           Authorization: `Bearer ${openrouterKey}`,
         },
         body: JSON.stringify({
-          model: "google/gemini-2.5-pro-preview",
+          // Claude Sonnet 4.6 via OpenRouter — SOTA for multi-turn tool calling and
+          // instruction following, which is the hot path for executeNotionAgent.
+          model: "anthropic/claude-sonnet-4.6",
           messages: messages.map((m) => {
             // Strip undefined fields for clean API payload
             const msg: Record<string, unknown> = { role: m.role };
@@ -904,7 +906,8 @@ export async function callAgentLLM(params: {
           }),
           tools: openaiTools.length > 0 ? openaiTools : undefined,
           max_tokens: 2048,
-          temperature: 0.3,
+          // Tool selection is a precision task, not a creativity task — keep this low.
+          temperature: 0.1,
         }),
       });
 

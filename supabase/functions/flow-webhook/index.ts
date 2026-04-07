@@ -912,6 +912,39 @@ async function executeNode(
 
 // ── Notion AI Agent Executor ────────────────────────────────
 
+// Hoisted so it's not rebuilt every invocation. Anchored by short-message gate
+// (≤6 words) to avoid substring false positives like
+// "לא בא לי לסגור היום אבל אני מעוניין" matching "תסגור".
+const NOT_INTERESTED_PATTERNS = [
+  "לא מעוניין", "לא מעונינת", "לא רוצה", "לא צריך", "לא רלוונטי",
+  "לא מתאים", "תסגור", "סגור את", "תמחק", "לא תודה", "not interested",
+];
+const NOT_INTERESTED_MAX_WORDS = 6;
+
+function parseAgentHistory(raw: unknown): AgentMessage[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw as string);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    console.warn("[notion_ai_agent] __agent_history parse failed, resetting");
+    return [];
+  }
+}
+
+// Trim a conversation history without splitting tool_call/tool pairs.
+// An assistant message with tool_calls must remain grouped with its matching
+// tool result messages, otherwise OpenRouter/Anthropic return 400.
+function trimAgentHistory(history: AgentMessage[], maxLen: number): AgentMessage[] {
+  if (history.length <= maxLen) return history;
+  let start = history.length - maxLen;
+  // Walk forward past any orphaned tool messages (tool result without its preceding assistant tool_calls)
+  while (start < history.length && history[start]?.role === "tool") {
+    start++;
+  }
+  return history.slice(start);
+}
+
 async function executeNotionAgent(
   node: { id: string; type: string; data: Record<string, unknown> },
   userMessage: string,
@@ -920,14 +953,14 @@ async function executeNotionAgent(
   userId: string,
   workflowRecord?: string,
   businessContent?: string,
-): Promise<{ response: string; toolCalls: Array<{ name: string; input: Record<string, unknown>; result: unknown }>; updatedHistory: AgentMessage[] }> {
+  sessionId?: string,
+): Promise<{ response: string; checkingMessage?: string; toolCalls: Array<{ name: string; input: Record<string, unknown>; result: unknown }>; updatedHistory: AgentMessage[] }> {
   // ── Code-level "not interested" detection — bypass LLM entirely ──
-  const notInterestedPatterns = [
-    "לא מעוניין", "לא מעונינת", "לא רוצה", "לא צריך", "לא רלוונטי",
-    "לא מתאים", "תסגור", "סגור את", "תמחק", "לא תודה", "not interested",
-  ];
-  const msgLower = userMessage.trim().toLowerCase();
-  const isNotInterested = notInterestedPatterns.some(p => msgLower.includes(p));
+  const msgTrim = userMessage.trim();
+  const msgLower = msgTrim.toLowerCase();
+  const wordCount = msgTrim.split(/\s+/).filter(Boolean).length;
+  const isNotInterested = wordCount > 0 && wordCount <= NOT_INTERESTED_MAX_WORDS
+    && NOT_INTERESTED_PATTERNS.some(p => msgLower.includes(p));
 
   if (isNotInterested && variables.page_id) {
     console.log("[notion_ai_agent] Not-interested detected, bypassing LLM. Updating Notion status.");
@@ -958,7 +991,6 @@ async function executeNotionAgent(
   }
 
   const integrationId = node.data.agentIntegrationId as string | undefined;
-  const databaseId = node.data.agentDatabaseId as string | undefined;
   const userPrompt = resolveVariables(node.data.agentSystemPrompt as string || "", variables);
   // Inject today's date so LLM can resolve "tomorrow", "next week", etc.
   const today = new Date().toLocaleDateString("he-IL", { weekday: "long", year: "numeric", month: "long", day: "numeric", timeZone: "Asia/Jerusalem" });
@@ -1008,8 +1040,6 @@ async function executeNotionAgent(
       }
     }
 
-    const galleryUrl = galleryUrls[variables.audience] || galleryUrls["כללי"];
-
     const toolGuide = `סדר שימוש בכלים (חובה לעקוב!):\n1. אסוף תאריך + אולם + סוג קהל מהלקוח. אם חסר פרט — שאל את הלקוח ואל תמשיך.\n2. כשיש את כל 3 — קרא מיד ל-calendar_check (המערכת תשלח הודעת "בודק זמינות" אוטומטית). אל תשלח הודעת טקסט לפני הקריאה לכלי!\n3. book_event_date — שריין את תאריך האירוע (יום שלם, לא פגישה!)\n4. update_notion — עדכן נוטיון עם כל 3 הפרטים + שנה סטטוס לתהליך מכירה\n5. find_slots — חפש 2 זמנים פנויים לשיחה/פגישה ב-3 ימים הקרובים\n6. הצע ללקוח 2 זמנים + אפשרות "זמן אחר"\n7. כשלקוח בוחר זמן — שאל: "שיחת טלפון או פגישה פרונטלית?"\n8. create_meeting — צור פגישה בזמן שהלקוח בחר (לא בתאריך האירוע!)\n9. update_notion — נקבע פגישה = false, כמות אין מענה = 0\nחשוב: book_event_date ≠ create_meeting. אל תערבב ביניהם!\nחשוב: כשאתה מוכן להפעיל כלים — קרא לכלי מיד, אל תשלח טקסט בלבד!\n`;
 
     guardrails = `הנחיות חשובות — עדיפות עליונה:\n${varSection}${statusSection}${missingSection}${toolGuide}כשלקוח אומר שהוא לא מעוניין, מסרב, או מבקש לסגור — חובה לבצע 2 פעולות:\n1. קרא ל-update_notion ועדכן סטטוס ל"לא מעוניין / סגירת פנייה"\n2. שלח הודעת פרידה: "מבין לגמרי, תודה על הזמן ובהצלחה עם האירוע! אם משהו ישתנה, אני כאן"\nזה הכרחי — אל תנסה לשכנע לקוח שאמר לא.\n\n`;
@@ -1023,7 +1053,7 @@ async function executeNotionAgent(
   const systemPrompt = dateContext + businessSection + (workflowRecord ? workflowRecord + "\n\n" : "") + guardrails + userPrompt;
   const tools = node.data.agentTools as Record<string, unknown> || {};
 
-  console.log("[notion_ai_agent] Config:", { integrationId: integrationId || "EMPTY", databaseId, toolsConfig: JSON.stringify(tools).substring(0, 200), promptLen: systemPrompt.length, historyLen: agentHistory.length });
+  console.log("[notion_ai_agent] Config:", { integrationId: integrationId || "EMPTY", toolsConfig: JSON.stringify(tools).substring(0, 200), promptLen: systemPrompt.length, historyLen: agentHistory.length });
 
   // Load Notion integration credentials
   let notionApiKey = "";
@@ -1129,7 +1159,7 @@ Combine multiple fields in one call.`,
   if (createMeeting?.enabled && createMeeting.webhookUrl) {
     toolDefs.push({
       name: "create_meeting",
-      description: "Schedule a 1-HOUR MEETING (phone call or face-to-face) in the calendar. ONLY use times from the slot1/slot2 that were proposed to the customer. If the customer wants a different time, call find_slots again first. Do NOT accept arbitrary times.",
+      description: "Schedule a 1-HOUR MEETING (phone call or face-to-face) in the calendar. The system will automatically check if the requested hour is free before booking — you can pass any time the customer agrees to (slot1, slot2, or a different time the customer suggests). If the response contains \"conflict\": true, the requested time is already taken — apologize briefly in Hebrew, tell the customer that exact time is not available, and ask what other time works for them. Then call create_meeting again with the new time. Do NOT call find_slots in response to a conflict — wait for the customer to suggest a new time.",
       parameters: {
         type: "object",
         properties: {
@@ -1232,24 +1262,34 @@ Combine multiple fields in one call.`,
         const venue = (args.venue as string) || variables.venue_name || "";
         const audience = (args.audience as string) || variables.audience || "";
         console.log("[notion_ai_agent] Auto-chaining: book_event_date + find_slots after calendar_check", { venue, audience });
-        const [bookResp, slotsResp] = await Promise.all([
+        // Use allSettled so one failing n8n branch doesn't kill the whole turn.
+        const safeJson = async (r: Response): Promise<Record<string, unknown>> => {
+          try { return await r.json(); } catch { return {}; }
+        };
+        const [bookSettled, slotsSettled] = await Promise.allSettled([
           fetch(bookEventDate.webhookUrl, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ date: bookDate, name: variables.customer_name || "", venue, phone: variables.phone || "", audience }),
-          }),
+          }).then(safeJson),
           fetch(findSlots.webhookUrl, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ date: bookDate }),
-          }),
+          }).then(safeJson),
         ]);
-        const bookResult = await bookResp.json();
-        const slotsResult = await slotsResp.json();
+        const bookResult: Record<string, unknown> = bookSettled.status === "fulfilled" ? bookSettled.value : {};
+        const slotsResult: Record<string, unknown> = slotsSettled.status === "fulfilled" ? slotsSettled.value : {};
+        if (bookSettled.status === "rejected") {
+          console.error("[notion_ai_agent] Auto-chain book_event_date failed:", bookSettled.reason);
+        }
+        if (slotsSettled.status === "rejected") {
+          console.error("[notion_ai_agent] Auto-chain find_slots failed:", slotsSettled.reason);
+        }
 
         // Store proposed slots in variables for later validation
-        variables.__proposed_slot1 = slotsResult.slot1 || "";
-        variables.__proposed_slot2 = slotsResult.slot2 || "";
+        variables.__proposed_slot1 = (slotsResult.slot1 as string) || "";
+        variables.__proposed_slot2 = (slotsResult.slot2 as string) || "";
 
         // Auto-update Notion: save date, venue, audience + change status to תהליך מכירה
         let notionUpdated = false;
@@ -1274,15 +1314,17 @@ Combine multiple fields in one call.`,
           }
         }
 
+        const slot1 = (slotsResult.slot1 as string) || null;
+        const slot2 = (slotsResult.slot2 as string) || null;
         return {
           ...checkResult,
-          event_booked: bookResult.success || false,
-          event_id: bookResult.event_id || null,
-          slot1: slotsResult.slot1 || null,
-          slot2: slotsResult.slot2 || null,
+          event_booked: (bookResult.success as boolean) || false,
+          event_id: (bookResult.event_id as string) || null,
+          slot1,
+          slot2,
           notion_updated: notionUpdated,
           auto_chained: true,
-          message: `התאריך פנוי ושוריין ביומן. הנתונים עודכנו בנוטיון.\n\nחובה להציע ללקוח בדיוק את 2 הזמנים האלה לשיחה:\nזמן 1: ${slotsResult.slot1 || "?"}\nזמן 2: ${slotsResult.slot2 || "?"}\nתוסיף גם אפשרות "או זמן אחר שנוח לך".\nשאל: מעדיפים שיחת טלפון או פגישה פרונטלית?`,
+          message: `התאריך פנוי ושוריין ביומן. הנתונים עודכנו בנוטיון.\n\nחובה להציע ללקוח בדיוק את 2 הזמנים האלה לשיחה:\nזמן 1: ${slot1 || "?"}\nזמן 2: ${slot2 || "?"}\nתוסיף גם אפשרות "או זמן אחר שנוח לך".\nשאל: מעדיפים שיחת טלפון או פגישה פרונטלית?`,
         };
       }
 
@@ -1302,35 +1344,39 @@ Combine multiple fields in one call.`,
           }
         }
         // Hard stop: set cooldown to far-future date so bot won't respond again
-        // until Eliron clicks "Reset Conversation" in the dashboard
-        if (variables.phone) {
+        // until Eliron clicks "Reset Conversation" in the dashboard.
+        // Scoped by session id so we don't cool off the same phone in other workflows.
+        if (sessionId) {
           try {
             await supabase
               .from("subscriber_sessions")
               .update({ cooldown_until: "2099-12-31T23:59:59Z" })
-              .eq("phone", variables.phone);
-            console.log("[notion_ai_agent] Escalated: bot stopped (cooldown set) for", variables.phone);
+              .eq("id", sessionId);
+            console.log("[notion_ai_agent] Escalated: bot stopped (cooldown set) for session", sessionId);
           } catch (e) {
             console.error("[notion_ai_agent] Escalate cooldown set error:", e);
           }
+        } else {
+          console.warn("[notion_ai_agent] Escalate: sessionId missing, cooldown NOT set");
         }
-        // Fire alert to Eliron via n8n webhook (fire-and-forget)
-        if (alertEliron?.enabled && alertEliron.webhookUrl) {
-          try {
-            await fetch(alertEliron.webhookUrl, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                customer_name: variables.customer_name || "",
-                phone: variables.phone || "",
-                event_date: (args.date as string) || variables.event_date || "",
-                venue: (args.venue as string) || variables.venue_name || "",
-              }),
-            });
-            console.log("[notion_ai_agent] Alert sent to Eliron for", variables.phone);
-          } catch (e) {
-            console.error("[notion_ai_agent] Alert eliron error:", e);
-          }
+        // Fire alert to Eliron via n8n webhook (truly fan-and-forget — no await)
+        if (alertEliron?.enabled && alertEliron.webhookUrl && variables.phone) {
+          const alertUrl = alertEliron.webhookUrl;
+          const alertPayload = {
+            customer_name: variables.customer_name || "",
+            phone: variables.phone,
+            event_date: (args.date as string) || variables.event_date || "",
+            venue: (args.venue as string) || variables.venue_name || "",
+          };
+          fetch(alertUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(alertPayload),
+          })
+            .then(() => console.log("[notion_ai_agent] Alert sent to Eliron for", variables.phone))
+            .catch((e) => console.error("[notion_ai_agent] Alert eliron error:", e));
+        } else if (alertEliron?.enabled && !variables.phone) {
+          console.warn("[notion_ai_agent] Alert skipped: phone is empty");
         }
         return {
           ...checkResult,
@@ -1352,20 +1398,9 @@ Combine multiple fields in one call.`,
     }
 
     if (name === "create_meeting" && createMeeting?.webhookUrl) {
-      // Re-check calendar availability for the meeting date before creating
-      if (calendarCheck?.webhookUrl) {
-        try {
-          const recheck = await fetch(calendarCheck.webhookUrl, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ date: args.date }),
-          });
-          const recheckResult = await recheck.json();
-          if (recheckResult.status === "escalate") {
-            return { error: `היום ${args.date} עמוס מדי (${recheckResult.event_count} אירועים). הצע ללקוח תאריך אחר לשיחה.` };
-          }
-        } catch { /* proceed if recheck fails */ }
-      }
+      // The n8n create-meeting workflow now does its own per-hour availability check
+      // and returns { success: false, conflict: true, ... } if the hour is taken.
+      // No pre-flight check needed here.
       const response = await fetch(createMeeting.webhookUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1386,13 +1421,13 @@ Combine multiple fields in one call.`,
     executeTool,
   });
 
-  // Build updated history (trim to last 20 messages)
+  // Build updated history (trim to last 20 messages, preserving tool_call/tool pair groupings)
   const newHistory: AgentMessage[] = [
     ...agentHistory,
     { role: "user", content: userMessage },
     { role: "assistant", content: result.response },
   ];
-  const trimmedHistory = newHistory.length > 20 ? newHistory.slice(-20) : newHistory;
+  const trimmedHistory = trimAgentHistory(newHistory, 20);
 
   // Return checking message as separate field for the caller to send independently
   const checkingMessage = calendarCheckCalled
@@ -1829,7 +1864,10 @@ Deno.serve(async (req) => {
     }
 
     // ── Guard 2: Cooldown check ──────────────────────────────
-    if (settings.cooldownEnabled) {
+    // We ALWAYS honor an active cooldown_until, regardless of settings.cooldownEnabled.
+    // The setting only gates the automatic per-response cooldown. Explicit hard-stops
+    // (e.g., escalate in executeNotionAgent) must never be silently bypassed.
+    {
       const { data: cooldownSession } = await supabase
         .from("subscriber_sessions")
         .select("cooldown_until")
@@ -1846,12 +1884,14 @@ Deno.serve(async (req) => {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
         }
-        // Cooldown expired — clear it
-        await supabase
-          .from("subscriber_sessions")
-          .update({ cooldown_until: null })
-          .eq("workflow_id", workflow.id)
-          .eq("phone", phone);
+        // Cooldown expired — clear it (only if the auto-cooldown feature is enabled; otherwise leave alone)
+        if (settings.cooldownEnabled) {
+          await supabase
+            .from("subscriber_sessions")
+            .update({ cooldown_until: null })
+            .eq("workflow_id", workflow.id)
+            .eq("phone", phone);
+        }
       }
     }
 
@@ -2152,8 +2192,8 @@ Deno.serve(async (req) => {
               }
               if (jumpNodeId && findNodeById(flow, jumpNodeId)?.type === "notion_ai_agent") {
                 const jumpedNode = findNodeById(flow, jumpNodeId)!;
-                const agentHistory: AgentMessage[] = variables.__agent_history ? JSON.parse(variables.__agent_history) : [];
-                const agentResult = await executeNotionAgent(jumpedNode, userMessage, variables, agentHistory, profile.id, workflowRecord, businessContent);
+                const agentHistory = parseAgentHistory(variables.__agent_history);
+                const agentResult = await executeNotionAgent(jumpedNode, userMessage, variables, agentHistory, profile.id, workflowRecord, businessContent, session.id);
                 if (agentResult.checkingMessage) await sendTextMessage(customerId, phone, agentResult.checkingMessage);
       await sendTextMessage(customerId, phone, agentResult.response);
                 await supabase.from("flow_message_log").insert({
@@ -2377,8 +2417,8 @@ Deno.serve(async (req) => {
 
         // If trigger restart landed on notion_ai_agent, enter agent conversation
         if (restartLandedNode?.type === "notion_ai_agent") {
-          const agentHistory: AgentMessage[] = updatedVariables.__agent_history ? JSON.parse(updatedVariables.__agent_history) : [];
-          const agentResult = await executeNotionAgent(restartLandedNode, userMessage, updatedVariables, agentHistory, profile.id, workflowRecord, businessContent);
+          const agentHistory = parseAgentHistory(updatedVariables.__agent_history);
+          const agentResult = await executeNotionAgent(restartLandedNode, userMessage, updatedVariables, agentHistory, profile.id, workflowRecord, businessContent, session.id);
           if (agentResult.checkingMessage) await sendTextMessage(customerId, phone, agentResult.checkingMessage);
       await sendTextMessage(customerId, phone, agentResult.response);
           await supabase.from("flow_message_log").insert({
@@ -2456,8 +2496,8 @@ Deno.serve(async (req) => {
             }
             if (jumpNodeId && findNodeById(flow, jumpNodeId)?.type === "notion_ai_agent") {
               const jumpedNode = findNodeById(flow, jumpNodeId)!;
-              const agentHistory: AgentMessage[] = updatedVariables.__agent_history ? JSON.parse(updatedVariables.__agent_history) : [];
-              const agentResult = await executeNotionAgent(jumpedNode, userMessage, updatedVariables, agentHistory, profile.id, workflowRecord, businessContent);
+              const agentHistory = parseAgentHistory(updatedVariables.__agent_history);
+              const agentResult = await executeNotionAgent(jumpedNode, userMessage, updatedVariables, agentHistory, profile.id, workflowRecord, businessContent, session.id);
               if (agentResult.checkingMessage) await sendTextMessage(customerId, phone, agentResult.checkingMessage);
       await sendTextMessage(customerId, phone, agentResult.response);
               await supabase.from("flow_message_log").insert({
@@ -2536,8 +2576,8 @@ Deno.serve(async (req) => {
 
     // Notion AI Agent node — agentic conversation with tool use
     if (currentNode.type === "notion_ai_agent") {
-      const agentHistory: AgentMessage[] = updatedVariables.__agent_history ? JSON.parse(updatedVariables.__agent_history) : [];
-      const agentResult = await executeNotionAgent(currentNode, userMessage, updatedVariables, agentHistory, profile.id, workflowRecord, businessContent);
+      const agentHistory = parseAgentHistory(updatedVariables.__agent_history);
+      const agentResult = await executeNotionAgent(currentNode, userMessage, updatedVariables, agentHistory, profile.id, workflowRecord, businessContent, session.id);
       if (agentResult.checkingMessage) await sendTextMessage(customerId, phone, agentResult.checkingMessage);
       await sendTextMessage(customerId, phone, agentResult.response);
       await supabase.from("flow_message_log").insert({
@@ -2970,8 +3010,8 @@ Deno.serve(async (req) => {
 
     // If notion_ai_agent node was reached, enter agent conversation
     if (landedNode?.type === "notion_ai_agent") {
-      const agentHistory: AgentMessage[] = updatedVariables.__agent_history ? JSON.parse(updatedVariables.__agent_history) : [];
-      const agentResult = await executeNotionAgent(landedNode, userMessage, updatedVariables, agentHistory, profile.id, workflowRecord, businessContent);
+      const agentHistory = parseAgentHistory(updatedVariables.__agent_history);
+      const agentResult = await executeNotionAgent(landedNode, userMessage, updatedVariables, agentHistory, profile.id, workflowRecord, businessContent, session.id);
       if (agentResult.checkingMessage) await sendTextMessage(customerId, phone, agentResult.checkingMessage);
       await sendTextMessage(customerId, phone, agentResult.response);
       await supabase.from("flow_message_log").insert({
