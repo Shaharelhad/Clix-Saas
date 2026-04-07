@@ -180,6 +180,27 @@ const flow = {
   aiRouterContextPlaceholder: "Status: {{notion_status}}, Date: {{event_date}}",
   aiRouterNoIntents: "No intents defined",
 
+  // Buttons — answer variable
+  answerVariable: "Save answer as variable",
+  answerVariableHint: "Variable name to store the clicked button's label. Leave empty to skip.",
+
+  // IF node (condition)
+  nodeCondition: "IF",
+  nodeConditionDesc: "Branch by variable — true or false",
+  conditionInfo: "Evaluates a session variable and routes to True or False. No message sent to the customer.",
+  conditionVariable: "Variable name",
+  conditionVariableHint: "Variable to check (e.g. q1)",
+  conditionOperator: "Operator",
+  conditionValue: "Value",
+  conditionValueHint: "Value to compare against (e.g. yes)",
+  conditionOpEquals: "equals",
+  conditionOpNotEquals: "not equals",
+  conditionOpExists: "exists",
+  conditionOpNotExists: "not exists",
+  conditionTrue: "True",
+  conditionFalse: "False",
+  conditionNotConfigured: "Not configured",
+
   // Notion AI Agent node
   nodeNotionAiAgent: "Notion AI Agent",
   nodeNotionAiAgentDesc: "AI agent with Notion + Calendar tools",
