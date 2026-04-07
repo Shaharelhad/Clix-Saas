@@ -815,6 +815,9 @@ Combine multiple fields in one call.`,
     });
   }
 
+  // alertEliron is code-only (not exposed as an LLM tool) — fired automatically on escalate
+  const alertEliron = tools.alertEliron as { enabled?: boolean; webhookUrl?: string } | undefined;
+
   const createMeeting = tools.createMeeting as { enabled?: boolean; webhookUrl?: string } | undefined;
   if (createMeeting?.enabled && createMeeting.webhookUrl) {
     toolDefs.push({
@@ -978,7 +981,7 @@ Combine multiple fields in one call.`,
         };
       }
 
-      // Escalate case: 4+ events — tell customer to wait, update Notion, stop bot
+      // Escalate case: 4+ events — tell customer to wait, update Notion, STOP bot
       if (checkResult.status === "escalate") {
         if (notionApiKey && variables.page_id) {
           try {
@@ -990,6 +993,36 @@ Combine multiple fields in one call.`,
             console.log("[notion_ai_agent] Escalated: status changed to לטיפול אישי של אלירון");
           } catch (e) {
             console.error("[notion_ai_agent] Escalate Notion update error:", e);
+          }
+        }
+        // Hard stop: set cooldown to far-future date so bot won't respond again
+        if (variables.phone) {
+          try {
+            await supabase
+              .from("subscriber_sessions")
+              .update({ cooldown_until: "2099-12-31T23:59:59Z" })
+              .eq("phone", variables.phone);
+            console.log("[notion_ai_agent] Escalated: bot stopped (cooldown set) for", variables.phone);
+          } catch (e) {
+            console.error("[notion_ai_agent] Escalate cooldown set error:", e);
+          }
+        }
+        // Fire alert to Eliron via n8n webhook (fire-and-forget)
+        if (alertEliron?.enabled && alertEliron.webhookUrl) {
+          try {
+            await fetch(alertEliron.webhookUrl, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                customer_name: variables.customer_name || "",
+                phone: variables.phone || "",
+                event_date: (args.date as string) || variables.event_date || "",
+                venue: (args.venue as string) || variables.venue_name || "",
+              }),
+            });
+            console.log("[notion_ai_agent] Alert sent to Eliron for", variables.phone);
+          } catch (e) {
+            console.error("[notion_ai_agent] Alert eliron error:", e);
           }
         }
         return {
