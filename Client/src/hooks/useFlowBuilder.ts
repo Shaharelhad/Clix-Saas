@@ -28,6 +28,7 @@ function describeNodeType(type: string): string {
     open_bot: "מעביר לשיחת AI חופשית",
     ai_router: "ניתוב חכם לפי כוונה",
     notion_ai_agent: "סוכן AI נוטיון עם כלים",
+    condition: "אם (IF)",
   };
   return map[type] || type;
 }
@@ -60,6 +61,17 @@ function describeFlowChain(
       parts.push(`${typeDesc} (${labels})`);
     } else if (nd.type === "delay" && nd.delayMinutes) {
       parts.push(`${typeDesc} ${nd.delayMinutes} דקות`);
+    } else if (nd.type === "condition") {
+      const v = nd.conditionVariable?.trim();
+      if (v) {
+        const op = nd.conditionOperator ?? "equals";
+        const cmp = nd.conditionValue?.trim() ?? "";
+        if (op === "exists") parts.push(`${typeDesc} (${v} קיים)`);
+        else if (op === "not_exists") parts.push(`${typeDesc} (${v} לא קיים)`);
+        else parts.push(`${typeDesc} (${v} ${op === "not_equals" ? "≠" : "="} ${cmp || "?"})`);
+      } else {
+        parts.push(typeDesc);
+      }
     } else {
       parts.push(typeDesc);
     }
