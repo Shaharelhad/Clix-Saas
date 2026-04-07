@@ -230,6 +230,17 @@ export default function NodeEditorSidebar({ node, onUpdate, onClose, isLocked, s
               buttons={data.buttons ?? []}
               onChange={(buttons) => update({ buttons })}
             />
+            {/* Save answer as variable (for later condition gating) */}
+            <Field label={t("answerVariable")} hint={t("answerVariableHint")}>
+              <input
+                type="text"
+                value={data.answerVariable ?? ""}
+                onChange={(e) => update({ answerVariable: e.target.value })}
+                className="field-input"
+                dir="ltr"
+                placeholder="q1"
+              />
+            </Field>
             {/* Global menu toggle */}
             <div className="flex items-center justify-between px-1">
               <span className="text-[10px] text-[#A39B90]">{t("globalMenuHint")}</span>
@@ -380,6 +391,11 @@ export default function NodeEditorSidebar({ node, onUpdate, onClose, isLocked, s
         {/* AI Router */}
         {data.type === "ai_router" && (
           <AiRouterEditor data={data} update={update} />
+        )}
+
+        {/* Condition (gate) */}
+        {data.type === "condition" && (
+          <ConditionEditor data={data} update={update} />
         )}
 
         {/* Notion AI Agent */}
@@ -660,6 +676,58 @@ function AiRouterEditor({ data, update }: { data: FlowNodeData; update: (patch: 
           dir="ltr"
         />
       </Field>
+    </>
+  );
+}
+
+function ConditionEditor({ data, update }: { data: FlowNodeData; update: (patch: Partial<FlowNodeData>) => void }) {
+  const { t } = useTranslation("flow");
+  const operator = data.conditionOperator ?? "equals";
+  const needsValue = operator === "equals" || operator === "not_equals";
+
+  return (
+    <>
+      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-1">
+        <p className="text-[11px] text-yellow-700 leading-relaxed">{t("conditionInfo")}</p>
+      </div>
+
+      <Field label={t("conditionVariable")} hint={t("conditionVariableHint")}>
+        <input
+          type="text"
+          value={data.conditionVariable ?? ""}
+          onChange={(e) => update({ conditionVariable: e.target.value })}
+          className="field-input"
+          dir="ltr"
+          placeholder="q1"
+        />
+      </Field>
+
+      <Field label={t("conditionOperator")}>
+        <select
+          value={operator}
+          onChange={(e) => update({ conditionOperator: e.target.value as FlowNodeData["conditionOperator"] })}
+          className="field-input"
+          dir="ltr"
+        >
+          <option value="equals">{t("conditionOpEquals")}</option>
+          <option value="not_equals">{t("conditionOpNotEquals")}</option>
+          <option value="exists">{t("conditionOpExists")}</option>
+          <option value="not_exists">{t("conditionOpNotExists")}</option>
+        </select>
+      </Field>
+
+      {needsValue && (
+        <Field label={t("conditionValue")} hint={t("conditionValueHint")}>
+          <input
+            type="text"
+            value={data.conditionValue ?? ""}
+            onChange={(e) => update({ conditionValue: e.target.value })}
+            className="field-input"
+            dir="auto"
+            placeholder="כן"
+          />
+        </Field>
+      )}
     </>
   );
 }
