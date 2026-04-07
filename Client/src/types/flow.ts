@@ -13,7 +13,8 @@ export type FlowNodeType =
   | "api_call"
   | "language"
   | "ai_router"
-  | "notion_ai_agent";
+  | "notion_ai_agent"
+  | "condition";
 
 export interface ButtonItem {
   id: string;
@@ -39,6 +40,12 @@ export interface FlowNodeData extends Record<string, unknown> {
   buttonHeader?: string;
   buttonFooter?: string;
   isGlobalMenu?: boolean;
+  // buttons — save clicked button label into a session variable for later condition gating
+  answerVariable?: string;
+  // condition — pure routing node, evaluates a session variable
+  conditionVariable?: string;
+  conditionOperator?: "equals" | "not_equals" | "exists" | "not_exists";
+  conditionValue?: string;
   // text / image — yes/no question mode
   yesNoMode?: boolean;
   // collect_input
@@ -140,6 +147,7 @@ export const NODE_COLORS: Record<FlowNodeType, string> = {
   language: "#2563eb",
   ai_router: "#f97316",
   notion_ai_agent: "#10b981",
+  condition: "#eab308",
 };
 
 // Default labels for each node type
@@ -159,6 +167,12 @@ export const NODE_DEFAULTS: Record<FlowNodeType, Partial<FlowNodeData>> = {
       { id: "intent_1", label: "", description: "" },
     ],
     routerContext: "",
+  },
+  condition: {
+    type: "condition",
+    conditionVariable: "",
+    conditionOperator: "equals",
+    conditionValue: "",
   },
   notion_ai_agent: {
     type: "notion_ai_agent",
