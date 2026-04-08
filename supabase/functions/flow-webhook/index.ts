@@ -566,6 +566,29 @@ async function executeNode(
     return { nextNodeId: node.id, waitForInput: true };
   }
 
+  // Condition (gate) — pure routing, evaluates a session variable
+  if (node.type === "condition") {
+    const varName = (node.data.conditionVariable as string | undefined)?.trim();
+    const op = (node.data.conditionOperator as string | undefined) || "equals";
+    const cmp = (node.data.conditionValue as string | undefined) ?? "";
+    const actual = varName ? (variables[varName] ?? "") : "";
+
+    let pass = false;
+    switch (op) {
+      case "equals":     pass = actual.trim().toLowerCase() === cmp.trim().toLowerCase(); break;
+      case "not_equals": pass = actual.trim().toLowerCase() !== cmp.trim().toLowerCase(); break;
+      case "exists":     pass = actual.length > 0; break;
+      case "not_exists": pass = actual.length === 0; break;
+      default:           pass = false;
+    }
+    if (!varName) pass = false;
+
+    const handleId = pass ? "true" : "false";
+    const next = findNextNode(flow, node.id, handleId);
+    console.log("[flow] condition:", { varName, op, actual, cmp, pass, handleId, nextId: next?.id });
+    return { nextNodeId: next?.id || null, waitForInput: false };
+  }
+
   // Language — send language selection buttons
   if (node.type === "language") {
     const msg = resolveVariables(node.data.message || "Choose your language:", variables);
@@ -2158,6 +2181,8 @@ Deno.serve(async (req) => {
           const menuButtons = menuNode.data.buttons || [];
           const menuMatch = matchButton(menuButtons, userMessage, buttonClickId);
           if (menuMatch) {
+            const av3 = (menuNode.data.answerVariable as string | undefined)?.trim();
+            if (av3) variables[av3] = menuMatch.label;
             const targetNode = findNextNode(flow, menuNode.id, `btn-${menuMatch.id}`);
             if (targetNode) {
               console.log("[flow] Completed session — global menu match:", menuMatch.label, "→", targetNode.id);
@@ -2461,6 +2486,8 @@ Deno.serve(async (req) => {
         const menuButtons = menuNode.data.buttons || [];
         const menuMatch = matchButton(menuButtons, userMessage, buttonClickId);
         if (menuMatch) {
+          const av2 = (menuNode.data.answerVariable as string | undefined)?.trim();
+          if (av2) updatedVariables[av2] = menuMatch.label;
           let targetNode = findNextNode(flow, menuNode.id, `btn-${menuMatch.id}`);
           if (targetNode) {
             // Jump to the menu button's target — execute chain from there
@@ -2644,6 +2671,8 @@ Deno.serve(async (req) => {
       }
       const matched = matchButton(buttons, matchMessage, buttonClickId);
       if (matched) {
+        const av1 = (currentNode.data.answerVariable as string | undefined)?.trim();
+        if (av1) updatedVariables[av1] = matched.label;
         let nextNode = findNextNode(flow, currentNode.id, `btn-${matched.id}`);
         if (!nextNode) nextNode = findNextNode(flow, currentNode.id); // fallback: default edge
         // If button leads to a follow_up, skip through to its next node
