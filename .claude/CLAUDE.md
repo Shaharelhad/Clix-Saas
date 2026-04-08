@@ -62,6 +62,7 @@ Only `Client/` has a package.json. Run `npm install` from there.
 - Database types: import from `@/types/database` (e.g., `Tables<"profiles">`, `TablesInsert<"form_responses">`)
 - External operations (Supabase, APIs, third-party services): always read `Client/.env` first to get credentials/URLs before asking the user for access details (includes `SUPABASE_ACCESS_TOKEN` for CLI deploys)
 - **Do NOT read or browse the `supabase/` folder** in this local codebase. For any Supabase or Inngest related work (queries, edge function deploys, CLI commands, etc.), always get credentials and URLs from `Client/.env` — never from local supabase config files.
+- **`flow-webhook` edge function is SENSITIVE** — this is the central function that all deployed workflows/AI agents use on WhatsApp. Real clients are already using it in production. Be extremely careful with any changes: never remove imports or symbols without verifying every call site, never refactor without reading the full file first, never deploy without confirming the function boots locally. A broken deploy takes all client bots offline.
 
 ### Page Structure (`src/pages/`)
 - **Naming:** pages are `{Name}Page.tsx`, sections are `{Name}Section.tsx`
