@@ -22,6 +22,28 @@ export interface ButtonItem {
   openBot?: boolean;
 }
 
+// ── Condition node: multi-rule + AND/OR combinator ──
+export type ConditionOperator =
+  | "equals"
+  | "not_equals"
+  | "exists"
+  | "not_exists"
+  | "contains"
+  | "not_contains"
+  | "greater_than"
+  | "less_than"
+  | "is_empty"
+  | "is_not_empty";
+
+export interface ConditionRule {
+  id: string;
+  variable: string;
+  operator: ConditionOperator;
+  value?: string;
+}
+
+export type ConditionCombinator = "AND" | "OR";
+
 export interface FlowNodeData extends Record<string, unknown> {
   type: FlowNodeType;
   label?: string;
@@ -32,7 +54,18 @@ export interface FlowNodeData extends Record<string, unknown> {
   // text / image / buttons / collect_input
   message?: string;
   expectedReply?: string;
+  /**
+   * @deprecated Legacy "wait for any reply" flag — wait-for-any-reply is now the
+   * default for text nodes, so this field is a no-op for new nodes. Kept on the
+   * type for backward-compat with older flow JSON in the database.
+   */
   continueAuto?: boolean;
+  /**
+   * Text-node auto-continue: when true, send the message and immediately advance
+   * to the next node without waiting for a customer reply. Default false = wait
+   * for any reply before continuing.
+   */
+  autoContinue?: boolean;
   // image
   imageUrl?: string;
   // buttons
@@ -42,9 +75,15 @@ export interface FlowNodeData extends Record<string, unknown> {
   isGlobalMenu?: boolean;
   // buttons — save clicked button label into a session variable for later condition gating
   answerVariable?: string;
-  // condition — pure routing node, evaluates a session variable
+  // condition — pure routing node, evaluates session variables
+  // New shape: list of rules joined by AND/OR. Legacy single-rule fields kept for migration.
+  conditionRules?: ConditionRule[];
+  conditionCombinator?: ConditionCombinator;
+  /** @deprecated use conditionRules instead */
   conditionVariable?: string;
-  conditionOperator?: "equals" | "not_equals" | "exists" | "not_exists";
+  /** @deprecated use conditionRules instead */
+  conditionOperator?: ConditionOperator;
+  /** @deprecated use conditionRules instead */
   conditionValue?: string;
   // text / image — yes/no question mode
   yesNoMode?: boolean;
@@ -170,9 +209,10 @@ export const NODE_DEFAULTS: Record<FlowNodeType, Partial<FlowNodeData>> = {
   },
   condition: {
     type: "condition",
-    conditionVariable: "",
-    conditionOperator: "equals",
-    conditionValue: "",
+    conditionCombinator: "AND",
+    conditionRules: [
+      { id: "rule_1", variable: "", operator: "equals", value: "" },
+    ],
   },
   notion_ai_agent: {
     type: "notion_ai_agent",
