@@ -209,6 +209,69 @@ async function callLLMFallback(
   return result.response;
 }
 
+// ── Condition evaluator (mirrors flow-webhook) ──
+function evalConditionRule(
+  actual: string,
+  operator: string,
+  compareTo: string
+): boolean {
+  const a = (actual ?? "").toString();
+  const b = (compareTo ?? "").toString();
+  const aTrim = a.trim();
+  const bTrim = b.trim();
+  const aLower = aTrim.toLowerCase();
+  const bLower = bTrim.toLowerCase();
+
+  switch (operator) {
+    case "equals":       return aLower === bLower;
+    case "not_equals":   return aLower !== bLower;
+    case "contains":     return aLower.includes(bLower);
+    case "not_contains": return !aLower.includes(bLower);
+    case "exists":       return a.length > 0;
+    case "not_exists":   return a.length === 0;
+    case "is_empty":     return aTrim.length === 0;
+    case "is_not_empty": return aTrim.length > 0;
+    case "greater_than": {
+      const na = parseFloat(aTrim);
+      const nb = parseFloat(bTrim);
+      if (!isFinite(na) || !isFinite(nb)) return false;
+      return na > nb;
+    }
+    case "less_than": {
+      const na = parseFloat(aTrim);
+      const nb = parseFloat(bTrim);
+      if (!isFinite(na) || !isFinite(nb)) return false;
+      return na < nb;
+    }
+    default: return false;
+  }
+}
+
+function evaluateConditionRules(
+  data: Record<string, unknown>,
+  variables: Record<string, string>
+): Array<{ variable: string; operator: string; value: string; actual: string; pass: boolean }> {
+  const rawRules = data.conditionRules as Array<{ variable?: string; operator?: string; value?: string }> | undefined;
+  const rules = rawRules && rawRules.length > 0
+    ? rawRules
+    : data.conditionVariable
+      ? [{
+          variable: data.conditionVariable as string,
+          operator: (data.conditionOperator as string) ?? "equals",
+          value: (data.conditionValue as string) ?? "",
+        }]
+      : [];
+
+  return rules.map((r) => {
+    const varName = (r.variable ?? "").trim();
+    const op = r.operator ?? "equals";
+    const cmp = r.value ?? "";
+    const actual = varName ? (variables[varName] ?? "") : "";
+    const pass = varName ? evalConditionRule(actual, op, cmp) : false;
+    return { variable: varName, operator: op, value: cmp, actual, pass };
+  });
+}
+
 // ── Execute node in demo mode (no WhatsApp, collect responses) ──
 async function executeNodeDemo(
   node: FlowNode,
@@ -232,23 +295,15 @@ async function executeNodeDemo(
     return { nextNodeId: null, waitForInput: false };
   }
 
-  // Condition (gate) — pure routing, evaluates a session variable
+  // Condition (gate) — pure routing, evaluates one or more rules with AND/OR
   if (node.type === "condition") {
-    const varName = (node.data.conditionVariable as string | undefined)?.trim();
-    const op = (node.data.conditionOperator as string | undefined) || "equals";
-    const cmp = (node.data.conditionValue as string | undefined) ?? "";
-    const actual = varName ? (variables[varName] ?? "") : "";
-
-    let pass = false;
-    switch (op) {
-      case "equals":     pass = actual.trim().toLowerCase() === cmp.trim().toLowerCase(); break;
-      case "not_equals": pass = actual.trim().toLowerCase() !== cmp.trim().toLowerCase(); break;
-      case "exists":     pass = actual.length > 0; break;
-      case "not_exists": pass = actual.length === 0; break;
-      default:           pass = false;
-    }
-    if (!varName) pass = false;
-
+    const rules = evaluateConditionRules(node.data, variables);
+    const combinator = (node.data.conditionCombinator as string | undefined) ?? "AND";
+    const pass = rules.length === 0
+      ? false
+      : combinator === "OR"
+        ? rules.some((r) => r.pass)
+        : rules.every((r) => r.pass);
     const handleId = pass ? "true" : "false";
     const next = findNextNode(flow, node.id, handleId);
     return { nextNodeId: next?.id || null, waitForInput: false };
@@ -269,11 +324,12 @@ async function executeNodeDemo(
     let msg = resolveVariables(node.data.message || "", variables);
     if (shouldTranslate) msg = await translateMessage(msg, flowLang, targetLang);
     responses.push({ type: "text", content: msg });
-    if (node.data.yesNoMode || node.data.continueAuto || node.data.expectedReply) {
-      return { nextNodeId: node.id, waitForInput: true };
+    // New default: text nodes wait for any reply. autoContinue=true skips the wait.
+    if (node.data.autoContinue) {
+      const next = findNextNode(flow, node.id);
+      return { nextNodeId: next?.id || null, waitForInput: false };
     }
-    const next = findNextNode(flow, node.id);
-    return { nextNodeId: next?.id || null, waitForInput: false };
+    return { nextNodeId: node.id, waitForInput: true };
   }
 
   if (node.type === "image") {
@@ -520,7 +576,7 @@ async function executeNodeDemo(
 
 // ── Main Handler ────────────────────────────────────────────
 Deno.serve(async (req) => {
-  const cors = getCorsHeaders(req);
+  const cors = await getCorsHeaders(req);
 
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: cors });
@@ -906,7 +962,12 @@ Deno.serve(async (req) => {
           { headers: { ...cors, "Content-Type": "application/json" } }
         );
       }
-    } else if ((currentNode.type === "text" || currentNode.type === "image") && (currentNode.data.yesNoMode || currentNode.data.continueAuto || currentNode.data.expectedReply)) {
+    } else if (
+      // Text nodes wait for any reply by default — opt out with autoContinue
+      (currentNode.type === "text" && !currentNode.data.autoContinue)
+      // Image nodes keep legacy semantics: only wait when an explicit flag is set
+      || (currentNode.type === "image" && (currentNode.data.yesNoMode || currentNode.data.continueAuto || currentNode.data.expectedReply))
+    ) {
       if (currentNode.data.yesNoMode) {
         // Yes/No mode — classify response as affirmative or negative via LLM
         const yesNoResult = await classifyTrigger(
@@ -972,7 +1033,9 @@ Deno.serve(async (req) => {
           }
         }
       } else {
-        // continueAuto — any response continues
+        // Default wait path — any reply advances. Used by:
+        //   • text nodes without autoContinue (the new default)
+        //   • image nodes with legacy continueAuto: true
         const nextNode = findNextNode(flow, currentNode.id);
         nextNodeId = nextNode?.id || null;
       }
