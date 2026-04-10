@@ -838,6 +838,7 @@ export interface AgentMessage {
 export interface AgentLLMResult {
   response: string;
   toolCalls: AgentToolCall[];
+  messages?: AgentMessage[];  // full conversation including tool calls/results (for cross-turn memory)
 }
 
 /**
@@ -879,6 +880,7 @@ export async function callAgentLLM(params: {
 
   const allToolCalls: AgentToolCall[] = [];
   let rounds = 0;
+  let retriedEmpty = false;
 
   while (rounds < maxRounds) {
     rounds++;
@@ -894,7 +896,7 @@ export async function callAgentLLM(params: {
           Authorization: `Bearer ${openrouterKey}`,
         },
         body: JSON.stringify({
-          model: "google/gemini-2.5-pro-preview",
+          model: "x-ai/grok-4.1-fast",
           messages: messages.map((m) => {
             // Strip undefined fields for clean API payload
             const msg: Record<string, unknown> = { role: m.role };
@@ -906,7 +908,7 @@ export async function callAgentLLM(params: {
           }),
           tools: openaiTools.length > 0 ? openaiTools : undefined,
           max_tokens: 2048,
-          temperature: 0.3,
+          temperature: 0.4,
         }),
       });
 
@@ -971,8 +973,19 @@ export async function callAgentLLM(params: {
 
       // No tool calls — LLM returned a text response
       const textResponse = assistantMsg.content?.trim() || "";
+
+      // If empty response after tool calls, nudge the LLM once more
+      if (!textResponse && allToolCalls.length > 0 && !retriedEmpty) {
+        retriedEmpty = true;
+        console.warn(`[callAgentLLM] Empty response after ${allToolCalls.length} tool calls — retrying`);
+        messages.push({ role: "assistant", content: "" });
+        messages.push({ role: "user", content: "[system] תענה ללקוח בהתבסס על תוצאות הכלים למעלה." });
+        continue;
+      }
+
       console.log(`[callAgentLLM] Final response (${rounds} rounds, ${allToolCalls.length} tools):`, textResponse.substring(0, 100));
-      return { response: textResponse, toolCalls: allToolCalls };
+      // Return full messages array (minus system prompt) so callers can persist tool call history
+      return { response: textResponse, toolCalls: allToolCalls, messages: messages.slice(1) };
 
     } catch (err) {
       console.error("[callAgentLLM] error:", err);
