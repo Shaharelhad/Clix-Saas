@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { X, Plus, Trash2, Upload, Loader2, Bot, HelpCircle } from "lucide-react";
-import type { FlowNode, FlowNodeData, ButtonItem } from "@/types/flow";
+import type { FlowNode, FlowNodeData, ButtonItem, ConditionRule, ConditionOperator } from "@/types/flow";
 import { findServiceById, findOperationById } from "@/types/integration-catalog";
 import { supabase } from "@/services/supabase";
 import { useAuthStore } from "@/store/auth.store";
@@ -146,7 +146,7 @@ export default function NodeEditorSidebar({ node, onUpdate, onClose, isLocked, s
               <input
                 type="checkbox"
                 checked={data.yesNoMode ?? false}
-                onChange={(e) => update({ yesNoMode: e.target.checked, ...(e.target.checked ? { expectedReply: "", continueAuto: false } : {}) })}
+                onChange={(e) => update({ yesNoMode: e.target.checked, ...(e.target.checked ? { expectedReply: "", autoContinue: false, continueAuto: false } : {}) })}
                 className="sr-only peer"
               />
               <div className="w-8 h-[18px] bg-[#EDE6DD] rounded-full peer peer-checked:bg-[#22c55e] after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-[14px] after:w-[14px] after:transition-all peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full after:shadow-sm" />
@@ -154,8 +154,51 @@ export default function NodeEditorSidebar({ node, onUpdate, onClose, isLocked, s
           </div>
         )}
 
-        {/* Expected reply / continue on any (hidden when yesNoMode is on) */}
-        {(data.type === "text" || data.type === "image") && !data.yesNoMode && (
+        {/* TEXT node — wait-for-reply by default, autoContinue toggle for fall-through */}
+        {data.type === "text" && !data.yesNoMode && (
+          <div className="space-y-3">
+            <Field label={t("expectedReply")} hint={data.autoContinue ? undefined : t("expectedReplyHint")}>
+              <input
+                type="text"
+                value={data.autoContinue ? "" : (data.expectedReply ?? "")}
+                onChange={(e) => update({ expectedReply: e.target.value, autoContinue: false })}
+                disabled={data.autoContinue ?? false}
+                className={`field-input ${data.autoContinue ? "opacity-40 cursor-not-allowed" : ""}`}
+                dir="rtl"
+              />
+            </Field>
+            <div className="flex items-center justify-between px-1">
+              <span className="text-[10px] text-[#A39B90]">{t("autoContinueHint")}</span>
+              <label className="relative inline-flex items-center cursor-pointer shrink-0 ms-2">
+                <input
+                  type="checkbox"
+                  checked={data.autoContinue ?? false}
+                  onChange={(e) => update({ autoContinue: e.target.checked, ...(e.target.checked ? { expectedReply: "", allowSkip: false, continueAuto: false } : {}) })}
+                  className="sr-only peer"
+                />
+                <div className="w-8 h-[18px] bg-[#EDE6DD] rounded-full peer peer-checked:bg-[var(--brand-primary-light)] after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-[14px] after:w-[14px] after:transition-all peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full after:shadow-sm" />
+              </label>
+            </div>
+            {/* Allow Skip — only when waiting for an expected reply */}
+            {!data.autoContinue && (
+              <div className="flex items-center justify-between px-1">
+                <span className="text-[10px] text-[#A39B90]">{t("allowSkipHint")}</span>
+                <label className="relative inline-flex items-center cursor-pointer shrink-0 ms-2">
+                  <input
+                    type="checkbox"
+                    checked={data.allowSkip ?? false}
+                    onChange={(e) => update({ allowSkip: e.target.checked })}
+                    className="sr-only peer"
+                  />
+                  <div className="w-8 h-[18px] bg-[#EDE6DD] rounded-full peer peer-checked:bg-[#06b6d4] after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-[14px] after:w-[14px] after:transition-all peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full after:shadow-sm" />
+                </label>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* IMAGE node — fall-through by default, continueAuto toggle to wait for any reply (legacy semantics, unchanged) */}
+        {data.type === "image" && !data.yesNoMode && (
           <div className="space-y-3">
             <Field label={t("expectedReply")} hint={data.continueAuto ? undefined : t("expectedReplyHint")}>
               <input
@@ -179,7 +222,6 @@ export default function NodeEditorSidebar({ node, onUpdate, onClose, isLocked, s
                 <div className="w-8 h-[18px] bg-[#EDE6DD] rounded-full peer peer-checked:bg-[var(--brand-primary-light)] after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-[14px] after:w-[14px] after:transition-all peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full after:shadow-sm" />
               </label>
             </div>
-            {/* Allow Skip */}
             {!data.continueAuto && (
               <div className="flex items-center justify-between px-1">
                 <span className="text-[10px] text-[#A39B90]">{t("allowSkipHint")}</span>
@@ -230,6 +272,17 @@ export default function NodeEditorSidebar({ node, onUpdate, onClose, isLocked, s
               buttons={data.buttons ?? []}
               onChange={(buttons) => update({ buttons })}
             />
+            {/* Save answer as variable (for later condition gating) */}
+            <Field label={t("answerVariable")} hint={t("answerVariableHint")}>
+              <input
+                type="text"
+                value={data.answerVariable ?? ""}
+                onChange={(e) => update({ answerVariable: e.target.value })}
+                className="field-input"
+                dir="ltr"
+                placeholder="q1"
+              />
+            </Field>
             {/* Global menu toggle */}
             <div className="flex items-center justify-between px-1">
               <span className="text-[10px] text-[#A39B90]">{t("globalMenuHint")}</span>
@@ -380,6 +433,11 @@ export default function NodeEditorSidebar({ node, onUpdate, onClose, isLocked, s
         {/* AI Router */}
         {data.type === "ai_router" && (
           <AiRouterEditor data={data} update={update} />
+        )}
+
+        {/* Condition (gate) */}
+        {data.type === "condition" && (
+          <ConditionEditor data={data} update={update} />
         )}
 
         {/* Notion AI Agent */}
@@ -660,6 +718,158 @@ function AiRouterEditor({ data, update }: { data: FlowNodeData; update: (patch: 
           dir="ltr"
         />
       </Field>
+    </>
+  );
+}
+
+// Operators that don't need a comparison value (unary)
+const UNARY_OPERATORS: ConditionOperator[] = ["exists", "not_exists", "is_empty", "is_not_empty"];
+
+// Build the initial rule list: use conditionRules if present, else migrate legacy single-rule.
+function getConditionRules(data: FlowNodeData): ConditionRule[] {
+  if (data.conditionRules && data.conditionRules.length > 0) return data.conditionRules;
+  // Legacy migration — only produce a rule if the old variable field was actually set
+  if (data.conditionVariable) {
+    return [{
+      id: "rule_1",
+      variable: data.conditionVariable,
+      operator: data.conditionOperator ?? "equals",
+      value: data.conditionValue ?? "",
+    }];
+  }
+  return [{ id: "rule_1", variable: "", operator: "equals", value: "" }];
+}
+
+function ConditionEditor({ data, update }: { data: FlowNodeData; update: (patch: Partial<FlowNodeData>) => void }) {
+  const { t } = useTranslation("flow");
+  const rules = getConditionRules(data);
+  const combinator = data.conditionCombinator ?? "AND";
+
+  const writeRules = (next: ConditionRule[]) => {
+    // Persist the new multi-rule shape and clear legacy fields so they don't drift.
+    update({
+      conditionRules: next,
+      conditionCombinator: combinator,
+      conditionVariable: undefined,
+      conditionOperator: undefined,
+      conditionValue: undefined,
+    });
+  };
+
+  const updateRule = (index: number, patch: Partial<ConditionRule>) => {
+    const next = rules.map((r, i) => (i === index ? { ...r, ...patch } : r));
+    writeRules(next);
+  };
+
+  const addRule = () => {
+    const next = [...rules, { id: `rule_${Date.now()}`, variable: "", operator: "equals" as ConditionOperator, value: "" }];
+    writeRules(next);
+  };
+
+  const deleteRule = (index: number) => {
+    if (rules.length <= 1) return; // always keep at least one
+    writeRules(rules.filter((_, i) => i !== index));
+  };
+
+  return (
+    <>
+      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-1">
+        <p className="text-[11px] text-yellow-700 leading-relaxed">{t("conditionInfo")}</p>
+      </div>
+
+      {/* AND/OR combinator — only meaningful with 2+ rules, but show always for discoverability */}
+      <Field label={t("conditionCombinator")}>
+        <div className="flex rounded-md overflow-hidden border border-[#EDE6DD]">
+          <button
+            type="button"
+            onClick={() => update({ conditionCombinator: "AND" })}
+            className={`flex-1 py-1.5 text-xs font-medium cursor-pointer transition ${
+              combinator === "AND" ? "bg-yellow-500 text-white" : "bg-white text-[#7A7267] hover:bg-[#FDF8F1]"
+            }`}
+          >
+            {t("conditionCombinatorAnd")}
+          </button>
+          <button
+            type="button"
+            onClick={() => update({ conditionCombinator: "OR" })}
+            className={`flex-1 py-1.5 text-xs font-medium cursor-pointer transition ${
+              combinator === "OR" ? "bg-yellow-500 text-white" : "bg-white text-[#7A7267] hover:bg-[#FDF8F1]"
+            }`}
+          >
+            {t("conditionCombinatorOr")}
+          </button>
+        </div>
+      </Field>
+
+      {/* Rule list */}
+      <div className="space-y-3">
+        {rules.map((rule, idx) => {
+          const needsValue = !UNARY_OPERATORS.includes(rule.operator);
+          return (
+            <div key={rule.id} className="border border-[#EDE6DD] rounded-md p-2 space-y-2 bg-[#FDFBF7]">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold text-[#A39B90]">#{idx + 1}</span>
+                {rules.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => deleteRule(idx)}
+                    className="p-1 rounded hover:bg-red-50 cursor-pointer"
+                    aria-label={t("conditionDeleteRule")}
+                  >
+                    <Trash2 className="w-3 h-3 text-red-500" />
+                  </button>
+                )}
+              </div>
+
+              <input
+                type="text"
+                value={rule.variable}
+                onChange={(e) => updateRule(idx, { variable: e.target.value })}
+                className="field-input"
+                dir="ltr"
+                placeholder={t("conditionVariable")}
+              />
+
+              <select
+                value={rule.operator}
+                onChange={(e) => updateRule(idx, { operator: e.target.value as ConditionOperator })}
+                className="field-input"
+                dir="ltr"
+              >
+                <option value="equals">{t("conditionOpEquals")}</option>
+                <option value="not_equals">{t("conditionOpNotEquals")}</option>
+                <option value="contains">{t("conditionOpContains")}</option>
+                <option value="not_contains">{t("conditionOpNotContains")}</option>
+                <option value="greater_than">{t("conditionOpGreaterThan")}</option>
+                <option value="less_than">{t("conditionOpLessThan")}</option>
+                <option value="exists">{t("conditionOpExists")}</option>
+                <option value="not_exists">{t("conditionOpNotExists")}</option>
+                <option value="is_empty">{t("conditionOpIsEmpty")}</option>
+                <option value="is_not_empty">{t("conditionOpIsNotEmpty")}</option>
+              </select>
+
+              {needsValue && (
+                <input
+                  type="text"
+                  value={rule.value ?? ""}
+                  onChange={(e) => updateRule(idx, { value: e.target.value })}
+                  className="field-input"
+                  dir="auto"
+                  placeholder={t("conditionValue")}
+                />
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <button
+        type="button"
+        onClick={addRule}
+        className="w-full py-1.5 text-xs font-medium text-yellow-700 bg-yellow-50 hover:bg-yellow-100 border border-dashed border-yellow-300 rounded-md cursor-pointer transition"
+      >
+        {t("conditionAddRule")}
+      </button>
     </>
   );
 }

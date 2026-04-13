@@ -4,6 +4,7 @@ import { Bot, RotateCcw, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { callFlowAssistant } from "@/services/edge-functions";
 import ChatPanel, { type ChatMessage } from "@/pages/CreateBotPage/Sections/ChatPanel";
+import { useTenantStore } from "@/store/tenant.store";
 
 function nowStamp() {
   return new Date().toLocaleTimeString("en-US", {
@@ -20,6 +21,7 @@ interface HistoryEntry {
 
 export default function FlowHelpAssistant() {
   const { t } = useTranslation("flow");
+  const brandName = useTenantStore((s) => s.config?.name);
 
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>(() => [
@@ -47,6 +49,7 @@ export default function FlowHelpAssistant() {
       const result = await callFlowAssistant({
         message: text,
         history: historyRef.current,
+        brandName,
       });
 
       if (result.error) throw new Error(result.error);
@@ -74,7 +77,7 @@ export default function FlowHelpAssistant() {
     } finally {
       setIsSending(false);
     }
-  }, [input, isSending]);
+  }, [input, isSending, brandName]);
 
   const handleReset = () => {
     setMessages([

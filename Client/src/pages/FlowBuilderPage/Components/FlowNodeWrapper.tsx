@@ -29,12 +29,15 @@ export default function FlowNodeWrapper({
   disabled,
 }: FlowNodeWrapperProps) {
   const color = NODE_COLORS[type];
+  const hasMultipleBranches = !!sourceHandles && sourceHandles.length >= 2;
 
   return (
     <div
       className={`relative overflow-visible bg-white rounded-xl shadow-md border-2 min-w-[180px] transition-shadow ${
         width ? "" : "max-w-[240px] "
-      }${selected ? "shadow-lg ring-2 ring-[var(--brand-primary-light)]/40" : ""}${disabled ? " opacity-50" : ""}`}
+      }${selected ? "shadow-lg ring-2 ring-[var(--brand-primary-light)]/40" : ""}${disabled ? " opacity-50" : ""}${
+        hasMultipleBranches ? " mb-7" : ""
+      }`}
       style={{ borderColor: selected ? "var(--brand-primary-light)" : `${color}40`, ...(width ? { width } : {}) }}
     >
       {/* Target handle */}
@@ -75,7 +78,7 @@ export default function FlowNodeWrapper({
         sourceHandles.map((handle, i) => (
           <div
             key={handle.id}
-            className="group/tip absolute overflow-visible"
+            className="absolute overflow-visible"
             style={{
               bottom: 0,
               left: `${((i + 1) / (sourceHandles.length + 1)) * 100}%`,
@@ -91,9 +94,15 @@ export default function FlowNodeWrapper({
               className="!w-3 !h-3 !border-2 !border-white !relative !transform-none !left-0 !top-0"
               style={{ backgroundColor: color }}
             />
-            <div className="pointer-events-none absolute z-50 bottom-[calc(100%+8px)] left-1/2 -translate-x-1/2 px-2 py-1 rounded-md text-[10px] font-medium leading-none whitespace-nowrap bg-[#2D2A26] text-[#EDE6DD] shadow-[0_2px_8px_rgba(45,42,38,0.25)] opacity-0 scale-95 transition-all duration-150 ease-out group-hover/tip:opacity-100 group-hover/tip:scale-100 after:content-[''] after:absolute after:top-full after:left-1/2 after:-translate-x-1/2 after:border-4 after:border-transparent after:border-t-[#2D2A26]">
-              {handle.label}
-            </div>
+            {hasMultipleBranches && (
+              <div
+                className="pointer-events-none absolute top-[calc(100%+4px)] left-1/2 -translate-x-1/2 px-1.5 py-0.5 rounded text-[10px] font-medium leading-none whitespace-nowrap max-w-[120px] truncate"
+                style={{ backgroundColor: `${color}25`, color }}
+                title={handle.label}
+              >
+                {handle.label}
+              </div>
+            )}
           </div>
         ))
       ) : (

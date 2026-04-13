@@ -6,7 +6,14 @@
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { getAuthenticatedUserId } from "../_shared/auth.ts";
 
-const SYSTEM_PROMPT = `אתה עוזר חכם של בונה התהליכים (Flow Builder) במערכת Ortam — פלטפורמה לבניית בוטים לוואטסאפ.
+function sanitizeBrandName(raw: unknown): string {
+  if (typeof raw !== "string") return "הפלטפורמה";
+  const trimmed = raw.trim().slice(0, 60);
+  return trimmed.length > 0 ? trimmed : "הפלטפורמה";
+}
+
+function buildSystemPrompt(brandName: string): string {
+  return `אתה עוזר חכם של בונה התהליכים (Flow Builder) במערכת ${brandName} — פלטפורמה לבניית בוטים לוואטסאפ.
 תפקידך לענות על שאלות של משתמשים לגבי איך להשתמש בבונה התהליכים, מה כל צומת עושה, ואיך לבנות תהליכים אפקטיביים.
 
 ## כללי תשובה
@@ -81,6 +88,7 @@ const SYSTEM_PROMPT = `אתה עוזר חכם של בונה התהליכים (Fl
 - שמור על תהליכים קצרים וממוקדים — עד 10-15 צמתים.
 - בדוק את התהליך לפני פרסום.
 - השתמש במצב קפדני אם אתה רוצה שהבוט יעקוב רק אחרי התהליך.`;
+}
 
 Deno.serve(async (req) => {
   const cors = await getCorsHeaders(req);
@@ -92,10 +100,12 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json();
     await getAuthenticatedUserId(req); // verify auth, user_id not needed for this function
-    const { message, history } = body as {
+    const { message, history, brandName } = body as {
       message?: string;
       history?: { role: string; content: string }[];
+      brandName?: string;
     };
+    const safeBrandName = sanitizeBrandName(brandName);
 
     if (!message?.trim()) {
       return new Response(
@@ -114,7 +124,7 @@ Deno.serve(async (req) => {
 
     // Build messages: system + last 10 history turns + current message
     const msgs: { role: string; content: string }[] = [
-      { role: "system", content: SYSTEM_PROMPT },
+      { role: "system", content: buildSystemPrompt(safeBrandName) },
     ];
 
     if (history && Array.isArray(history)) {

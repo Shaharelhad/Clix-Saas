@@ -30,10 +30,10 @@ function TextNode({ data, selected, id }: NodeProps<FlowNode>) {
       {data.yesNoMode && (
         <span className="text-[10px] text-green-500 mt-1 block">{t("yesNoMode")}</span>
       )}
-      {!data.yesNoMode && data.continueAuto && (
-        <span className="text-[10px] text-blue-500 mt-1 block">{t("continueAuto")}</span>
+      {!data.yesNoMode && data.autoContinue && (
+        <span className="text-[10px] text-blue-500 mt-1 block">{t("autoContinue")}</span>
       )}
-      {data.allowSkip && !data.yesNoMode && !data.continueAuto && data.expectedReply && (
+      {data.allowSkip && !data.yesNoMode && !data.autoContinue && data.expectedReply && (
         <span className="text-[10px] text-cyan-500 mt-1 block">{t("allowSkipBadge")}</span>
       )}
     </FlowNodeWrapper>
