@@ -119,6 +119,7 @@ export default function ApplyPage() {
         p_contact_phone: contactPhone.trim() || undefined,
         p_website_url: website.trim() || undefined,
         p_logo_url: logoUrl || undefined,
+        p_icon_url: logoUrl || undefined,
         p_primary_color: primaryColor,
       });
 
