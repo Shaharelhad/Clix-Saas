@@ -11,6 +11,7 @@ import {
   callScrapeStatus,
 } from "@/services/edge-functions";
 import { useAuth } from "@/hooks/useAuth";
+import { useTenantStore } from "@/store/tenant.store";
 import { useFormFields } from "@/hooks/useFormFields";
 import { useFileUpload } from "@/hooks/useFileUpload";
 import { FormFieldRenderer, parseListItems } from "@/components/form/FormFieldRenderer";
@@ -47,6 +48,7 @@ type WizardStep =
 const FormSection = ({ onNext }: FormSectionProps) => {
   const { t } = useTranslation("createBot");
   const { user, refreshProfile } = useAuth();
+  const tenantId = useTenantStore((s) => s.config?.id);
   const stepContainerRef = useRef<HTMLDivElement>(null);
   const handleSubmitRef = useRef<() => void>(() => {});
 
@@ -104,7 +106,7 @@ const FormSection = ({ onNext }: FormSectionProps) => {
 
   /* ── Fetch form settings (opening/closing text) ── */
   const { data: settings } = useQuery({
-    queryKey: ["form_settings"],
+    queryKey: ["form_settings", tenantId],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("admin_get_form_settings");
       if (error) throw error;
