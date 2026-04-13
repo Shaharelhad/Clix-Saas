@@ -388,6 +388,7 @@ export type Database = {
           id: string
           opening_text: string | null
           opening_title: string | null
+          tenant_id: string
           updated_at: string | null
         }
         Insert: {
@@ -396,6 +397,7 @@ export type Database = {
           id?: string
           opening_text?: string | null
           opening_title?: string | null
+          tenant_id: string
           updated_at?: string | null
         }
         Update: {
@@ -404,9 +406,18 @@ export type Database = {
           id?: string
           opening_text?: string | null
           opening_title?: string | null
+          tenant_id?: string
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "form_settings_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       gateway_instances: {
         Row: {

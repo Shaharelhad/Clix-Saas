@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/services/supabase";
+import { useTenantStore } from "@/store/tenant.store";
 import type { FormField, FormSettings } from "@/types/form";
 
 interface FormFieldRow {
@@ -38,8 +39,9 @@ export function useFormFieldsQuery() {
 
 /** Shared hook: fetch form settings from admin_get_form_settings RPC */
 export function useFormSettingsQuery() {
+  const tenantId = useTenantStore((s) => s.config?.id);
   return useQuery({
-    queryKey: ["form_settings"],
+    queryKey: ["form_settings", tenantId],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("admin_get_form_settings");
       if (error) throw error;

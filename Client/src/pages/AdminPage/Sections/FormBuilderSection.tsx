@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/services/supabase";
 import { cn } from "@/lib/utils";
+import { useTenantStore } from "@/store/tenant.store";
 import RichTextEditor from "@/components/ui/rich-text-editor";
 import type { Json } from "@/types/database";
 
@@ -420,6 +421,7 @@ function FieldEditPanel({
 export default function FormBuilderSection() {
   const { t } = useTranslation("admin");
   const queryClient = useQueryClient();
+  const tenantId = useTenantStore((s) => s.config?.id);
 
   // ─── Field type label helper ─────────────────────────────────────────────
   const fieldTypeLabel = (type: string): string => {
@@ -439,7 +441,7 @@ export default function FormBuilderSection() {
 
   // ─── Form Settings ───────────────────────────────────────────────────────
   const { data: settingsData, isLoading: settingsLoading } = useQuery({
-    queryKey: ["admin", "form-settings"],
+    queryKey: ["admin", "form-settings", tenantId],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("admin_get_form_settings");
       if (error) throw error;
@@ -484,7 +486,7 @@ export default function FormBuilderSection() {
     },
     onSuccess: () => {
       setSettingsDirty(false);
-      queryClient.invalidateQueries({ queryKey: ["admin", "form-settings"] });
+      queryClient.invalidateQueries({ queryKey: ["admin", "form-settings", tenantId] });
     },
   });
 
