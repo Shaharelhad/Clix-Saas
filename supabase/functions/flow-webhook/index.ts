@@ -100,6 +100,9 @@ interface FlowSettings {
   sessionResetEnabled?: boolean;
   sessionResetMinutes?: number;
   strictMode?: boolean;
+  postFlowPauseEnabled?: boolean;
+  postFlowPauseMinutes?: number;
+  resetKeyword?: string;
 }
 
 interface FlowJSON {
@@ -122,6 +125,9 @@ function getFlowSettings(flow: FlowJSON) {
     strictMode: flow.settings?.strictMode ?? false,
     flowLanguage: flow.settings?.flowLanguage ?? "he",
     autoTranslate: flow.settings?.autoTranslate ?? false,
+    postFlowPauseEnabled: flow.settings?.postFlowPauseEnabled ?? false,
+    postFlowPauseMinutes: flow.settings?.postFlowPauseMinutes ?? 1440,
+    resetKeyword: flow.settings?.resetKeyword ?? "",
   };
 }
 
@@ -1853,18 +1859,28 @@ Deno.serve(async (req) => {
           if (wf) {
             const flowSettings = getFlowSettings(wf.flow_json as FlowJSON);
             if (flowSettings.cooldownEnabled) {
-              const cooldownUntil = new Date(
-                Date.now() + flowSettings.cooldownMinutes * 60 * 1000
-              ).toISOString();
+              const proposed = new Date(Date.now() + flowSettings.cooldownMinutes * 60 * 1000);
 
-              // Set cooldown on the session for this phone
+              // Never shrink an existing cooldown (e.g., a 24h post-flow pause) — only extend
+              const { data: existingSess } = await supabase
+                .from("subscriber_sessions")
+                .select("cooldown_until")
+                .eq("workflow_id", outProfile.active_flow_id)
+                .eq("phone", outPhone)
+                .limit(1)
+                .maybeSingle();
+
+              const existing = existingSess?.cooldown_until ? new Date(existingSess.cooldown_until) : null;
+              const cooldownUntilDate = existing && existing > proposed ? existing : proposed;
+              const cooldownUntil = cooldownUntilDate.toISOString();
+
               await supabase
                 .from("subscriber_sessions")
                 .update({ cooldown_until: cooldownUntil })
                 .eq("workflow_id", outProfile.active_flow_id)
                 .eq("phone", outPhone);
 
-              console.log("[flow] Cooldown set for", outPhone, "until", cooldownUntil);
+              console.log("[flow] Cooldown set for", outPhone, "until", cooldownUntil, existing && existing > proposed ? "(kept existing longer pause)" : "");
             }
           }
         }
@@ -2164,6 +2180,27 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ ok: true, skipped: "group_chat" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // ── Guard 1.5: Reset keyword — clears cooldown + session, falls through ──
+    {
+      const resetKw = (settings.resetKeyword || "").trim();
+      if (resetKw && userMessage.trim() === resetKw) {
+        console.log("[flow] Reset keyword matched for", phone);
+        await supabase
+          .from("subscriber_sessions")
+          .update({
+            cooldown_until: null,
+            current_node_id: null,
+            variables: { phone },
+            conversation_stage: null,
+            follow_up_count: 0,
+            status: "active",
+          })
+          .eq("workflow_id", workflow.id)
+          .eq("phone", phone);
+        // fall through — cooldown guard below sees null, session reload picks up fresh state and re-enters trigger
+      }
     }
 
     // ── Guard 2: Cooldown check ──────────────────────────────
@@ -3381,6 +3418,16 @@ Deno.serve(async (req) => {
       status: sessionStatus,
       last_message_at: new Date().toISOString(),
     });
+
+    // ── Post-flow pause: silence the bot for a configured duration after workflow completion ──
+    if (!nextNodeId && settings.postFlowPauseEnabled) {
+      const pauseUntil = new Date(Date.now() + settings.postFlowPauseMinutes * 60_000).toISOString();
+      await supabase
+        .from("subscriber_sessions")
+        .update({ cooldown_until: pauseUntil })
+        .eq("id", session.id);
+      console.log("[flow] Post-flow pause set for", phone, "until", pauseUntil);
+    }
 
     // Schedule follow-up if the waiting node has a follow_up node connected
     if (nextNodeId) {
