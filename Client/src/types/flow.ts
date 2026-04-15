@@ -146,6 +146,9 @@ export interface FlowSettings {
   sessionResetMinutes: number;
   strictMode: boolean;
   flowLanguage: string;
+  postFlowPauseEnabled: boolean;
+  postFlowPauseMinutes: number;
+  resetKeyword: string;
 }
 
 export const DEFAULT_FLOW_SETTINGS: FlowSettings = {
@@ -162,6 +165,9 @@ export const DEFAULT_FLOW_SETTINGS: FlowSettings = {
   sessionResetMinutes: 1440,
   strictMode: false,
   flowLanguage: "he",
+  postFlowPauseEnabled: false,
+  postFlowPauseMinutes: 1440,
+  resetKeyword: "",
 };
 
 export interface FlowJSON {
