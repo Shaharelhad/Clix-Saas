@@ -207,6 +207,49 @@ export default function FlowSettingsModal({ settings, onUpdate, onClose }: FlowS
               </div>
             )}
           </div>
+
+          {/* Post-Flow Pause */}
+          <div className="border-t border-[#EDE6DD]/40 pt-5">
+            <SettingRow
+              label={t("settingsPostFlowPause")}
+              hint={t("settingsPostFlowPauseHint")}
+              checked={settings.postFlowPauseEnabled}
+              onChange={(v) => onUpdate({ postFlowPauseEnabled: v })}
+            />
+
+            {settings.postFlowPauseEnabled && (
+              <div className="mt-3 ms-6">
+                <MinutesPresetInput
+                  label={t("settingsPostFlowPauseMinutes")}
+                  value={settings.postFlowPauseMinutes}
+                  presets={[
+                    { value: 60, label: t("settingsPostFlowPausePreset60") },
+                    { value: 360, label: t("settingsPostFlowPausePreset360") },
+                    { value: 1440, label: t("settingsPostFlowPausePreset1440") },
+                  ]}
+                  min={60}
+                  max={10080}
+                  onChange={(v) => onUpdate({ postFlowPauseMinutes: v })}
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Reset Keyword */}
+          <div className="border-t border-[#EDE6DD]/40 pt-5">
+            <label className="block">
+              <span className="text-xs font-semibold text-[#2D2A26] block">{t("settingsResetKeyword")}</span>
+              <span className="text-[10px] text-[#A39B90] block mt-0.5 mb-2">{t("settingsResetKeywordHint")}</span>
+              <input
+                type="text"
+                dir="rtl"
+                value={settings.resetKeyword}
+                onChange={(e) => onUpdate({ resetKeyword: e.target.value })}
+                placeholder={t("settingsResetKeywordPlaceholder")}
+                className="field-input w-full"
+              />
+            </label>
+          </div>
         </div>
 
         {/* Footer */}

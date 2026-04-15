@@ -100,6 +100,9 @@ interface FlowSettings {
   sessionResetEnabled?: boolean;
   sessionResetMinutes?: number;
   strictMode?: boolean;
+  postFlowPauseEnabled?: boolean;
+  postFlowPauseMinutes?: number;
+  resetKeyword?: string;
 }
 
 interface FlowJSON {
@@ -122,6 +125,9 @@ function getFlowSettings(flow: FlowJSON) {
     strictMode: flow.settings?.strictMode ?? false,
     flowLanguage: flow.settings?.flowLanguage ?? "he",
     autoTranslate: flow.settings?.autoTranslate ?? false,
+    postFlowPauseEnabled: flow.settings?.postFlowPauseEnabled ?? false,
+    postFlowPauseMinutes: flow.settings?.postFlowPauseMinutes ?? 1440,
+    resetKeyword: flow.settings?.resetKeyword ?? "",
   };
 }
 
@@ -1106,6 +1112,53 @@ async function executeNotionAgent(
   }
 
   const integrationId = node.data.agentIntegrationId as string | undefined;
+
+  // Load Notion integration credentials early so we can fetch page history for context
+  let notionApiKey = "";
+  let notionHeaders: Record<string, string> = {};
+  if (integrationId) {
+    const { data: intg } = await supabase.from("integrations").select("config").eq("id", integrationId).single();
+    if (intg?.config) {
+      const config = intg.config as Record<string, unknown>;
+      notionApiKey = (config.apiKey as string) || "";
+      notionHeaders = {
+        "Authorization": `Bearer ${notionApiKey}`,
+        "Notion-Version": "2022-06-28",
+        "Content-Type": "application/json",
+      };
+      if (config.customHeaders && typeof config.customHeaders === "object") {
+        Object.assign(notionHeaders, config.customHeaders);
+      }
+    }
+  }
+
+  // Fetch Notion conversation history column so cron follow-ups become visible to the agent
+  let notionConvHistory = "";
+  let notionFollowUpStage = 0;
+  if (variables.page_id && notionApiKey) {
+    try {
+      const pageResp = await fetch(`https://api.notion.com/v1/pages/${variables.page_id}`, {
+        method: "GET",
+        headers: notionHeaders,
+      });
+      if (pageResp.ok) {
+        const pageData = await pageResp.json() as Record<string, unknown>;
+        const props = (pageData.properties as Record<string, unknown>) || {};
+        const histProp = props["היסטוריית שיחה"] as Record<string, unknown> | undefined;
+        const richText = (histProp?.rich_text as Array<Record<string, unknown>>) || [];
+        const fullText = richText.map((r) => (r.plain_text as string) || "").join("");
+        if (fullText.trim().length > 0) {
+          notionConvHistory = fullText.length > 1500 ? fullText.slice(-1500) : fullText;
+        }
+        const stageProp = props["כמות אין מענה"] as Record<string, unknown> | undefined;
+        const stageVal = stageProp?.number;
+        if (typeof stageVal === "number") notionFollowUpStage = stageVal;
+      }
+    } catch (e) {
+      console.error("[notion_ai_agent] Failed to fetch Notion conversation history:", e);
+    }
+  }
+
   const userPrompt = resolveVariables(node.data.agentSystemPrompt as string || "", variables);
   // Inject today's date so LLM can resolve "tomorrow", "next week", etc.
   const today = new Date().toLocaleDateString("he-IL", { weekday: "long", year: "numeric", month: "long", day: "numeric", timeZone: "Asia/Jerusalem" });
@@ -1133,6 +1186,8 @@ async function executeNotionAgent(
     guardrails = `הנחיות חשובות — עדיפות עליונה:\nהלקוח הזה כבר סגר פנייה (סטטוס: לא מעוניין).\nאם הלקוח חוזר ופונה — ענה בחביבות ושאל אם משהו השתנה. אל תנסה למכור.\nאם הלקוח מעוניין מחדש, עדכן נוטיון לסטטוס "תהליך מכירה" ואסוף את הפרטים החסרים.\n\n`;
   } else if (status === "ניהול לקוח/אירוע") {
     guardrails = `הנחיות חשובות — עדיפות עליונה:\nהלקוח הזה כבר לקוח קיים (סטטוס: ניהול לקוח/אירוע). ענה על שאלות בנימוס ובקיצור.\n\n`;
+  } else if (status === "קרוב לסגירה") {
+    guardrails = `הנחיות חשובות — עדיפות עליונה:\nהלקוח הזה בסטטוס "קרוב לסגירה" — כבר היה שיחה איתו ומחכה להחלטה על סגירת העסקה.\n\nאם הלקוח אומר שהוא רוצה לסגור / להתקדם / "כן אנחנו רוצים" / "רוצים לסגור" / "סגור" / "בואו נתקדם" / שולח מייל + שמות + פרטים — חובה לבצע מיד:\n1. קרא ל-update_notion ושנה סטטוס ל"ממתין להסכם"\n2. שלח הודעה קצרה כמו: "מעולה! אני מכין את ההסכם ושולח לחתימה בהקדם" או "אחלה, אלירון ישלח לכם את הקישור להסכם לחתימה בהקדם"\n\nאסור בתכלית האיסור לבקש מהלקוח מייל / שמות מלאים / פרטים נוספים בשלב הזה! הפרטים ימולאו דרך טופס ההסכם (Fillout) שאלירון ישלח. העבר סטטוס מיד.\nהמערכת תתריע לאלירון אוטומטית לשלוח את ההסכם.\n\nשימו לב: אם בהיסטוריית השיחה שלחנו הודעת פולואפ שמבקשת "לסגור" או "להתקדם לסגירה", אז "כן" / "רוצים" / "סגור" / "נסגור" מהלקוח זה אישור סגירת עסקה — לא סגירת פרטי פגישה. העבר סטטוס מיד ל"ממתין להסכם".\n\nאם הלקוח שואל שאלות או מהסס — ענה בחביבות, אל תלחץ. זה סטטוס רגיש.\n\n`;
   } else {
     // Active statuses — inject filled vars + not-interested detection
     const varSection = filledVars.length > 0
@@ -1181,6 +1236,10 @@ async function executeNotionAgent(
     ? `<status_context>\n${guardrails.trim()}\n</status_context>\n\n`
     : "";
 
+  const notionHistorySection = notionConvHistory
+    ? `<recent_conversation_log>\nהיסטוריית שיחה אחרונה (כולל הודעות שנשלחו אוטומטית בפולואפ — הלקוח ראה אותן):\n${notionConvHistory}\n\nחשוב: אם הלקוח עונה על ההודעה האחרונה ברשימה הזו, התייחס לתוכן שלה כהקשר — גם אם היא לא מופיעה בהיסטוריה שלך.\n</recent_conversation_log>\n\n`
+    : "";
+
   const personalitySection = userPrompt
     ? `<agent_personality>\n${userPrompt}\n</agent_personality>\n\n`
     : "";
@@ -1216,30 +1275,12 @@ async function executeNotionAgent(
 אתה: "בהחלט! תמיד כאן"
 </response_style>`;
 
-  // Prompt order: iron rules → date → business → workflow → status → personality → response style (few-shots last)
-  const systemPrompt = ironRules + dateSection + businessSection + workflowSection + statusSection + personalitySection + responseStyle;
+  // Prompt order: iron rules → date → business → workflow → status → notion history → personality → response style (few-shots last)
+  const systemPrompt = ironRules + dateSection + businessSection + workflowSection + statusSection + notionHistorySection + personalitySection + responseStyle;
   const tools = node.data.agentTools as Record<string, unknown> || {};
 
   console.log("[notion_ai_agent] Config:", { integrationId: integrationId || "EMPTY", toolsConfig: JSON.stringify(tools).substring(0, 200), promptLen: systemPrompt.length, historyLen: agentHistory.length });
 
-  // Load Notion integration credentials
-  let notionApiKey = "";
-  let notionHeaders: Record<string, string> = {};
-  if (integrationId) {
-    const { data: intg } = await supabase.from("integrations").select("config").eq("id", integrationId).single();
-    if (intg?.config) {
-      const config = intg.config as Record<string, unknown>;
-      notionApiKey = (config.apiKey as string) || "";
-      notionHeaders = {
-        "Authorization": `Bearer ${notionApiKey}`,
-        "Notion-Version": "2022-06-28",
-        "Content-Type": "application/json",
-      };
-      if (config.customHeaders && typeof config.customHeaders === "object") {
-        Object.assign(notionHeaders, config.customHeaders);
-      }
-    }
-  }
 
   // Build tool definitions
   const toolDefs: AgentToolDefinition[] = [];
@@ -1323,6 +1364,34 @@ Combine multiple fields in one call.`,
 
   // alertEliron is code-only (not exposed as an LLM tool) — fired automatically on escalate
   const alertEliron = tools.alertEliron as { enabled?: boolean; webhookUrl?: string } | undefined;
+
+  // Hot-lead alert: customer replied after stage 3 (price list) or stage 4 (farewell) of ליד חדש
+  if (
+    status === "ליד חדש" &&
+    notionFollowUpStage >= 3 &&
+    !variables.__hot_lead_alerted &&
+    alertEliron?.enabled &&
+    alertEliron.webhookUrl
+  ) {
+    try {
+      const hotLeadUrl = alertEliron.webhookUrl.replace(/alert-eliron$/, "alert-hot-lead");
+      const stageLabel = notionFollowUpStage === 3 ? "מחירון" : "הודעת סגירה";
+      await fetch(hotLeadUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customer_name: variables.customer_name || "",
+          phone: variables.phone || "",
+          stage: notionFollowUpStage,
+          stage_label: stageLabel,
+        }),
+      });
+      variables.__hot_lead_alerted = "true";
+      console.log("[notion_ai_agent] Hot-lead alert sent: stage", notionFollowUpStage);
+    } catch (e) {
+      console.error("[notion_ai_agent] alert-hot-lead failed:", e);
+    }
+  }
 
   const createMeeting = tools.createMeeting as { enabled?: boolean; webhookUrl?: string } | undefined;
   if (createMeeting?.enabled && createMeeting.webhookUrl) {
@@ -1414,6 +1483,24 @@ Combine multiple fields in one call.`,
         return { error: `Notion API error ${response.status}: ${errText.substring(0, 200)}` };
       }
       console.log("[notion_ai_agent] update_notion SUCCESS for page:", pageId);
+
+      if (newStatus === "ממתין להסכם" && alertEliron?.enabled && alertEliron.webhookUrl) {
+        try {
+          const dealConfirmedUrl = alertEliron.webhookUrl.replace(/alert-eliron$/, "alert-deal-confirmed");
+          await fetch(dealConfirmedUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              customer_name: variables.customer_name || "",
+              phone: variables.phone || "",
+            }),
+          });
+          console.log("[notion_ai_agent] Alert sent to Eliron: deal_confirmed");
+        } catch (e) {
+          console.error("[notion_ai_agent] alert-deal-confirmed failed:", e);
+        }
+      }
+
       if (strippedStatusMissing.length > 0) {
         return { success: true, partial: true, message: `הנתונים נשמרו אבל שינוי סטטוס נחסם. חסרים: ${strippedStatusMissing.join(", ")}. שאל את הלקוח קודם.` };
       }
@@ -1772,18 +1859,28 @@ Deno.serve(async (req) => {
           if (wf) {
             const flowSettings = getFlowSettings(wf.flow_json as FlowJSON);
             if (flowSettings.cooldownEnabled) {
-              const cooldownUntil = new Date(
-                Date.now() + flowSettings.cooldownMinutes * 60 * 1000
-              ).toISOString();
+              const proposed = new Date(Date.now() + flowSettings.cooldownMinutes * 60 * 1000);
 
-              // Set cooldown on the session for this phone
+              // Never shrink an existing cooldown (e.g., a 24h post-flow pause) — only extend
+              const { data: existingSess } = await supabase
+                .from("subscriber_sessions")
+                .select("cooldown_until")
+                .eq("workflow_id", outProfile.active_flow_id)
+                .eq("phone", outPhone)
+                .limit(1)
+                .maybeSingle();
+
+              const existing = existingSess?.cooldown_until ? new Date(existingSess.cooldown_until) : null;
+              const cooldownUntilDate = existing && existing > proposed ? existing : proposed;
+              const cooldownUntil = cooldownUntilDate.toISOString();
+
               await supabase
                 .from("subscriber_sessions")
                 .update({ cooldown_until: cooldownUntil })
                 .eq("workflow_id", outProfile.active_flow_id)
                 .eq("phone", outPhone);
 
-              console.log("[flow] Cooldown set for", outPhone, "until", cooldownUntil);
+              console.log("[flow] Cooldown set for", outPhone, "until", cooldownUntil, existing && existing > proposed ? "(kept existing longer pause)" : "");
             }
           }
         }
@@ -2083,6 +2180,27 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ ok: true, skipped: "group_chat" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // ── Guard 1.5: Reset keyword — clears cooldown + session, falls through ──
+    {
+      const resetKw = (settings.resetKeyword || "").trim();
+      if (resetKw && userMessage.trim() === resetKw) {
+        console.log("[flow] Reset keyword matched for", phone);
+        await supabase
+          .from("subscriber_sessions")
+          .update({
+            cooldown_until: null,
+            current_node_id: null,
+            variables: { phone },
+            conversation_stage: null,
+            follow_up_count: 0,
+            status: "active",
+          })
+          .eq("workflow_id", workflow.id)
+          .eq("phone", phone);
+        // fall through — cooldown guard below sees null, session reload picks up fresh state and re-enters trigger
+      }
     }
 
     // ── Guard 2: Cooldown check ──────────────────────────────
@@ -3300,6 +3418,16 @@ Deno.serve(async (req) => {
       status: sessionStatus,
       last_message_at: new Date().toISOString(),
     });
+
+    // ── Post-flow pause: silence the bot for a configured duration after workflow completion ──
+    if (!nextNodeId && settings.postFlowPauseEnabled) {
+      const pauseUntil = new Date(Date.now() + settings.postFlowPauseMinutes * 60_000).toISOString();
+      await supabase
+        .from("subscriber_sessions")
+        .update({ cooldown_until: pauseUntil })
+        .eq("id", session.id);
+      console.log("[flow] Post-flow pause set for", phone, "until", pauseUntil);
+    }
 
     // Schedule follow-up if the waiting node has a follow_up node connected
     if (nextNodeId) {
