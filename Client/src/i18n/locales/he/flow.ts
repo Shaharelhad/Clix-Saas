@@ -132,6 +132,15 @@ const flow = {
   settingsSessionResetPreset60: "שעה",
   settingsSessionResetPreset360: "6 שעות",
   settingsSessionResetPreset1440: "24 שעות",
+  settingsPostFlowPause: "השתקה בסיום התהליך",
+  settingsPostFlowPauseHint: "לאחר שהתהליך מסתיים עם הלקוח, הבוט ישתוק עבורו למשך זמן מוגדר",
+  settingsPostFlowPauseMinutes: "משך ההשתקה (דקות)",
+  settingsPostFlowPausePreset60: "שעה",
+  settingsPostFlowPausePreset360: "6 שעות",
+  settingsPostFlowPausePreset1440: "24 שעות",
+  settingsResetKeyword: "מילת איפוס",
+  settingsResetKeywordHint: 'כשהלקוח שולח את המילה הזו, הבוט מתעורר והתהליך מתחיל מחדש. השאר ריק כדי לכבות את התכונה (למשל: "אפס").',
+  settingsResetKeywordPlaceholder: "אפס",
   settingsDone: "סגור",
 
   // Auto-save & lock

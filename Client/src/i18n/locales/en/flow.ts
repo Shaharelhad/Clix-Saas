@@ -132,6 +132,15 @@ const flow = {
   settingsSessionResetPreset60: "1 hour",
   settingsSessionResetPreset360: "6 hours",
   settingsSessionResetPreset1440: "24 hours",
+  settingsPostFlowPause: "Pause after workflow ends",
+  settingsPostFlowPauseHint: "After the workflow completes for a customer, silence the bot for this long so a human can take over",
+  settingsPostFlowPauseMinutes: "Pause duration (minutes)",
+  settingsPostFlowPausePreset60: "1 hour",
+  settingsPostFlowPausePreset360: "6 hours",
+  settingsPostFlowPausePreset1440: "24 hours",
+  settingsResetKeyword: "Reset keyword",
+  settingsResetKeywordHint: 'When the customer sends this exact word, the bot wakes up and the workflow restarts. Leave empty to disable (e.g., "אפס").',
+  settingsResetKeywordPlaceholder: "אפס",
   settingsDone: "Done",
 
   // Auto-save & lock
