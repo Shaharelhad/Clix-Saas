@@ -21,7 +21,7 @@ export default function FlowSettingsModal({ settings, onUpdate, onClose }: FlowS
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-[#EDE6DD]/40">
           <span className="text-sm font-bold text-[#2D2A26]">{t("settingsTitle")}</span>
-          <button type="button" onClick={onClose} className="p-1 rounded hover:bg-[#EDE6DD]/40 cursor-pointer" aria-label="Close">
+          <button type="button" onClick={onClose} className="icon-btn hover:bg-[#EDE6DD]/40" aria-label="Close">
             <X className="w-4 h-4 text-[#7A7267]" />
           </button>
         </div>
