@@ -1156,6 +1156,35 @@ async function executeNotionAgent(
         const stageProp = props["כמות אין מענה"] as Record<string, unknown> | undefined;
         const stageVal = stageProp?.number;
         if (typeof stageVal === "number") notionFollowUpStage = stageVal;
+
+        // Sync live Notion state into session variables so manual Kanban drags are reflected
+        const titleProp = props["שם לקוח"] as Record<string, unknown> | undefined;
+        const titleArr = (titleProp?.title as Array<Record<string, unknown>>) || [];
+        const liveName = titleArr.map((t) => (t.plain_text as string) || "").join("");
+        if (liveName.length > 0) {
+          variables.customer_name = liveName;
+        }
+        const statusProp = props["סטטוס"] as Record<string, unknown> | undefined;
+        const liveStatus = (statusProp?.status as Record<string, unknown> | undefined)?.name;
+        if (typeof liveStatus === "string" && liveStatus.length > 0) {
+          variables.status = liveStatus;
+        }
+        const audienceProp = props["סוג קהל"] as Record<string, unknown> | undefined;
+        const liveAudience = (audienceProp?.select as Record<string, unknown> | undefined)?.name;
+        if (typeof liveAudience === "string" && liveAudience.length > 0) {
+          variables.audience = liveAudience;
+        }
+        const eventDateProp = props["תאריך ושעת האירוע"] as Record<string, unknown> | undefined;
+        const liveEventDate = (eventDateProp?.date as Record<string, unknown> | undefined)?.start;
+        if (typeof liveEventDate === "string" && liveEventDate.length > 0) {
+          variables.event_date = liveEventDate;
+        }
+        const venueProp = props["שם מקום אירוע"] as Record<string, unknown> | undefined;
+        const venueRichText = (venueProp?.rich_text as Array<Record<string, unknown>>) || [];
+        const liveVenue = venueRichText.map((r) => (r.plain_text as string) || "").join("");
+        if (liveVenue.length > 0) {
+          variables.venue_name = liveVenue;
+        }
       }
     } catch (e) {
       console.error("[notion_ai_agent] Failed to fetch Notion conversation history:", e);
@@ -1190,7 +1219,7 @@ async function executeNotionAgent(
   } else if (status === "ניהול לקוח/אירוע") {
     guardrails = `הנחיות חשובות — עדיפות עליונה:\nהלקוח הזה כבר לקוח קיים (סטטוס: ניהול לקוח/אירוע). ענה על שאלות בנימוס ובקיצור.\n\n`;
   } else if (status === "קרוב לסגירה") {
-    guardrails = `הנחיות חשובות — עדיפות עליונה:\nהלקוח הזה בסטטוס "קרוב לסגירה" — כבר היה שיחה איתו ומחכה להחלטה על סגירת העסקה.\n\nאם הלקוח אומר שהוא רוצה לסגור / להתקדם / "כן אנחנו רוצים" / "רוצים לסגור" / "סגור" / "בואו נתקדם" / שולח מייל + שמות + פרטים — חובה לבצע מיד:\n1. קרא ל-update_notion ושנה סטטוס ל"ממתין להסכם"\n2. שלח הודעה קצרה כמו: "מעולה! אני מכין את ההסכם ושולח לחתימה בהקדם" או "אחלה, אלירון ישלח לכם את הקישור להסכם לחתימה בהקדם"\n\nאסור בתכלית האיסור לבקש מהלקוח מייל / שמות מלאים / פרטים נוספים בשלב הזה! הפרטים ימולאו דרך טופס ההסכם (Fillout) שאלירון ישלח. העבר סטטוס מיד.\nהמערכת תתריע לאלירון אוטומטית לשלוח את ההסכם.\n\nשימו לב: אם בהיסטוריית השיחה שלחנו הודעת פולואפ שמבקשת "לסגור" או "להתקדם לסגירה", אז "כן" / "רוצים" / "סגור" / "נסגור" מהלקוח זה אישור סגירת עסקה — לא סגירת פרטי פגישה. העבר סטטוס מיד ל"ממתין להסכם".\n\nאם הלקוח שואל שאלות או מהסס — ענה בחביבות, אל תלחץ. זה סטטוס רגיש.\n\n`;
+    guardrails = `הנחיות חשובות — עדיפות עליונה:\nהלקוח הזה בסטטוס "קרוב לסגירה" — כבר היה שיחה איתו ומחכה להחלטה על סגירת העסקה. תאריך האירוע, אולם, וסוג קהל כבר נאספו קודם.\n\nכל אחד מהבאים נחשב אישור סגירת עסקה — חובה לבצע מיד:\n• "כן אנחנו רוצים" / "רוצים לסגור" / "סגור" / "בואו נתקדם" / "רוצים להתקדם"\n• שליחת כתובת מייל (גם כשזה לבד — בשלב הזה זה סימן שהלקוח מוכן לסגור)\n• שליחת שמות מלאים של בני הזוג\n• כל שילוב של השניים\n\nפעולה חובה:\n1. קרא ל-update_notion ושנה סטטוס ל"ממתין להסכם"\n2. שלח הודעה קצרה כמו: "מעולה! אני מכין את ההסכם ושולח לחתימה בהקדם" או "אחלה, אלירון ישלח לכם את הקישור להסכם לחתימה בהקדם"\n\nאסור בתכלית האיסור לבקש מהלקוח פרטים נוספים בשלב הזה! את שאר הפרטים הלקוח ימלא דרך טופס ההסכם שאלירון ישלח. העבר סטטוס מיד.\nהמערכת תתריע לאלירון אוטומטית לשלוח את ההסכם.\n\nשימו לב: אם בהיסטוריית השיחה שלחנו הודעת פולואפ שמבקשת "לסגור" או "להתקדם לסגירה", אז "כן" / "רוצים" / "סגור" / "נסגור" מהלקוח זה אישור סגירת עסקה — לא סגירת פרטי פגישה. העבר סטטוס מיד ל"ממתין להסכם".\n\nאם הלקוח שואל שאלות כלליות או מהסס — ענה בחביבות, אל תלחץ. זה סטטוס רגיש. אבל מייל/שמות זה אישור ברור, לא היסוס.\n\n`;
   } else {
     // Active statuses — inject filled vars + not-interested detection
     const varSection = filledVars.length > 0
@@ -1213,7 +1242,7 @@ async function executeNotionAgent(
       }
     }
 
-    const toolGuide = `סדר שימוש בכלים (חובה לעקוב!):\n1. אסוף תאריך + אולם + סוג קהל מהלקוח. אם חסר פרט — שאל את הלקוח ואל תמשיך.\n2. כשיש את כל 3 — קרא מיד ל-calendar_check (המערכת תשלח הודעת "בודק זמינות" אוטומטית). אל תשלח הודעת טקסט לפני הקריאה לכלי!\n3. book_event_date — שריין את תאריך האירוע (יום שלם, לא פגישה!)\n4. update_notion — עדכן נוטיון עם כל 3 הפרטים + שנה סטטוס לתהליך מכירה\n5. find_slots — חפש 2 זמנים פנויים לשיחה/פגישה ב-3 ימים הקרובים\n6. הצע ללקוח 2 זמנים + אפשרות "זמן אחר"\n7. כשלקוח בוחר זמן — אם הוא כבר ציין סוג פגישה (למשל "שיחת טלפון ב-15:00") צור את הפגישה מיד. אם לא ציין סוג — שאל: "שיחת טלפון או פגישה פרונטלית?"\n8. create_meeting — צור פגישה בזמן שהלקוח בחר (לא בתאריך האירוע!)\n9. update_notion — שנה סטטוס ל"ממתין לשיחה/פגישה", עדכן תאריך שיחה לתאריך+שעה של הפגישה, עדכן סוג פגישה ל"טלפון" או "פרונטלית" לפי מה שהלקוח בחר, נקבע פגישה = false, כמות אין מענה = 0\nחשוב: book_event_date ≠ create_meeting. אל תערבב ביניהם!\nחשוב: כשאתה מוכן להפעיל כלים — קרא לכלי מיד, אל תשלח טקסט בלבד!\n`;
+    const toolGuide = `סדר שימוש בכלים (חובה לעקוב!):\n1. אסוף תאריך + אולם + סוג קהל מהלקוח. אם חסר פרט — שאל את הלקוח ואל תמשיך.\n2. כשיש את כל 3 — קרא מיד ל-calendar_check (המערכת תשלח הודעת "בודק זמינות" אוטומטית). אל תשלח הודעת טקסט לפני הקריאה לכלי!\n3. book_event_date — שריין את תאריך האירוע (יום שלם, לא פגישה!)\n4. update_notion — עדכן נוטיון עם כל 3 הפרטים + שנה סטטוס לתהליך מכירה\n5. find_slots — חפש 2 זמנים פנויים לשיחה/פגישה ב-3 ימים הקרובים\n6. הצע ללקוח 2 זמנים בלבד + אפשרות "זמן אחר". אסור בתכלית האיסור להזכיר סוג פגישה (טלפון/פרונטלית) בהודעה הזאת — שאלת הסוג היא שלב נפרד שיקרה רק אחרי שהלקוח בחר זמן. רק שאלת הזמן בהודעה הזאת.\n7. כשלקוח בוחר זמן — אם הוא כבר ציין סוג פגישה בעצמו (למשל "שיחת טלפון ב-15:00" או "פרונטלית מחר") צור את הפגישה מיד. אם לא ציין סוג — בהודעה הבאה שאל בהודעה קצרה בלבד: "מעולה! שיחת טלפון או פגישה פרונטלית?" אל תקרא ל-create_meeting עדיין! חכה שהלקוח יענה על הסוג.\n8. create_meeting — רק אחרי שיש לך גם זמן וגם סוג (טלפון או פרונטלית), צור פגישה בזמן שהלקוח בחר (לא בתאריך האירוע!)\n9. update_notion — שנה סטטוס ל"ממתין לשיחה/פגישה", עדכן תאריך שיחה לתאריך+שעה של הפגישה, עדכן סוג פגישה ל"טלפון" או "פרונטלית" לפי מה שהלקוח בחר, נקבע פגישה = false, כמות אין מענה = 0\nחשוב: book_event_date ≠ create_meeting. אל תערבב ביניהם!\nחשוב: כשאתה מוכן להפעיל כלים — קרא לכלי מיד, אל תשלח טקסט בלבד!\n`;
 
     guardrails = `הנחיות חשובות — עדיפות עליונה:\n${varSection}${statusSection}${missingSection}${toolGuide}כשלקוח אומר שהוא לא מעוניין, מסרב, או מבקש לסגור — חובה לבצע 2 פעולות:\n1. קרא ל-update_notion ועדכן סטטוס ל"לא מעוניין"\n2. שלח הודעת פרידה: "מבין לגמרי, תודה על הזמן ובהצלחה עם האירוע! אם משהו ישתנה, אני כאן"\nזה הכרחי — אל תנסה לשכנע לקוח שאמר לא.\n\n`;
   }
@@ -1276,6 +1305,9 @@ async function executeNotionAgent(
 
 לקוח: "נדבר בקרוב"
 אתה: "בהחלט! תמיד כאן"
+
+לקוח: "מחר ב-10 נשמע טוב"
+אתה: "מעולה! שיחת טלפון או פגישה פרונטלית?"
 </response_style>`;
 
   // Prompt order: iron rules → date → business → workflow → status → notion history → personality → response style (few-shots last)
@@ -1845,17 +1877,26 @@ Deno.serve(async (req) => {
             .maybeSingle();
 
           if (outSession) {
-            const { data: recentBotMsg } = await supabase
+            // Fetch recent bot outbound messages (last 60s) and only skip if the outgoing
+            // webhook's text matches one byte-for-byte — i.e. it's a true gateway echo.
+            // Time-only matching (old behavior) wrongly swallowed Eliron's real manual
+            // messages sent within 60s of a bot reply.
+            const { data: recentBotMsgs } = await supabase
               .from("flow_message_log")
-              .select("id")
+              .select("content")
               .eq("session_id", outSession.id)
               .eq("direction", "outbound")
               .gte("created_at", new Date(Date.now() - 60_000).toISOString())
-              .limit(1)
-              .maybeSingle();
+              .order("created_at", { ascending: false })
+              .limit(5);
 
-            if (recentBotMsg) {
-              console.log("[flow] Skipping cooldown — bot echo for", outPhone);
+            const outMsgText = (body.message || "").toString().trim();
+            const isEchoOfBotReply = (recentBotMsgs || []).some(
+              (row) => ((row.content as string) || "").trim() === outMsgText && outMsgText.length > 0,
+            );
+
+            if (isEchoOfBotReply) {
+              console.log("[flow] Skipping cooldown — bot echo content match for", outPhone);
               return new Response(JSON.stringify({ ok: true, action: "bot_echo_skipped" }), {
                 headers: { ...corsHeaders, "Content-Type": "application/json" },
               });
