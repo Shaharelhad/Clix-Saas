@@ -421,16 +421,19 @@ const WA_GATEWAY_API_KEY = Deno.env.get("WA_GATEWAY_API_KEY")!;
 async function sendTextMessage(
   customerId: string,
   to: string,
-  text: string
+  text: string,
+  source?: string,
 ) {
   const url = `${WA_GATEWAY_BASE}/api/session/send/${customerId}`;
+  const body: Record<string, unknown> = { to, message: text };
+  if (source) body.source = source;
   const res = await fetch(url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       "x-api-key": WA_GATEWAY_API_KEY,
     },
-    body: JSON.stringify({ to, message: text }),
+    body: JSON.stringify(body),
   });
   return res.json();
 }
@@ -1788,6 +1791,16 @@ Deno.serve(async (req) => {
 
     // Handle outgoing messages — set cooldown when owner replies manually
     if (body.type === "outgoing") {
+      // Source-tagged system sends (e.g., Notion agent responses) bypass cooldown + fillout detection.
+      // The WClixAPI gateway echoes our `source` tag back in the outgoing webhook payload.
+      if (body.source === "system") {
+        console.log("[flow] Skipping outgoing-msg side effects — source=system for", body.from);
+        return new Response(
+          JSON.stringify({ ok: true, action: "system_sent_skipped" }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+
       // Check if this is a gateway instance → forward outgoing to webhook too
       const outGwId = body.customerId || "";
       if (outGwId) {
@@ -2536,8 +2549,8 @@ Deno.serve(async (req) => {
                 const jumpedNode = findNodeById(flow, jumpNodeId)!;
                 const agentHistory = parseAgentHistory(variables.__agent_history);
                 const agentResult = await executeNotionAgent(jumpedNode, userMessage, variables, agentHistory, profile.id, workflowRecord, businessContent, session.id);
-                if (agentResult.checkingMessage) await sendTextMessage(customerId, phone, agentResult.checkingMessage);
-      if (agentResult.response) await sendTextMessage(customerId, phone, agentResult.response);
+                if (agentResult.checkingMessage) await sendTextMessage(customerId, phone, agentResult.checkingMessage, "system");
+      if (agentResult.response) await sendTextMessage(customerId, phone, agentResult.response, "system");
                 await supabase.from("flow_message_log").insert({
                   workflow_id: workflow.id, session_id: session.id,
                   node_id: jumpedNode.id, direction: "outbound",
@@ -2761,8 +2774,8 @@ Deno.serve(async (req) => {
         if (restartLandedNode?.type === "notion_ai_agent") {
           const agentHistory = parseAgentHistory(updatedVariables.__agent_history);
           const agentResult = await executeNotionAgent(restartLandedNode, userMessage, updatedVariables, agentHistory, profile.id, workflowRecord, businessContent, session.id);
-          if (agentResult.checkingMessage) await sendTextMessage(customerId, phone, agentResult.checkingMessage);
-      if (agentResult.response) await sendTextMessage(customerId, phone, agentResult.response);
+          if (agentResult.checkingMessage) await sendTextMessage(customerId, phone, agentResult.checkingMessage, "system");
+      if (agentResult.response) await sendTextMessage(customerId, phone, agentResult.response, "system");
           await supabase.from("flow_message_log").insert({
             workflow_id: workflow.id, session_id: session.id,
             node_id: restartLandedNode.id, direction: "outbound",
@@ -2842,8 +2855,8 @@ Deno.serve(async (req) => {
               const jumpedNode = findNodeById(flow, jumpNodeId)!;
               const agentHistory = parseAgentHistory(updatedVariables.__agent_history);
               const agentResult = await executeNotionAgent(jumpedNode, userMessage, updatedVariables, agentHistory, profile.id, workflowRecord, businessContent, session.id);
-              if (agentResult.checkingMessage) await sendTextMessage(customerId, phone, agentResult.checkingMessage);
-      if (agentResult.response) await sendTextMessage(customerId, phone, agentResult.response);
+              if (agentResult.checkingMessage) await sendTextMessage(customerId, phone, agentResult.checkingMessage, "system");
+      if (agentResult.response) await sendTextMessage(customerId, phone, agentResult.response, "system");
               await supabase.from("flow_message_log").insert({
                 workflow_id: workflow.id, session_id: session.id,
                 node_id: jumpedNode.id, direction: "outbound",
@@ -2922,8 +2935,8 @@ Deno.serve(async (req) => {
     if (currentNode.type === "notion_ai_agent") {
       const agentHistory = parseAgentHistory(updatedVariables.__agent_history);
       const agentResult = await executeNotionAgent(currentNode, userMessage, updatedVariables, agentHistory, profile.id, workflowRecord, businessContent, session.id);
-      if (agentResult.checkingMessage) await sendTextMessage(customerId, phone, agentResult.checkingMessage);
-      if (agentResult.response) await sendTextMessage(customerId, phone, agentResult.response);
+      if (agentResult.checkingMessage) await sendTextMessage(customerId, phone, agentResult.checkingMessage, "system");
+      if (agentResult.response) await sendTextMessage(customerId, phone, agentResult.response, "system");
       await supabase.from("flow_message_log").insert({
         workflow_id: workflow.id, session_id: session.id,
         node_id: currentNode.id, direction: "outbound",
@@ -3365,8 +3378,8 @@ Deno.serve(async (req) => {
     if (landedNode?.type === "notion_ai_agent") {
       const agentHistory = parseAgentHistory(updatedVariables.__agent_history);
       const agentResult = await executeNotionAgent(landedNode, userMessage, updatedVariables, agentHistory, profile.id, workflowRecord, businessContent, session.id);
-      if (agentResult.checkingMessage) await sendTextMessage(customerId, phone, agentResult.checkingMessage);
-      if (agentResult.response) await sendTextMessage(customerId, phone, agentResult.response);
+      if (agentResult.checkingMessage) await sendTextMessage(customerId, phone, agentResult.checkingMessage, "system");
+      if (agentResult.response) await sendTextMessage(customerId, phone, agentResult.response, "system");
       await supabase.from("flow_message_log").insert({
         workflow_id: workflow.id, session_id: session.id,
         node_id: landedNode.id, direction: "outbound",
