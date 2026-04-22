@@ -4,6 +4,8 @@
  * Scoped to notion_ai_agent-based workflows. Safe to import from any edge function.
  */
 
+import { nowIsraelISO } from "./israel-time.ts";
+
 export function normalizePhone(raw: string | null | undefined): string {
   if (!raw) return "";
   let digits = String(raw).replace(/\D/g, "");
@@ -101,7 +103,7 @@ export async function lookupOrCreateNotionLead(
       "מקור הגעה": { select: { name: "אחר" } },
       "נשלח הודעה ראשונה": { checkbox: true },
       "מנוהל ע\"י בוט": { checkbox: true },
-      "תאריך פולואפ": { date: { start: new Date().toISOString() } },
+      "תאריך פולואפ": { date: { start: nowIsraelISO() } },
     },
   };
   const createResp = await fetch(`https://api.notion.com/v1/pages`, {

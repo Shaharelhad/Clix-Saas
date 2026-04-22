@@ -2,6 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { callLLMEngine, classifyTrigger, classifyIntent, callAgentLLM, validateCollectInput, detectRefusal, translateMessage, translateButtonLabels, formatApiResponse, type TriggerInfo, type LLMResult, type AgentToolDefinition, type AgentMessage } from "../_shared/llm-engine.ts";
 import { resolveOperation } from "../_shared/integration-catalog.ts";
 import { normalizePhone as normalizePhoneHelper, getNotionHeadersForNode, lookupOrCreateNotionLead } from "../_shared/notion-lead-helpers.ts";
+import { nowIsraelISO, israelOffsetForDate } from "../_shared/israel-time.ts";
 
 // Eliron-only lead-capture scoping. All new behavior below is gated on this customerId.
 const ELIRON_CUSTOMER_ID = "260222c1-9b83-4206-bb90-7445907fb582";
@@ -1505,7 +1506,7 @@ Combine multiple fields in one call.`,
         "ממתין להסכם",
       ]);
       if (finalStatusValue && FOLLOW_UP_TRIGGER_STATUSES.has(finalStatusValue) && !props["תאריך פולואפ"]) {
-        props["תאריך פולואפ"] = { date: { start: new Date().toISOString() } };
+        props["תאריך פולואפ"] = { date: { start: nowIsraelISO() } };
         console.log("[notion_ai_agent] update_notion auto-refreshed תאריך פולואפ for status:", finalStatusValue);
       }
 
@@ -1590,7 +1591,7 @@ Combine multiple fields in one call.`,
           const notionProps: Record<string, unknown> = {
             "סטטוס": { status: { name: "תהליך מכירה" } },
             "נקבע פגישה": { checkbox: true },
-            "תאריך פולואפ": { date: { start: new Date().toISOString() } },
+            "תאריך פולואפ": { date: { start: nowIsraelISO() } },
           };
           if (bookDate) notionProps["תאריך ושעת האירוע"] = { date: { start: bookDate } };
           if (venue) notionProps["שם מקום אירוע"] = { rich_text: [{ text: { content: venue } }] };
@@ -1706,7 +1707,7 @@ Combine multiple fields in one call.`,
       // at 3 PM, or parroted stale slot proposals from earlier turns. Return a conflict-
       // shaped result so the LLM apologizes and asks the customer for a new time.
       if (args.date && args.time) {
-        const requestedIso = `${args.date}T${args.time}:00+03:00`;
+        const requestedIso = `${args.date}T${args.time}:00${israelOffsetForDate(args.date)}`;
         const requestedMs = Date.parse(requestedIso);
         const nowMs = Date.now();
         if (!Number.isNaN(requestedMs) && requestedMs < nowMs + 30 * 60 * 1000) {
@@ -1750,13 +1751,13 @@ Combine multiple fields in one call.`,
       if (notionApiKey && variables.page_id) {
         const meetingType = args.type === "phone" ? "טלפון" : args.type === "face_to_face" ? "פרונטלית" : "";
         const meetingDateTime = args.date && args.time
-          ? `${args.date}T${args.time}:00+03:00`
+          ? `${args.date}T${args.time}:00${israelOffsetForDate(args.date)}`
           : "";
         const notionProps: Record<string, unknown> = {
           "סטטוס": { status: { name: "ממתין לשיחה/פגישה" } },
           "נקבע פגישה": { checkbox: false },
           "כמות אין מענה": { number: 0 },
-          "תאריך פולואפ": { date: { start: new Date().toISOString() } },
+          "תאריך פולואפ": { date: { start: nowIsraelISO() } },
         };
         if (meetingDateTime) notionProps["תאריך שיחה"] = { date: { start: meetingDateTime } };
         if (meetingType) notionProps["סוג פגישה"] = { select: { name: meetingType } };
