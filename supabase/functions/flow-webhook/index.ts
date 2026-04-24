@@ -1242,7 +1242,7 @@ async function executeNotionAgent(
       }
     }
 
-    const toolGuide = `סדר שימוש בכלים (חובה לעקוב!):\n1. אסוף תאריך + אולם מהלקוח. אם חסר פרט — שאל את הלקוח ואל תמשיך.\n2. find_slots — קרא מיד עם date ו-venue. המערכת תשמור את הפרטים בנוטיון, תעביר ל"תהליך מכירה", תשלח ללקוח את הזמנים, ותחזיר לך אישור. אחרי find_slots אל תשלח טקסט — המערכת כבר שלחה את ההודעה ללקוח.\n3. אם הלקוח מציע זמן אחר — קרא שוב ל-find_slots. אל תשאל סוג פגישה — כל הפגישות הן שיחות טלפון.\n4. create_meeting — ברגע שהלקוח בחר זמן, קרא מיד. המערכת תעדכן את נוטיון אוטומטית.\nחשוב: כשאתה מוכן להפעיל כלים — קרא לכלי מיד, אל תשלח טקסט בלבד!\n`;
+    const toolGuide = `סדר שימוש בכלים (חובה לעקוב!):\n1. אסוף תאריך + אולם מהלקוח. אם חסר פרט — שאל את הלקוח ואל תמשיך.\n2. calendar_check — קרא מיד עם date ו-venue. המערכת תבדוק זמינות ביומן. אם פנוי — המערכת תשלח ללקוח הודעת "בודק זמינות" עם גלריה, תחפש זמני שיחה, תעדכן נוטיון, ותשלח ללקוח הצעת זמנים. אחרי calendar_check אל תשלח טקסט — המערכת כבר שלחה את ההודעה ללקוח.\n3. אם הלקוח מציע זמן אחר — קרא ל-find_slots. אל תשאל סוג פגישה — כל הפגישות הן שיחות טלפון.\n4. create_meeting — ברגע שהלקוח בחר זמן, קרא מיד. המערכת תעדכן את נוטיון אוטומטית.\nחשוב: כשאתה מוכן להפעיל כלים — קרא לכלי מיד, אל תשלח טקסט בלבד!\n`;
 
     guardrails = `הנחיות חשובות — עדיפות עליונה:\n${varSection}${statusSection}${missingSection}${toolGuide}כשלקוח אומר שהוא לא מעוניין, מסרב, או מבקש לסגור — חובה לבצע 2 פעולות:\n1. קרא ל-update_notion ועדכן סטטוס ל"לא מעוניין"\n2. שלח הודעת פרידה: "מבין לגמרי, תודה על הזמן ובהצלחה עם האירוע! אם משהו ישתנה, אני כאן"\nזה הכרחי — אל תנסה לשכנע לקוח שאמר לא.\n\n`;
   }
@@ -1310,8 +1310,12 @@ async function executeNotionAgent(
 אתה: (קרא מיד ל-create_meeting — אל תשלח טקסט)
 </response_style>`;
 
-  // Prompt order: iron rules → date → business → workflow → status → notion history → personality → response style (few-shots last)
-  const systemPrompt = ironRules + dateSection + businessSection + workflowSection + statusSection + notionHistorySection + personalitySection + responseStyle;
+  const postMeetingSection = variables.__meeting_booked === "true"
+    ? `<post_meeting>\nפגישה כבר נקבעה בהצלחה. אל תזכיר את מועד הפגישה בכל תגובה. ענה על שאלות הלקוח בטבעיות — מחירים, פרטים, שאלות כלליות — בלי לחזור על שעת הפגישה. הזכר את הפגישה רק אם הלקוח שואל ספציפית מתי הפגישה.\n</post_meeting>\n\n`
+    : "";
+
+  // Prompt order: iron rules → date → business → workflow → status → post-meeting → notion history → personality → response style (few-shots last)
+  const systemPrompt = ironRules + dateSection + businessSection + workflowSection + statusSection + postMeetingSection + notionHistorySection + personalitySection + responseStyle;
   const tools = node.data.agentTools as Record<string, unknown> || {};
 
   console.log("[notion_ai_agent] Config:", { integrationId: integrationId || "EMPTY", toolsConfig: JSON.stringify(tools).substring(0, 200), promptLen: systemPrompt.length, historyLen: agentHistory.length });
@@ -1341,6 +1345,22 @@ Combine multiple fields in one call.`,
           properties: { type: "string", description: "JSON string of Notion properties to update. Example: {\"סטטוס\": {\"status\": {\"name\": \"תהליך מכירה\"}}}" },
         },
         required: ["page_id", "properties"],
+      },
+    });
+  }
+
+  const calendarCheck = tools.calendarCheck as { enabled?: boolean; webhookUrl?: string } | undefined;
+  if (calendarCheck?.enabled && calendarCheck.webhookUrl) {
+    toolDefs.push({
+      name: "calendar_check",
+      description: "Check calendar availability for the customer's event date. Pass date and venue. If available — system auto-sends checking message, finds meeting slots, updates Notion, and returns slot proposals. If busy (3+ events) — system escalates to Eliron. Call this BEFORE find_slots for new leads.",
+      parameters: {
+        type: "object",
+        properties: {
+          date: { type: "string", description: "Event date YYYY-MM-DD" },
+          venue: { type: "string", description: "Venue/hall name (e.g., אלגריה)" },
+        },
+        required: ["date", "venue"],
       },
     });
   }
@@ -1513,6 +1533,172 @@ Combine multiple fields in one call.`,
       return { success: true };
     }
 
+    if (name === "calendar_check" && calendarCheck?.webhookUrl) {
+      const eventDate = (args.date as string) || (variables.event_date as string) || "";
+      const venue = (args.venue as string) || (variables.venue_name as string) || "";
+      const hasAllEventDetails = !!eventDate && !!venue;
+      const inNewLeadStatus = variables.status === "ליד חדש";
+
+      if (!hasAllEventDetails) {
+        const missing: string[] = [];
+        if (!eventDate) missing.push("תאריך אירוע");
+        if (!venue) missing.push("שם אולם");
+        console.log("[notion_ai_agent] calendar_check blocked — missing:", missing.join(", "));
+        return {
+          error: "missing_event_details",
+          missing,
+          message: `לא ניתן לבדוק זמינות — חסרים: ${missing.join(", ")}. שאל את הלקוח לפני שתקרא ל-calendar_check שוב.`,
+        };
+      }
+
+      const checkResp = await fetch(calendarCheck.webhookUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ date: eventDate }),
+      });
+      const checkResult = await checkResp.json();
+      console.log("[notion_ai_agent] calendar_check result:", JSON.stringify(checkResult));
+
+      // AVAILABLE — auto-chain: checking msg → find_slots → Notion update → hardcoded response
+      if (checkResult.status === "available") {
+        if (inNewLeadStatus && variables.phone && customerId) {
+          const GALLERY_URL = "https://elironvisual.pic-time.com/Sl3voE4qLcpx3?v=10";
+          const checkingMsg = `מקום מהמם 🙂\nדקה בודק זמינות אצלנו ביומן . תתרשמו בנתיים: ${GALLERY_URL}`;
+          try {
+            await sendTextMessage(customerId, variables.phone, checkingMsg, "system");
+            console.log("[notion_ai_agent] calendar_check: checking-availability message sent");
+          } catch (e) {
+            console.error("[notion_ai_agent] calendar_check: checking message failed (continuing):", e);
+          }
+        }
+
+        let slotsResult: Record<string, unknown> = {};
+        if (findSlots?.webhookUrl) {
+          try {
+            const slotsResp = await fetch(findSlots.webhookUrl, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ date: eventDate }),
+            });
+            slotsResult = await slotsResp.json();
+          } catch (e) {
+            console.error("[notion_ai_agent] calendar_check auto-chain find_slots failed:", e);
+          }
+        }
+
+        variables.__proposed_slot1 = (slotsResult.slot1 as string) || "";
+        variables.__proposed_slot2 = (slotsResult.slot2 as string) || "";
+
+        let notionUpdated = false;
+        if (notionApiKey && variables.page_id && inNewLeadStatus) {
+          const notionProps: Record<string, unknown> = {
+            "סטטוס": { status: { name: "תהליך מכירה" } },
+            "נקבע פגישה": { checkbox: true },
+            "תאריך פולואפ": { date: { start: nowIsraelISO() } },
+            "תאריך ושעת האירוע": { date: { start: eventDate } },
+            "שם מקום אירוע": { rich_text: [{ text: { content: venue } }] },
+          };
+          try {
+            const resp = await fetch(`https://api.notion.com/v1/pages/${variables.page_id}`, {
+              method: "PATCH",
+              headers: notionHeaders,
+              body: JSON.stringify({ properties: notionProps }),
+            });
+            notionUpdated = resp.ok;
+            if (notionUpdated) {
+              variables.status = "תהליך מכירה";
+              variables.event_date = eventDate;
+              variables.venue_name = venue;
+              console.log("[notion_ai_agent] calendar_check auto-chain Notion update: SUCCESS");
+            } else {
+              const errText = await resp.text();
+              console.error("[notion_ai_agent] calendar_check auto-chain Notion update: FAILED", resp.status, errText.slice(0, 300));
+            }
+          } catch (e) {
+            console.error("[notion_ai_agent] calendar_check auto-chain Notion update threw:", e);
+          }
+        }
+
+        const dateParts = eventDate.split("-");
+        const formattedDate = dateParts.length === 3
+          ? `${parseInt(dateParts[2], 10)}/${parseInt(dateParts[1], 10)}/${dateParts[0].slice(2)}`
+          : eventDate;
+
+        const slot1Text = (slotsResult.slot1 as string) || "";
+        const slot2Text = (slotsResult.slot2 as string) || "";
+        if (slot1Text && slot2Text) {
+          variables.__hardcoded_response = `בנתיים פנויים בתאריך ${formattedDate} 🙂. מתי יותר נוח שאתקשר . ${slot1Text} או ${slot2Text} ?`;
+        }
+
+        return {
+          ...checkResult,
+          slot1: slot1Text,
+          slot2: slot2Text,
+          notion_updated: notionUpdated,
+          auto_chained: true,
+        };
+      }
+
+      // ESCALATE — busy (3+ events)
+      if (checkResult.status === "escalate") {
+        if (notionApiKey && variables.page_id) {
+          const escalateProps: Record<string, unknown> = {
+            "סטטוס": { status: { name: "לטיפול אישי של אלירון" } },
+            "תאריך ושעת האירוע": { date: { start: eventDate } },
+            "שם מקום אירוע": { rich_text: [{ text: { content: venue } }] },
+          };
+          try {
+            await fetch(`https://api.notion.com/v1/pages/${variables.page_id}`, {
+              method: "PATCH",
+              headers: notionHeaders,
+              body: JSON.stringify({ properties: escalateProps }),
+            });
+            variables.status = "לטיפול אישי של אלירון";
+            console.log("[notion_ai_agent] Escalated: status changed to לטיפול אישי של אלירון");
+          } catch (e) {
+            console.error("[notion_ai_agent] Escalate Notion update error:", e);
+          }
+        }
+
+        if (sessionId) {
+          try {
+            await supabase
+              .from("subscriber_sessions")
+              .update({ cooldown_until: "2099-12-31T23:59:59Z" })
+              .eq("id", sessionId);
+            console.log("[notion_ai_agent] Escalated: bot stopped (cooldown set) for session", sessionId);
+          } catch (e) {
+            console.error("[notion_ai_agent] Escalate cooldown set error:", e);
+          }
+        } else {
+          console.warn("[notion_ai_agent] Escalate: sessionId missing, cooldown NOT set");
+        }
+
+        if (alertEliron?.enabled && alertEliron.webhookUrl && variables.phone) {
+          fetch(alertEliron.webhookUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              customer_name: variables.customer_name || "",
+              phone: variables.phone,
+              event_date: eventDate,
+              venue: venue,
+            }),
+          })
+            .then(() => console.log("[notion_ai_agent] Alert sent to Eliron for", variables.phone))
+            .catch((e) => console.error("[notion_ai_agent] Alert eliron error:", e));
+        }
+
+        return {
+          ...checkResult,
+          escalated: true,
+          message: `התאריך תפוס (${checkResult.event_count || "3+"} אירועים ביומן). ספר ללקוח שיש עומס בתאריך וצריך לבדוק מול אלירון אישית, ושנחזור אליו בהקדם. אל תמשיך את השיחה מעבר לזה.`,
+        };
+      }
+
+      return checkResult;
+    }
+
     if (name === "find_slots" && findSlots?.webhookUrl) {
       // Resolve event details from LLM args (preferred) → Notion-synced variables (fallback).
       const eventDate = (args.date as string) || (variables.event_date as string) || "";
@@ -1545,7 +1731,7 @@ Combine multiple fields in one call.`,
       // proposal that follows ~2-5s later.
       if (hasAllEventDetails && inNewLeadStatus && variables.phone && customerId) {
         const GALLERY_URL = "https://elironvisual.pic-time.com/Sl3voE4qLcpx3?v=10";
-        const checkingMsg = `בודק זמינות דקה תתרשמו בנתיים: ${GALLERY_URL}`;
+        const checkingMsg = `מקום מהמם 🙂\nדקה בודק זמינות אצלנו ביומן . תתרשמו בנתיים: ${GALLERY_URL}`;
         try {
           await sendTextMessage(customerId, variables.phone, checkingMsg, "system");
           console.log("[notion_ai_agent] find_slots: checking-availability message sent");
@@ -1606,7 +1792,11 @@ Combine multiple fields in one call.`,
       const slot1Text = (slotsResult?.slot1 as string) || "";
       const slot2Text = (slotsResult?.slot2 as string) || "";
       if (slot1Text && slot2Text) {
-        variables.__hardcoded_response = `מעולה פנויים בתאריך . מתי יותר נוח לכם שאתקשר\n${slot1Text}\nאו\n${slot2Text}`;
+        const fmtParts = eventDate.split("-");
+        const fmtDate = fmtParts.length === 3
+          ? `${parseInt(fmtParts[2], 10)}/${parseInt(fmtParts[1], 10)}/${fmtParts[0].slice(2)}`
+          : eventDate;
+        variables.__hardcoded_response = `בנתיים פנויים בתאריך ${fmtDate} 🙂. מתי יותר נוח שאתקשר . ${slot1Text} או ${slot2Text} ?`;
       }
 
       return { ...slotsResult, notion_updated: notionUpdated };
@@ -2595,7 +2785,7 @@ Deno.serve(async (req) => {
               // Matches the behavior of the superseded n8n "Lead Entry & Opening Message" cron.
               // Guarded by welcome_sent flag to prevent re-sends on rapid retry webhooks.
               if (lookup.isNew && variables.welcome_sent !== "true") {
-                const WELCOME_MSG_HE = "היי! קודם כל המון מזל טוב! איזה כיף שפניתם אלינו לפני שאשלח את כל הפרטים על חבילת הצילום שראיתם, בואו נבדוק רגע שאנחנו בכלל פנויים בתאריך שלכם כדי שלא נבזבז לכם זמן יקר. מתי האירוע המתוכנן ובאיזה אולם?";
+                const WELCOME_MSG_HE = "היי! קודם כל המון מזל טוב! 💍\nאיזה כיף שפניתם. לפני שאשלח את כל הפרטים על המבצע, בואו נבדוק רגע שאני בכלל פנוי בתאריך שלכם כדי שלא אבזבז לכם זמן סתם.\nמתי האירוע ואיפה?";
                 try {
                   await sendTextMessage(customerId, phone, WELCOME_MSG_HE, "system");
                   await supabase.from("flow_message_log").insert({
