@@ -61,27 +61,31 @@ Deno.serve(async (req) => {
         .update({ bot_status: "not_created" })
         .eq("id", user_id);
 
-      // Reset all active sessions so stale conversations don't block the next connection
-      const { data: userWorkflows } = await supabase
-        .from("workflows")
-        .select("id")
-        .eq("user_id", user_id);
-
-      if (userWorkflows?.length) {
-        const workflowIds = userWorkflows.map((w: { id: string }) => w.id);
-        const { data: activeSessions } = await supabase
-          .from("subscriber_sessions")
+      // Reset all active sessions so stale conversations don't block the next connection.
+      // Skip for Eliron — his leads must keep conversation history across reconnects.
+      const ELIRON_USER_ID = "260222c1-9b83-4206-bb90-7445907fb582";
+      if (user_id !== ELIRON_USER_ID) {
+        const { data: userWorkflows } = await supabase
+          .from("workflows")
           .select("id")
-          .in("workflow_id", workflowIds)
-          .neq("status", "completed");
+          .eq("user_id", user_id);
 
-        if (activeSessions?.length) {
-          await Promise.allSettled(
-            activeSessions.map((s: { id: string }) =>
-              supabase.rpc("reset_conversation_session", { p_session_id: s.id })
-            )
-          );
-          console.log("[wclixapi-connect] Reset", activeSessions.length, "active sessions on disconnect");
+        if (userWorkflows?.length) {
+          const workflowIds = userWorkflows.map((w: { id: string }) => w.id);
+          const { data: activeSessions } = await supabase
+            .from("subscriber_sessions")
+            .select("id")
+            .in("workflow_id", workflowIds)
+            .neq("status", "completed");
+
+          if (activeSessions?.length) {
+            await Promise.allSettled(
+              activeSessions.map((s: { id: string }) =>
+                supabase.rpc("reset_conversation_session", { p_session_id: s.id })
+              )
+            );
+            console.log("[wclixapi-connect] Reset", activeSessions.length, "active sessions on disconnect");
+          }
         }
       }
 
