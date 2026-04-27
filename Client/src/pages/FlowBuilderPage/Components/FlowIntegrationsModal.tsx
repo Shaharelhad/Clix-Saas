@@ -347,7 +347,7 @@ export default function FlowIntegrationsModal({ onClose }: FlowIntegrationsModal
                 <span className="text-xs font-bold text-[#2D2A26]">
                   {editingId ? t("editIntegration") : t("addIntegration")}
                 </span>
-                <button type="button" onClick={closeForm} className="p-0.5 rounded hover:bg-white cursor-pointer" aria-label="Close">
+                <button type="button" onClick={closeForm} className="icon-btn hover:bg-white" aria-label="Close">
                   <X className="w-3.5 h-3.5 text-[#7A7267]" />
                 </button>
               </div>

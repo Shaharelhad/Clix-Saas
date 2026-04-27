@@ -37,7 +37,7 @@ export default function NodeEditorSidebar({ node, onUpdate, onClose, isLocked, s
         <span className="text-sm font-bold text-[#2D2A26]">
           {t(`node${capitalize(data.type)}`)}
         </span>
-        <button type="button" onClick={onClose} className="p-1 rounded hover:bg-[#EDE6DD]/40 cursor-pointer" aria-label="Close">
+        <button type="button" onClick={onClose} className="icon-btn hover:bg-[#EDE6DD]/40" aria-label="Close">
           <X className="w-4 h-4 text-[#7A7267]" />
         </button>
       </div>
@@ -813,7 +813,7 @@ function ConditionEditor({ data, update }: { data: FlowNodeData; update: (patch:
                   <button
                     type="button"
                     onClick={() => deleteRule(idx)}
-                    className="p-1 rounded hover:bg-red-50 cursor-pointer"
+                    className="icon-btn hover:bg-red-50"
                     aria-label={t("conditionDeleteRule")}
                   >
                     <Trash2 className="w-3 h-3 text-red-500" />

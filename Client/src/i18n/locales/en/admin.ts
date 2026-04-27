@@ -42,6 +42,16 @@ const admin = {
   botCreated: "Created",
   botConnected: "Connected",
 
+  // Delete User
+  deleteUserTitle: "Delete User",
+  deleteUserWarning:
+    "This action is permanent and cannot be undone. All user data, bots, documents, and conversations will be deleted.",
+  deleteUserConfirmLabel: "Type the user's email to confirm:",
+  deleteUserButton: "Delete Permanently",
+  deleteUserCancel: "Cancel",
+  deleteUserSuccess: "User deleted successfully",
+  deleteUserError: "Failed to delete user",
+
   // Form Builder
   navFormBuilder: "Form Builder",
   formBuilderTitle: "Form Builder",
