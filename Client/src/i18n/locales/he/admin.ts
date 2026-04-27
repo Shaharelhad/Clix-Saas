@@ -42,6 +42,16 @@ const admin = {
   botCreated: "נוצר",
   botConnected: "מחובר",
 
+  // Delete User
+  deleteUserTitle: "מחיקת משתמש",
+  deleteUserWarning:
+    "פעולה זו סופית ולא ניתנת לביטול. כל נתוני המשתמש, הבוטים, המסמכים והשיחות יימחקו.",
+  deleteUserConfirmLabel: "הקלד את האימייל של המשתמש לאישור:",
+  deleteUserButton: "מחק לצמיתות",
+  deleteUserCancel: "ביטול",
+  deleteUserSuccess: "המשתמש נמחק בהצלחה",
+  deleteUserError: "שגיאה במחיקת המשתמש",
+
   // Form Builder
   navFormBuilder: "בונה טפסים",
   formBuilderTitle: "בונה טפסים",

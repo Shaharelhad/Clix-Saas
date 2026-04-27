@@ -1,9 +1,8 @@
-import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
+import { useMemo, useRef, useState } from "react";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
-import { Loader2, Search, Users } from "lucide-react";
+import { Loader2, Search, Users, Trash2, AlertTriangle, X } from "lucide-react";
 import { supabase } from "@/services/supabase";
 import { cn } from "@/lib/utils";
 
@@ -22,12 +21,57 @@ const BOT_COLORS: Record<string, string> = {
   connected: "bg-emerald-50 text-emerald-700 border-emerald-200",
 };
 
+type DeleteTarget = { id: string; email: string; full_name: string } | null;
+
 export default function AdminUsersSection() {
   const { t } = useTranslation("admin");
-  const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [botFilter, setBotFilter] = useState<BotFilter>("all");
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<DeleteTarget>(null);
+  const [confirmEmail, setConfirmEmail] = useState("");
+  const [toast, setToast] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  const showToast = (type: "success" | "error", text: string) => {
+    clearTimeout(toastTimer.current);
+    setToast({ type, text });
+    toastTimer.current = setTimeout(() => setToast(null), 4000);
+  };
+
+  const deleteMutation = useMutation({
+    mutationFn: async ({ userId, email }: { userId: string; email: string }) => {
+      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-api`;
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          ...(session?.access_token
+            ? { Authorization: `Bearer ${session.access_token}` }
+            : {}),
+        },
+        body: JSON.stringify({ action: "delete_user", userId, confirmEmail: email }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `Error ${res.status}`);
+      if (data.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: () => {
+      setDeleteTarget(null);
+      setConfirmEmail("");
+      setSelectedUserId(null);
+      queryClient.invalidateQueries({ queryKey: ["admin", "all-users"] });
+      showToast("success", t("deleteUserSuccess"));
+    },
+    onError: (err: Error) => {
+      showToast("error", err.message || t("deleteUserError"));
+    },
+  });
 
   const { data: users, isLoading, isError } = useQuery({
     queryKey: ["admin", "all-users"],
@@ -185,9 +229,39 @@ export default function AdminUsersSection() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.96 }}
             transition={{ duration: 0.3, delay: i * 0.03 }}
-            onClick={() => navigate(`/admin/users/${user.id}`)}
-            className="mb-2 rounded-2xl border border-[#E8E4DF] bg-white px-5 py-4 flex items-center gap-4 cursor-pointer hover:bg-[#FDF9F6] hover:border-[#D8723C]/30 hover:shadow-[0_2px_8px_rgba(0,0,0,0.06)] transition-all duration-200 shadow-[0_1px_3px_rgba(0,0,0,0.06)]"
+            onClick={() =>
+              setSelectedUserId((prev) => (prev === user.id ? null : user.id))
+            }
+            className={cn(
+              "mb-2 rounded-2xl border bg-white px-5 py-4 flex items-center gap-4 cursor-pointer hover:bg-[#FDF9F6] hover:shadow-[0_2px_8px_rgba(0,0,0,0.06)] transition-all duration-200 shadow-[0_1px_3px_rgba(0,0,0,0.06)]",
+              selectedUserId === user.id
+                ? "border-red-300 hover:border-red-300"
+                : "border-[#E8E4DF] hover:border-[#D8723C]/30"
+            )}
           >
+            {/* Trash icon \u2014 slides in from left when selected */}
+            <AnimatePresence>
+              {selectedUserId === user.id && (
+                <motion.button
+                  initial={{ opacity: 0, width: 0 }}
+                  animate={{ opacity: 1, width: 36 }}
+                  exit={{ opacity: 0, width: 0 }}
+                  transition={{ duration: 0.2, ease: "easeOut" }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setDeleteTarget({
+                      id: user.id,
+                      email: user.email,
+                      full_name: user.full_name,
+                    });
+                  }}
+                  className="shrink-0 w-9 h-9 rounded-xl border border-red-200 bg-red-50 text-red-500 flex items-center justify-center hover:bg-red-100 hover:text-red-600 transition-colors overflow-hidden cursor-pointer"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </motion.button>
+              )}
+            </AnimatePresence>
+
             {/* Avatar */}
             <div className="w-10 h-10 rounded-full bg-[#D8723C]/10 border border-[#D8723C]/20 flex items-center justify-center shrink-0 text-[#D8723C] font-bold text-sm">
               {user.full_name?.charAt(0) ?? "?"}
@@ -232,6 +306,146 @@ export default function AdminUsersSection() {
             </span>
           </motion.div>
         ))}
+      </AnimatePresence>
+
+      {/* Delete confirmation modal */}
+      <AnimatePresence>
+        {deleteTarget && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+            onClick={() => {
+              if (!deleteMutation.isPending) {
+                setDeleteTarget(null);
+                setConfirmEmail("");
+              }
+            }}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 12 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 12 }}
+              transition={{ duration: 0.2 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 space-y-5"
+            >
+              {/* Header */}
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-red-50 border border-red-200 flex items-center justify-center">
+                    <AlertTriangle className="w-5 h-5 text-red-500" />
+                  </div>
+                  <h2 className="text-lg font-bold text-[#111111]">
+                    {t("deleteUserTitle")}
+                  </h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!deleteMutation.isPending) {
+                      setDeleteTarget(null);
+                      setConfirmEmail("");
+                    }
+                  }}
+                  className="text-[#AAAAAA] hover:text-[#555555] transition-colors cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* User info */}
+              <div className="flex items-center gap-3 p-3 rounded-xl bg-[#FDF9F6] border border-[#E8E4DF]">
+                <div className="w-9 h-9 rounded-full bg-[#D8723C]/10 border border-[#D8723C]/20 flex items-center justify-center text-[#D8723C] font-bold text-sm shrink-0">
+                  {deleteTarget.full_name?.charAt(0) ?? "?"}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-[#111111] truncate">
+                    {deleteTarget.full_name}
+                  </p>
+                  <p className="text-xs text-[#999999] truncate">
+                    {deleteTarget.email}
+                  </p>
+                </div>
+              </div>
+
+              {/* Warning */}
+              <p className="text-sm text-red-600 leading-relaxed">
+                {t("deleteUserWarning")}
+              </p>
+
+              {/* Email confirmation input */}
+              <div className="space-y-2">
+                <label className="text-sm text-[#555555]">
+                  {t("deleteUserConfirmLabel")}
+                </label>
+                <input
+                  type="email"
+                  value={confirmEmail}
+                  onChange={(e) => setConfirmEmail(e.target.value)}
+                  placeholder={deleteTarget.email}
+                  disabled={deleteMutation.isPending}
+                  className="w-full bg-white border border-[#E8E4DF] rounded-xl px-4 py-2.5 text-sm text-[#111111] placeholder:text-[#CCCCCC] focus:outline-none focus:border-red-300 focus:ring-2 focus:ring-red-100 transition-colors disabled:opacity-50"
+                  dir="ltr"
+                />
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-3 pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDeleteTarget(null);
+                    setConfirmEmail("");
+                  }}
+                  disabled={deleteMutation.isPending}
+                  className="flex-1 px-4 py-2.5 rounded-xl border border-[#E8E4DF] text-sm font-medium text-[#555555] hover:bg-[#F5F2EF] transition-colors disabled:opacity-50 cursor-pointer"
+                >
+                  {t("deleteUserCancel")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    deleteMutation.mutate({
+                      userId: deleteTarget.id,
+                      email: confirmEmail,
+                    })
+                  }
+                  disabled={
+                    confirmEmail !== deleteTarget.email ||
+                    deleteMutation.isPending
+                  }
+                  className="flex-1 px-4 py-2.5 rounded-xl bg-red-600 text-white text-sm font-medium hover:bg-red-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  {deleteMutation.isPending && (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  )}
+                  {t("deleteUserButton")}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Toast notification */}
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            className={cn(
+              "fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-xl shadow-lg text-sm font-medium",
+              toast.type === "success"
+                ? "bg-emerald-600 text-white"
+                : "bg-red-600 text-white"
+            )}
+          >
+            {toast.text}
+          </motion.div>
+        )}
       </AnimatePresence>
     </div>
   );

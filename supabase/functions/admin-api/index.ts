@@ -7,8 +7,6 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-const ADMIN_EMAIL = "shahar@seai.co.il";
-
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -35,19 +33,13 @@ serve(async (req) => {
       });
     }
 
-    // Double check: email + admin role
-    if (user.email !== ADMIN_EMAIL) {
-      return new Response(JSON.stringify({ error: "Forbidden" }), {
-        status: 403,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const { data: isAdmin } = await supabaseAdmin.rpc("has_role", {
-      _user_id: user.id,
-      _role: "admin",
-    });
-    if (!isAdmin) {
+    // Verify admin role from profiles table
+    const { data: profile } = await supabaseAdmin
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single();
+    if (!profile || profile.role !== "admin") {
       return new Response(JSON.stringify({ error: "Forbidden" }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -209,9 +201,149 @@ serve(async (req) => {
       }
 
       case "delete_user": {
-        const { userId } = body;
-        const { error } = await supabaseAdmin.auth.admin.deleteUser(userId);
-        if (error) throw error;
+        const { userId, confirmEmail } = body;
+
+        if (!userId || !confirmEmail) {
+          return new Response(
+            JSON.stringify({ error: "userId and confirmEmail are required" }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        // Prevent self-deletion
+        if (userId === user.id) {
+          return new Response(
+            JSON.stringify({ error: "Cannot delete your own account" }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        // Fetch profile and verify email match
+        const { data: targetProfile, error: profileFetchError } = await supabaseAdmin
+          .from("profiles")
+          .select("email")
+          .eq("id", userId)
+          .single();
+
+        if (profileFetchError || !targetProfile) {
+          return new Response(
+            JSON.stringify({ error: "User not found" }),
+            { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        if (targetProfile.email !== confirmEmail) {
+          return new Response(
+            JSON.stringify({ error: "Email confirmation does not match" }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        // Phase 0: Break circular FK (profiles.active_flow_id -> workflows.id)
+        const { error: nullFkError } = await supabaseAdmin
+          .from("profiles")
+          .update({ active_flow_id: null, workflow_id: null })
+          .eq("id", userId);
+        if (nullFkError) throw new Error(`Phase 0 (null FK): ${nullFkError.message}`);
+
+        // Phase 1: Delete leaf tables (no other tables reference these)
+        const leafTables = [
+          { table: "bot_edit_history", column: "user_id" },
+          { table: "demo_conversations", column: "user_id" },
+          { table: "document_chunks", column: "user_id" },
+          { table: "faq_entries", column: "user_id" },
+          { table: "form_responses", column: "user_id" },
+          { table: "gateway_instances", column: "created_by" },
+          { table: "integrations", column: "user_id" },
+          { table: "scraped_data", column: "user_id" },
+          { table: "ticket_messages", column: "user_id" },
+          { table: "support_tickets", column: "user_id" },
+        ];
+
+        for (const { table, column } of leafTables) {
+          const { error: delErr } = await supabaseAdmin
+            .from(table)
+            .delete()
+            .eq(column, userId);
+          if (delErr) throw new Error(`Phase 1 (${table}): ${delErr.message}`);
+        }
+
+        // Phase 2: Get user's workflow IDs for session/analytics cleanup
+        const { data: userWorkflows } = await supabaseAdmin
+          .from("workflows")
+          .select("id")
+          .eq("user_id", userId);
+
+        const workflowIds = (userWorkflows || []).map((w: { id: string }) => w.id);
+
+        if (workflowIds.length > 0) {
+          // Get session IDs for these workflows
+          const { data: sessions } = await supabaseAdmin
+            .from("subscriber_sessions")
+            .select("id")
+            .in("workflow_id", workflowIds);
+
+          const sessionIds = (sessions || []).map((s: { id: string }) => s.id);
+
+          if (sessionIds.length > 0) {
+            const { error: djErr } = await supabaseAdmin
+              .from("flow_delayed_jobs")
+              .delete()
+              .in("session_id", sessionIds);
+            if (djErr) throw new Error(`Phase 2 (flow_delayed_jobs): ${djErr.message}`);
+          }
+
+          const wfDepTables = ["flow_message_log", "node_analytics", "subscriber_sessions"];
+          for (const table of wfDepTables) {
+            const { error: wfErr } = await supabaseAdmin
+              .from(table)
+              .delete()
+              .in("workflow_id", workflowIds);
+            if (wfErr) throw new Error(`Phase 2 (${table}): ${wfErr.message}`);
+          }
+        }
+
+        // Phase 3: Delete parent tables
+        const parentTables = [
+          { table: "scraped_pages", column: "user_id" },
+          { table: "products", column: "user_id" },
+          { table: "scrape_jobs", column: "user_id" },
+          { table: "user_documents", column: "user_id" },
+          { table: "workflows", column: "user_id" },
+        ];
+
+        for (const { table, column } of parentTables) {
+          const { error: delErr } = await supabaseAdmin
+            .from(table)
+            .delete()
+            .eq(column, userId);
+          if (delErr) throw new Error(`Phase 3 (${table}): ${delErr.message}`);
+        }
+
+        // Phase 4: Delete profile
+        const { error: profileDelError } = await supabaseAdmin
+          .from("profiles")
+          .delete()
+          .eq("id", userId);
+        if (profileDelError) throw new Error(`Phase 4 (profiles): ${profileDelError.message}`);
+
+        // Phase 5: Storage cleanup (best-effort)
+        try {
+          const { data: files } = await supabaseAdmin.storage
+            .from("rag-documents")
+            .list(userId);
+          if (files && files.length > 0) {
+            const paths = files.map((f: { name: string }) => `${userId}/${f.name}`);
+            await supabaseAdmin.storage.from("rag-documents").remove(paths);
+          }
+        } catch (_) {
+          // Storage cleanup is best-effort
+        }
+
+        // Phase 6: Delete auth user
+        const { error: authDelError } = await supabaseAdmin.auth.admin.deleteUser(userId);
+        if (authDelError) throw new Error(`Phase 6 (auth): ${authDelError.message}`);
+
         result = { success: true };
         break;
       }
