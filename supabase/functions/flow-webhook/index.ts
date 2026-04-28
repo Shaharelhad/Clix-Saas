@@ -6,6 +6,7 @@ import { nowIsraelISO, israelOffsetForDate } from "../_shared/israel-time.ts";
 
 // Eliron-only lead-capture scoping. All new behavior below is gated on this customerId.
 const ELIRON_CUSTOMER_ID = "260222c1-9b83-4206-bb90-7445907fb582";
+const ELIRON_REFERRAL_PHONE = "972509001007";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -41,6 +42,80 @@ async function updateSessionDirect(
   } catch (err) {
     console.error("[flow] Direct session update error:", err);
   }
+}
+
+// ── Referral message parser ─────────────────────────────────
+// Fixed format: line1 = [name/venue] [date], line2 = phone, line3+ = ignored.
+// Regex handles phone + date; LLM classifies the text as name vs venue.
+async function parseReferralMessage(message: string): Promise<{
+  customerPhone: string | null;
+  customerName: string | null;
+  venueName: string | null;
+  eventDate: string | null;
+}> {
+  const empty = { customerPhone: null, customerName: null, venueName: null, eventDate: null };
+  const lines = message.trim().split(/\n/).map(l => l.trim()).filter(Boolean);
+  if (lines.length < 2) return empty;
+
+  const phoneDigits = lines[1].replace(/\D/g, "");
+  if (phoneDigits.length < 9 || phoneDigits.length > 15) return empty;
+  const customerPhone = phoneDigits;
+
+  const line1 = lines[0];
+  let eventDate: string | null = null;
+  const dateMatch = line1.match(/(\d{1,2})[.\/](\d{1,2})(?:[.\/](\d{2,4}))?/);
+  if (dateMatch) {
+    const day = parseInt(dateMatch[1], 10);
+    const month = parseInt(dateMatch[2], 10);
+    let year = dateMatch[3] ? parseInt(dateMatch[3], 10) : new Date().getFullYear();
+    if (year < 100) year += 2000;
+    if (!dateMatch[3] && new Date(year, month - 1, day) < new Date()) year++;
+    if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+      eventDate = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    }
+  }
+
+  const textBesideDate = line1.replace(/\d{1,2}[.\/]\d{1,2}(?:[.\/]\d{2,4})?/, "").trim();
+  if (!textBesideDate) {
+    return { customerPhone, customerName: null, venueName: null, eventDate };
+  }
+
+  const openrouterKey = Deno.env.get("OPENROUTER_API_KEY");
+  if (!openrouterKey) {
+    return { customerPhone, customerName: textBesideDate, venueName: null, eventDate };
+  }
+
+  try {
+    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${openrouterKey}`,
+      },
+      body: JSON.stringify({
+        model: "google/gemini-3-flash-preview",
+        messages: [
+          { role: "system", content: `Classify the following Hebrew text as either a person's name or an event venue name. Return ONLY valid JSON: {"type":"name"} or {"type":"venue"}. A person's name is a first name like שירן, דני, מיכל. A venue is a hall/garden/location like אולמי נפטון, גן החורשה, האחוזה.` },
+          { role: "user", content: textBesideDate },
+        ],
+        max_tokens: 30,
+        temperature: 0,
+      }),
+    });
+    const data = await res.json() as { choices?: Array<{ message?: { content?: string } }> };
+    const content = data.choices?.[0]?.message?.content?.trim() || "";
+    const jsonMatch = content.match(/\{[\s\S]*?\}/);
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0]);
+      if (parsed.type === "venue") {
+        return { customerPhone, customerName: null, venueName: textBesideDate, eventDate };
+      }
+    }
+  } catch (e) {
+    console.error("[flow] [referral] LLM classify failed:", e);
+  }
+
+  return { customerPhone, customerName: textBesideDate, venueName: null, eventDate };
 }
 
 // ── Types ───────────────────────────────────────────────────
@@ -2210,6 +2285,229 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ ok: true, skipped: body.type || "unknown" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // ── Eliron referral-lead intercept ──────────────────────────
+    // A known referral sender forwards lead info (name/venue + date + phone).
+    // We parse it, create a Notion row for the CUSTOMER, send a welcome to the
+    // CUSTOMER, pre-create a session, and return (never respond to the sender).
+    // Must be BEFORE the silence gates so the referral number isn't blocked.
+    if (body.customerId === ELIRON_CUSTOMER_ID && body.chatType === "private") {
+      const senderDigits = (body.from || "").replace(/\D/g, "");
+      if (senderDigits === ELIRON_REFERRAL_PHONE || senderDigits.endsWith(ELIRON_REFERRAL_PHONE)) {
+        console.log("[flow] [referral] Message from referral sender:", body.from);
+        const referralMsg = (body.message || "").trim();
+        const parsed = await parseReferralMessage(referralMsg);
+
+        if (!parsed.customerPhone) {
+          console.log("[flow] [referral] No customer phone found — ignoring");
+          return new Response(JSON.stringify({ ok: true, skipped: "referral_no_phone" }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        const customerNormPhone = normalizePhoneHelper(parsed.customerPhone);
+        console.log("[flow] [referral] Parsed:", {
+          phone: customerNormPhone, name: parsed.customerName,
+          venue: parsed.venueName, date: parsed.eventDate,
+        });
+
+        const refCustomerId = body.customerId as string;
+
+        // Load profile + workflow
+        const { data: refProfile } = await supabase
+          .from("profiles")
+          .select("id, active_flow_id, bot_status")
+          .eq("id", refCustomerId)
+          .single();
+
+        if (!refProfile || refProfile.bot_status !== "connected" || !refProfile.active_flow_id) {
+          console.log("[flow] [referral] Profile/bot not ready — skipping");
+          return new Response(JSON.stringify({ ok: true, skipped: "referral_profile_issue" }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        const { data: refWorkflow } = await supabase
+          .from("workflows")
+          .select("id, flow_json, status")
+          .eq("id", refProfile.active_flow_id)
+          .single();
+
+        if (!refWorkflow || refWorkflow.status !== "active") {
+          console.log("[flow] [referral] Workflow not active — skipping");
+          return new Response(JSON.stringify({ ok: true, skipped: "referral_workflow_issue" }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        const refFlow = refWorkflow.flow_json as FlowJSON;
+        const notionAgentNode = refFlow.nodes.find((n) => n.type === "notion_ai_agent");
+        if (!notionAgentNode) {
+          console.log("[flow] [referral] No notion_ai_agent node — skipping");
+          return new Response(JSON.stringify({ ok: true, skipped: "referral_no_agent" }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        const databaseId = (notionAgentNode.data as Record<string, unknown>).agentDatabaseId as string | undefined;
+        if (!databaseId) {
+          console.log("[flow] [referral] No databaseId on agent node — skipping");
+          return new Response(JSON.stringify({ ok: true, skipped: "referral_no_db" }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        const notionHeaders = await getNotionHeadersForNode(notionAgentNode, supabase);
+        if (!notionHeaders) {
+          console.log("[flow] [referral] No Notion headers — skipping");
+          return new Response(JSON.stringify({ ok: true, skipped: "referral_no_notion" }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        // Create or find Notion row for the customer
+        const lookup = await lookupOrCreateNotionLead({
+          databaseId,
+          normalizedPhone: customerNormPhone,
+          pushName: parsed.customerName,
+          notionHeaders,
+        });
+
+        if (!lookup.isNew) {
+          console.log("[flow] [referral] Customer already in Notion:", lookup.pageId, "— skipping");
+          return new Response(JSON.stringify({ ok: true, skipped: "referral_existing_lead" }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        const pageId = lookup.pageId;
+
+        // Build Notion title per rules
+        let titleText = "";
+        if (parsed.eventDate && parsed.customerName) {
+          titleText = `${formatEventDateForTitle(parsed.eventDate)} ${parsed.customerName}`;
+        } else if (parsed.eventDate && parsed.venueName) {
+          titleText = formatEventDateForTitle(parsed.eventDate);
+        } else if (parsed.eventDate) {
+          titleText = formatEventDateForTitle(parsed.eventDate);
+        } else if (parsed.customerName) {
+          titleText = parsed.customerName;
+        } else {
+          titleText = customerNormPhone;
+        }
+
+        // PATCH Notion row with enriched data
+        const notionUpdates: Record<string, unknown> = {
+          "שם לקוח": { title: [{ text: { content: titleText } }] },
+          "מקור הגעה": { select: { name: "הפניה" } },
+        };
+        if (parsed.eventDate) {
+          notionUpdates["תאריך ושעת האירוע"] = { date: { start: parsed.eventDate } };
+        }
+        if (parsed.venueName) {
+          notionUpdates["שם מקום אירוע"] = { rich_text: [{ text: { content: parsed.venueName } }] };
+        }
+        // If both date + venue → advance to sales process
+        if (parsed.eventDate && parsed.venueName) {
+          notionUpdates["סטטוס"] = { status: { name: "תהליך מכירה" } };
+        }
+
+        try {
+          await fetch(`https://api.notion.com/v1/pages/${pageId}`, {
+            method: "PATCH",
+            headers: notionHeaders,
+            body: JSON.stringify({ properties: notionUpdates }),
+          });
+          console.log("[flow] [referral] Notion row updated:", pageId);
+        } catch (e) {
+          console.error("[flow] [referral] Notion update failed:", e);
+        }
+
+        // Build dynamic welcome message
+        const SHORT_WELCOME = "היי! קודם כל המון מזל טוב! 💍\nאיזה כיף שפניתם.";
+        let welcomeMessage: string;
+        if (parsed.eventDate && parsed.venueName) {
+          welcomeMessage = SHORT_WELCOME;
+        } else if (parsed.eventDate) {
+          welcomeMessage = SHORT_WELCOME + "\nבאיזה מקום האירוע?";
+        } else if (parsed.venueName) {
+          welcomeMessage = SHORT_WELCOME + "\nמתי האירוע?";
+        } else {
+          welcomeMessage = "היי! קודם כל המון מזל טוב! 💍\nאיזה כיף שפניתם. לפני שאשלח את כל הפרטים על המבצע, בואו נבדוק רגע שאני בכלל פנוי בתאריך שלכם כדי שלא אבזבז לכם זמן סתם.\nמתי האירוע ואיפה?";
+        }
+
+        // Send welcome to customer (NOT the referral sender)
+        try {
+          await sendTextMessage(refCustomerId, customerNormPhone, welcomeMessage, "system");
+          console.log("[flow] [referral] Welcome sent to customer:", customerNormPhone);
+        } catch (e) {
+          console.error("[flow] [referral] Failed to send welcome:", e);
+        }
+
+        // Pre-create session for the customer so their reply continues naturally
+        const sessionVars: Record<string, string> = {
+          phone: customerNormPhone,
+          page_id: pageId,
+          is_new_lead: "true",
+          welcome_sent: "true",
+          referral_source: "true",
+          __agent_history: JSON.stringify([{ role: "assistant", content: welcomeMessage }]),
+        };
+        if (parsed.customerName) sessionVars.customer_name = parsed.customerName;
+        if (parsed.eventDate) sessionVars.event_date = parsed.eventDate;
+        if (parsed.venueName) sessionVars.venue_name = parsed.venueName;
+        if (parsed.eventDate && parsed.venueName) sessionVars.__first_turn = "true";
+
+        const { data: existingSessions } = await supabase
+          .from("subscriber_sessions")
+          .select("id")
+          .eq("workflow_id", refWorkflow.id)
+          .eq("phone", customerNormPhone)
+          .limit(1);
+
+        let sessionId: string | null = null;
+        if (existingSessions && existingSessions.length > 0) {
+          sessionId = existingSessions[0].id;
+          console.log("[flow] [referral] Session already exists — skipping creation");
+        } else {
+          const { data: newSession, error: sessErr } = await supabase
+            .from("subscriber_sessions")
+            .insert({
+              workflow_id: refWorkflow.id,
+              phone: customerNormPhone,
+              current_node_id: notionAgentNode.id,
+              variables: sessionVars,
+              status: "active",
+            })
+            .select("id")
+            .single();
+          if (sessErr) {
+            console.error("[flow] [referral] Session create failed:", sessErr);
+          } else {
+            sessionId = newSession?.id || null;
+            console.log("[flow] [referral] Session pre-created:", sessionId);
+          }
+        }
+
+        // Log outbound message
+        if (sessionId) {
+          await supabase.from("flow_message_log").insert({
+            workflow_id: refWorkflow.id,
+            session_id: sessionId,
+            direction: "outbound",
+            message_type: "text",
+            content: welcomeMessage,
+          });
+        }
+
+        return new Response(JSON.stringify({
+          ok: true, action: "referral_lead_processed",
+          customerPhone: customerNormPhone, pageId,
+        }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
     // Eliron-only silence gates — scoped strictly to his customerId so other tenants are unaffected.
