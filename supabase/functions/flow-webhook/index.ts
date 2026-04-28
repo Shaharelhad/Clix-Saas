@@ -2505,6 +2505,7 @@ Deno.serve(async (req) => {
       .limit(1);
 
     let session = sessions?.[0] || null;
+    let justReset = false;
 
     // ── Session Auto-Reset: clear expired sessions ──────────────
     if (session && settings.sessionResetEnabled && session.last_message_at) {
@@ -2529,6 +2530,7 @@ Deno.serve(async (req) => {
           if (r.status === "rejected") console.error("[flow] Session reset op", i, "failed:", r.reason);
         });
         session = { ...session, ...resetState };
+        justReset = true;
       }
     }
 
@@ -2732,8 +2734,9 @@ Deno.serve(async (req) => {
     let currentNodeId = session.current_node_id;
 
     // Refresh session state to get latest updates (protects against race conditions
-    // where a previous request is still processing and hasn't updated the session yet)
-    {
+    // where a previous request is still processing and hasn't updated the session yet).
+    // Skip when we just reset — the in-memory state IS the source of truth.
+    if (!justReset) {
       const { data: freshSession } = await supabase
         .from("subscriber_sessions")
         .select("current_node_id, variables, status")
@@ -3724,7 +3727,7 @@ Deno.serve(async (req) => {
     }
 
     // Empty flow fallback — Start node matched but no children → use LLM
-    if (!nextNodeId && !workflow.strict_mode && nodesExecuted === 0) {
+    if (!nextNodeId && !settings.strictMode && nodesExecuted === 0) {
       console.log("[flow] Empty flow fallback — using LLM response");
       await updateSessionDirect(session.id, {
         current_node_id: null,
@@ -3735,6 +3738,24 @@ Deno.serve(async (req) => {
       await callOpenLLM(profile.id, userMessage, session.id, workflow.id, customerId, phone, workflowRecord, langPref);
       return new Response(
         JSON.stringify({ ok: true, action: "llm_fallback", current_node: null }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    } else if (!nextNodeId && settings.strictMode && nodesExecuted === 0) {
+      console.log("[flow] Strict mode — empty flow, sending nudge");
+      const nudge = "אני יכול לעזור רק דרך התהליך. שלח הודעה כדי להתחיל.";
+      await sendTextMessage(customerId, phone, nudge);
+      await supabase.from("flow_message_log").insert({
+        workflow_id: workflow.id, session_id: session.id,
+        direction: "outbound", message_type: "text", content: nudge,
+      });
+      await updateSessionDirect(session.id, {
+        current_node_id: null,
+        variables: updatedVariables,
+        status: "completed",
+        last_message_at: new Date().toISOString(),
+      });
+      return new Response(
+        JSON.stringify({ ok: true, action: "strict_empty_nudge" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
