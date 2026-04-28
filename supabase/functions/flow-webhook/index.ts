@@ -7,6 +7,7 @@ import { nowIsraelISO, israelOffsetForDate } from "../_shared/israel-time.ts";
 // Eliron-only lead-capture scoping. All new behavior below is gated on this customerId.
 const ELIRON_CUSTOMER_ID = "260222c1-9b83-4206-bb90-7445907fb582";
 const ELIRON_REFERRAL_PHONE = "972509001007";
+const ELIRON_MEETINGS_DB = "3438a0876878811786c9f5c04c9c579c";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -1980,6 +1981,44 @@ Combine multiple fields in one call.`,
           }
         } catch (e) {
           console.error("[notion_ai_agent] create_meeting Notion auto-sync threw:", e);
+        }
+      }
+
+      // Create row in meetings diary (Eliron only)
+      if (customerId === ELIRON_CUSTOMER_ID && notionApiKey) {
+        try {
+          const datePart = variables.event_date ? formatEventDateForTitle(variables.event_date) : "";
+          const namePart = variables.customer_name || "";
+          const diaryTitle = [datePart, namePart].filter(Boolean).join(" ") || variables.phone || "";
+
+          const diaryProps: Record<string, unknown> = {
+            "Name": {
+              title: [{ text: { content: diaryTitle } }],
+            },
+            "סוג פגישה": { status: { name: "פגישה טלפונית" } },
+          };
+          if (meetingDateTime) {
+            diaryProps["תאריך פגישה"] = { date: { start: meetingDateTime } };
+          }
+          if (variables.page_id) {
+            diaryProps["כרטיס לקוח"] = { relation: [{ id: variables.page_id }] };
+          }
+
+          const diaryResp = await fetch("https://api.notion.com/v1/pages", {
+            method: "POST",
+            headers: notionHeaders,
+            body: JSON.stringify({
+              parent: { database_id: ELIRON_MEETINGS_DB },
+              properties: diaryProps,
+            }),
+          });
+          console.log("[notion_ai_agent] meetings diary row:", diaryResp.ok ? "CREATED" : "FAILED");
+          if (!diaryResp.ok) {
+            const errText = await diaryResp.text();
+            console.error("[notion_ai_agent] meetings diary error:", errText.substring(0, 300));
+          }
+        } catch (e) {
+          console.error("[notion_ai_agent] meetings diary threw:", e);
         }
       }
 
