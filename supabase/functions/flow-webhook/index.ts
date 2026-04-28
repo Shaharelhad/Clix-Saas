@@ -2459,7 +2459,7 @@ Deno.serve(async (req) => {
             cooldown_until: null,
             current_node_id: null,
             variables: { phone },
-            conversation_stage: null,
+            conversation_stage: "",
             follow_up_count: 0,
             status: "active",
           })
@@ -2512,15 +2512,19 @@ Deno.serve(async (req) => {
     let justReset = false;
 
     if (resetKeywordMatched && session) {
-      await updateSessionDirect(session.id, {
-        cooldown_until: null,
-        current_node_id: null,
-        variables: { phone },
-        conversation_stage: null,
-        follow_up_count: 0,
-        status: "active",
-      });
+      await Promise.allSettled([
+        updateSessionDirect(session.id, {
+          cooldown_until: null,
+          current_node_id: null,
+          variables: { phone },
+          conversation_stage: "",
+          follow_up_count: 0,
+          status: "active",
+        }),
+        supabase.from("flow_delayed_jobs").update({ status: "cancelled" }).eq("session_id", session.id).eq("status", "pending"),
+      ]);
       session = { ...session, cooldown_until: null, current_node_id: null, variables: { phone }, status: "active" };
+      justReset = true;
     }
 
     // ── Session Auto-Reset: clear expired sessions ──────────────
@@ -2534,7 +2538,7 @@ Deno.serve(async (req) => {
           variables: { phone },
           status: "active" as const,
           follow_up_count: 0,
-          conversation_stage: null,
+          conversation_stage: "",
         };
         // Run all three cleanup operations concurrently (allSettled so partial failures don't crash the webhook)
         const results = await Promise.allSettled([
@@ -2548,6 +2552,20 @@ Deno.serve(async (req) => {
         session = { ...session, ...resetState };
         justReset = true;
       }
+    }
+
+    if (resetKeywordMatched && session) {
+      await supabase.from("flow_message_log").insert({
+        workflow_id: workflow.id,
+        session_id: session.id,
+        direction: "inbound",
+        message_type: "text",
+        content: userMessage,
+      });
+      console.log("[flow] Reset keyword handled for", phone, "— returning without flow processing");
+      return new Response(JSON.stringify({ ok: true, action: "reset_keyword" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     if (!session) {
