@@ -2511,6 +2511,18 @@ Deno.serve(async (req) => {
     let session = sessions?.[0] || null;
     let justReset = false;
 
+    if (resetKeywordMatched && session) {
+      await updateSessionDirect(session.id, {
+        cooldown_until: null,
+        current_node_id: null,
+        variables: { phone },
+        conversation_stage: null,
+        follow_up_count: 0,
+        status: "active",
+      });
+      session = { ...session, cooldown_until: null, current_node_id: null, variables: { phone }, status: "active" };
+    }
+
     // ── Session Auto-Reset: clear expired sessions ──────────────
     if (session && settings.sessionResetEnabled && session.last_message_at) {
       const idleMs = Date.now() - new Date(session.last_message_at).getTime();
