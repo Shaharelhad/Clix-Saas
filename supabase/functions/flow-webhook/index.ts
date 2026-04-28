@@ -1992,13 +1992,16 @@ Combine multiple fields in one call.`,
           const diaryTitle = [datePart, namePart].filter(Boolean).join(" ") || variables.phone || "";
 
           const diaryProps: Record<string, unknown> = {
-            "Name": {
+            "שם  לקוח": {
               title: [{ text: { content: diaryTitle } }],
             },
-            "סוג פגישה": { status: { name: "פגישה טלפונית" } },
+            "סוג פגישה": { select: { name: "פגישה טלפונית" } },
           };
-          if (meetingDateTime) {
-            diaryProps["תאריך פגישה"] = { date: { start: meetingDateTime } };
+          const diaryDateTime = args.date && args.time
+            ? `${args.date}T${args.time}:00${israelOffsetForDate(args.date as string)}`
+            : "";
+          if (diaryDateTime) {
+            diaryProps["תאריך פגישה"] = { date: { start: diaryDateTime } };
           }
           if (variables.page_id) {
             diaryProps["כרטיס לקוח"] = { relation: [{ id: variables.page_id }] };
