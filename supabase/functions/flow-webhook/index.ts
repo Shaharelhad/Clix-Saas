@@ -2448,6 +2448,7 @@ Deno.serve(async (req) => {
     }
 
     // ── Guard 1.5: Reset keyword — clears cooldown + session, falls through ──
+    let resetKeywordMatched = false;
     {
       const resetKw = (settings.resetKeyword || "").trim();
       if (resetKw && userMessage.trim() === resetKw) {
@@ -2464,15 +2465,13 @@ Deno.serve(async (req) => {
           })
           .eq("workflow_id", workflow.id)
           .eq("phone", phone);
-        // fall through — cooldown guard below sees null, session reload picks up fresh state and re-enters trigger
+        resetKeywordMatched = true;
       }
     }
 
     // ── Guard 2: Cooldown check ──────────────────────────────
-    // We ALWAYS honor an active cooldown_until, regardless of settings.cooldownEnabled.
-    // The setting only gates the automatic per-response cooldown. Explicit hard-stops
-    // (e.g., escalate in executeNotionAgent) must never be silently bypassed.
-    {
+    // Skip if reset keyword just cleared the cooldown (DB write may not be visible yet).
+    if (!resetKeywordMatched) {
       const { data: cooldownSession } = await supabase
         .from("subscriber_sessions")
         .select("cooldown_until")
@@ -2511,6 +2510,18 @@ Deno.serve(async (req) => {
 
     let session = sessions?.[0] || null;
     let justReset = false;
+
+    if (resetKeywordMatched && session) {
+      await updateSessionDirect(session.id, {
+        cooldown_until: null,
+        current_node_id: null,
+        variables: { phone },
+        conversation_stage: null,
+        follow_up_count: 0,
+        status: "active",
+      });
+      session = { ...session, cooldown_until: null, current_node_id: null, variables: { phone }, status: "active" };
+    }
 
     // ── Session Auto-Reset: clear expired sessions ──────────────
     if (session && settings.sessionResetEnabled && session.last_message_at) {
