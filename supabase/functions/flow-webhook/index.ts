@@ -1245,6 +1245,9 @@ async function executeNotionAgent(
       if (missing.length > 0) {
         missingSection = `לפי הנתונים בנוטיון, עדיין חסרים: ${missing.join(", ")}.\nאם הלקוח כבר נתן את הפרטים בשיחה — אתה יכול להמשיך לשמור אותם ולהציע זמני שיחה.\nאם לא — שאל את הלקוח.\n`;
       }
+      if (variables.__first_turn === "true") {
+        missingSection += `\nזו ההודעה הראשונה של הלקוח. כבר שלחנו ברכת "מזל טוב" קצרה.\nאל תחזור על ברכת המזל טוב — כבר נשלחה.\nבדוק אם הלקוח סיפק תאריך ו/או אולם בהודעה שלו:\n- אם שניהם קיימים — קרא מיד ל-calendar_check עם הפרטים.\n- אם רק אחד קיים — שאל בקצרה רק את הפרט החסר.\n- אם אף אחד לא סופק — שאל מתי האירוע ואיפה.\n`;
+      }
     }
 
     const toolGuide = `סדר שימוש בכלים (חובה לעקוב!):\n1. אסוף תאריך + אולם מהלקוח. אם חסר פרט — שאל את הלקוח ואל תמשיך.\n2. calendar_check — קרא מיד עם date ו-venue. המערכת תבדוק זמינות ביומן. אם פנוי — המערכת תשלח ללקוח הודעת "בודק זמינות" עם גלריה, תחפש זמני שיחה, תעדכן נוטיון, ותשלח ללקוח הצעת זמנים. אחרי calendar_check אל תשלח טקסט — המערכת כבר שלחה את ההודעה ללקוח.\n3. אם הלקוח מציע זמן אחר — קרא ל-find_slots. אל תשאל סוג פגישה — כל הפגישות הן שיחות טלפון.\n4. create_meeting — ברגע שהלקוח בחר זמן, קרא מיד. המערכת תעדכן את נוטיון אוטומטית.\nחשוב: כשאתה מוכן להפעיל כלים — קרא לכלי מיד, אל תשלח טקסט בלבד!\n`;
@@ -1952,6 +1955,8 @@ Combine multiple fields in one call.`,
     return m;
   });
   const trimmedHistory = trimAgentHistory(compressedHistory, 30);
+
+  delete variables.__first_turn;
 
   return {
     response: result.response,
@@ -2817,30 +2822,50 @@ Deno.serve(async (req) => {
                 });
               }
 
-              // If this is a brand-new lead (the bot just created the Notion page),
-              // send the hardcoded Hebrew welcome and skip the agent for this turn.
-              // Matches the behavior of the superseded n8n "Lead Entry & Opening Message" cron.
-              // Guarded by welcome_sent flag to prevent re-sends on rapid retry webhooks.
+              // If this is a brand-new lead, check if their first message contains event details.
+              // If yes → send short greeting + let LLM handle details extraction / calendar check.
+              // If no  → send full welcome asking for date & venue, return immediately (current behavior).
               if (lookup.isNew && variables.welcome_sent !== "true") {
-                const WELCOME_MSG_HE = "היי! קודם כל המון מזל טוב! 💍\nאיזה כיף שפניתם. לפני שאשלח את כל הפרטים על המבצע, בואו נבדוק רגע שאני בכלל פנוי בתאריך שלכם כדי שלא אבזבז לכם זמן סתם.\nמתי האירוע ואיפה?";
-                try {
-                  await sendTextMessage(customerId, phone, WELCOME_MSG_HE, "system");
-                  await supabase.from("flow_message_log").insert({
-                    workflow_id: workflow.id,
-                    session_id: session.id,
-                    direction: "outbound",
-                    message_type: "text",
-                    content: WELCOME_MSG_HE,
-                  });
-                  variables = { ...variables, welcome_sent: "true" };
-                  await updateSessionDirect(session.id, { variables });
-                  console.log("[flow] [new-lead-welcome] sent to", outPhone);
-                  return new Response(JSON.stringify({ ok: true, action: "new_lead_welcome_sent" }), {
-                    headers: { ...corsHeaders, "Content-Type": "application/json" },
-                  });
-                } catch (welcomeErr) {
-                  console.error("[flow] [new-lead-welcome] send failed — agent will handle next turn:", welcomeErr);
-                  // Fall through — don't set welcome_sent so next message can retry the welcome.
+                const hasEventHints = /\d{1,2}[.\/\-]\d{1,2}/.test(userMessage) ||
+                  /(?:ינואר|פברואר|מרץ|אפריל|מאי|יוני|יולי|אוגוסט|ספטמבר|אוקטובר|נובמבר|דצמבר)/i.test(userMessage) ||
+                  /(?:אולם|גן אירועים|גן\s*ארועים)/i.test(userMessage);
+
+                if (hasEventHints) {
+                  const SHORT_WELCOME = "היי! קודם כל המון מזל טוב! 💍\nאיזה כיף שפניתם.";
+                  try {
+                    await sendTextMessage(customerId, phone, SHORT_WELCOME, "system");
+                    await supabase.from("flow_message_log").insert({
+                      workflow_id: workflow.id, session_id: session.id,
+                      direction: "outbound", message_type: "text", content: SHORT_WELCOME,
+                    });
+                    variables = {
+                      ...variables,
+                      welcome_sent: "true",
+                      __first_turn: "true",
+                      __agent_history: JSON.stringify([{ role: "assistant", content: SHORT_WELCOME }]),
+                    };
+                    await updateSessionDirect(session.id, { variables });
+                    console.log("[flow] [new-lead-welcome] short greeting sent to", outPhone, "— continuing to LLM");
+                  } catch (welcomeErr) {
+                    console.error("[flow] [new-lead-welcome] send failed — agent will handle next turn:", welcomeErr);
+                  }
+                } else {
+                  const WELCOME_MSG_HE = "היי! קודם כל המון מזל טוב! 💍\nאיזה כיף שפניתם. לפני שאשלח את כל הפרטים על המבצע, בואו נבדוק רגע שאני בכלל פנוי בתאריך שלכם כדי שלא אבזבז לכם זמן סתם.\nמתי האירוע ואיפה?";
+                  try {
+                    await sendTextMessage(customerId, phone, WELCOME_MSG_HE, "system");
+                    await supabase.from("flow_message_log").insert({
+                      workflow_id: workflow.id, session_id: session.id,
+                      direction: "outbound", message_type: "text", content: WELCOME_MSG_HE,
+                    });
+                    variables = { ...variables, welcome_sent: "true" };
+                    await updateSessionDirect(session.id, { variables });
+                    console.log("[flow] [new-lead-welcome] sent to", outPhone);
+                    return new Response(JSON.stringify({ ok: true, action: "new_lead_welcome_sent" }), {
+                      headers: { ...corsHeaders, "Content-Type": "application/json" },
+                    });
+                  } catch (welcomeErr) {
+                    console.error("[flow] [new-lead-welcome] send failed — agent will handle next turn:", welcomeErr);
+                  }
                 }
               }
             } else {
