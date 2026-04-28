@@ -1,7 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { callLLMEngine, classifyTrigger, classifyIntent, callAgentLLM, validateCollectInput, detectRefusal, translateMessage, translateButtonLabels, formatApiResponse, type TriggerInfo, type LLMResult, type AgentToolDefinition, type AgentMessage } from "../_shared/llm-engine.ts";
 import { resolveOperation } from "../_shared/integration-catalog.ts";
-import { normalizePhone as normalizePhoneHelper, getNotionHeadersForNode, lookupOrCreateNotionLead } from "../_shared/notion-lead-helpers.ts";
+import { normalizePhone as normalizePhoneHelper, getNotionHeadersForNode, lookupOrCreateNotionLead, formatEventDateForTitle } from "../_shared/notion-lead-helpers.ts";
 import { nowIsraelISO, israelOffsetForDate } from "../_shared/israel-time.ts";
 
 // Eliron-only lead-capture scoping. All new behavior below is gated on this customerId.
@@ -1173,7 +1173,7 @@ async function executeNotionAgent(
         const titleArr = (titleProp?.title as Array<Record<string, unknown>>) || [];
         const liveName = titleArr.map((t) => (t.plain_text as string) || "").join("");
         if (liveName.length > 0) {
-          variables.customer_name = liveName;
+          variables.customer_name = liveName.replace(/^\d{1,2}\/\d{1,2}\/\d{2,4}\s+/, "").trim() || liveName;
         }
         const statusProp = props["סטטוס"] as Record<string, unknown> | undefined;
         const liveStatus = (statusProp?.status as Record<string, unknown> | undefined)?.name;
@@ -1504,6 +1504,12 @@ Combine multiple fields in one call.`,
         console.log("[notion_ai_agent] update_notion auto-refreshed תאריך פולואפ for status:", finalStatusValue);
       }
 
+      const eventDateInUpdate = props["תאריך ושעת האירוע"] as Record<string, unknown> | undefined;
+      const eventDateValue = (eventDateInUpdate?.date as Record<string, unknown> | undefined)?.start as string | undefined;
+      if (eventDateValue && !props["שם לקוח"]) {
+        props["שם לקוח"] = { title: [{ text: { content: `${formatEventDateForTitle(eventDateValue)} ${variables.customer_name || ""}`.trim() } }] };
+      }
+
       const body = JSON.stringify({ properties: props });
       console.log("[notion_ai_agent] Notion PATCH body:", body.substring(0, 500));
       const response = await fetch(`https://api.notion.com/v1/pages/${pageId}`, {
@@ -1605,6 +1611,7 @@ Combine multiple fields in one call.`,
             "תאריך פולואפ": { date: { start: nowIsraelISO() } },
             "תאריך ושעת האירוע": { date: { start: eventDate } },
             "שם מקום אירוע": { rich_text: [{ text: { content: venue } }] },
+            "שם לקוח": { title: [{ text: { content: `${formatEventDateForTitle(eventDate)} ${variables.customer_name || ""}`.trim() } }] },
           };
           try {
             const resp = await fetch(`https://api.notion.com/v1/pages/${variables.page_id}`, {
@@ -1654,6 +1661,7 @@ Combine multiple fields in one call.`,
             "סטטוס": { status: { name: "לטיפול אישי של אלירון" } },
             "תאריך ושעת האירוע": { date: { start: eventDate } },
             "שם מקום אירוע": { rich_text: [{ text: { content: venue } }] },
+            "שם לקוח": { title: [{ text: { content: `${formatEventDateForTitle(eventDate)} ${variables.customer_name || ""}`.trim() } }] },
           };
           try {
             await fetch(`https://api.notion.com/v1/pages/${variables.page_id}`, {
@@ -1772,6 +1780,7 @@ Combine multiple fields in one call.`,
           "תאריך פולואפ": { date: { start: nowIsraelISO() } },
           "תאריך ושעת האירוע": { date: { start: eventDate } },
           "שם מקום אירוע": { rich_text: [{ text: { content: venue } }] },
+          "שם לקוח": { title: [{ text: { content: `${formatEventDateForTitle(eventDate)} ${variables.customer_name || ""}`.trim() } }] },
         };
         try {
           const resp = await fetch(`https://api.notion.com/v1/pages/${variables.page_id}`, {

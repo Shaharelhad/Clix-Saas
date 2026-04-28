@@ -118,3 +118,11 @@ export async function lookupOrCreateNotionLead(
   const newPage = await createResp.json() as { id: string };
   return { pageId: newPage.id, isNew: true, botActivated: true };
 }
+
+export function formatEventDateForTitle(isoDate: string): string {
+  const parts = isoDate.split("-");
+  if (parts.length >= 3) {
+    return `${parseInt(parts[2], 10)}/${parseInt(parts[1], 10)}/${parts[0].slice(2)}`;
+  }
+  return isoDate;
+}
