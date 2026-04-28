@@ -695,6 +695,11 @@ async function executeNode(
       const next = findNextNode(flow, node.id);
       return { nextNodeId: next?.id || null, waitForInput: false };
     }
+    const s = getFlowSettings(flow);
+    const next = findNextNode(flow, node.id);
+    if (!next && (s.strictMode || s.postFlowPauseEnabled)) {
+      return { nextNodeId: null, waitForInput: false };
+    }
     return { nextNodeId: node.id, waitForInput: true };
   }
 
@@ -3726,38 +3731,56 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Empty flow fallback — Start node matched but no children → use LLM
-    if (!nextNodeId && !settings.strictMode && nodesExecuted === 0) {
-      console.log("[flow] Empty flow fallback — using LLM response");
-      await updateSessionDirect(session.id, {
-        current_node_id: null,
-        variables: updatedVariables,
-        status: "completed",
-        last_message_at: new Date().toISOString(),
-      });
-      await callOpenLLM(profile.id, userMessage, session.id, workflow.id, customerId, phone, workflowRecord, langPref);
-      return new Response(
-        JSON.stringify({ ok: true, action: "llm_fallback", current_node: null }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    } else if (!nextNodeId && settings.strictMode && nodesExecuted === 0) {
-      console.log("[flow] Strict mode — empty flow, sending nudge");
-      const nudge = "אני יכול לעזור רק דרך התהליך. שלח הודעה כדי להתחיל.";
-      await sendTextMessage(customerId, phone, nudge);
-      await supabase.from("flow_message_log").insert({
-        workflow_id: workflow.id, session_id: session.id,
-        direction: "outbound", message_type: "text", content: nudge,
-      });
-      await updateSessionDirect(session.id, {
-        current_node_id: null,
-        variables: updatedVariables,
-        status: "completed",
-        last_message_at: new Date().toISOString(),
-      });
-      return new Response(
-        JSON.stringify({ ok: true, action: "strict_empty_nudge" }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    // No next node and nothing executed this turn — either empty flow or end of flow
+    if (!nextNodeId && nodesExecuted === 0) {
+      const isEmptyFlow = currentNode.type === "start";
+      const shouldEndFlow = !isEmptyFlow && (settings.strictMode || settings.postFlowPauseEnabled);
+
+      if (shouldEndFlow) {
+        console.log("[flow] End of flow detected — completing (node:", currentNode.id, "type:", currentNode.type, ")");
+        // Fall through to final session update + post-flow pause below
+      } else if (!settings.strictMode) {
+        console.log("[flow] Empty flow fallback — using LLM response");
+        await updateSessionDirect(session.id, {
+          current_node_id: null,
+          variables: updatedVariables,
+          status: "completed",
+          last_message_at: new Date().toISOString(),
+        });
+        if (settings.postFlowPauseEnabled) {
+          const pauseUntil = new Date(Date.now() + settings.postFlowPauseMinutes * 60_000).toISOString();
+          await supabase.from("subscriber_sessions").update({ cooldown_until: pauseUntil }).eq("id", session.id);
+          console.log("[flow] Post-flow pause set for", phone, "until", pauseUntil);
+        }
+        await callOpenLLM(profile.id, userMessage, session.id, workflow.id, customerId, phone, workflowRecord, langPref);
+        return new Response(
+          JSON.stringify({ ok: true, action: "llm_fallback", current_node: null }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      } else {
+        console.log("[flow] Strict mode — empty flow, sending nudge");
+        const nudge = "אני יכול לעזור רק דרך התהליך. שלח הודעה כדי להתחיל.";
+        await sendTextMessage(customerId, phone, nudge);
+        await supabase.from("flow_message_log").insert({
+          workflow_id: workflow.id, session_id: session.id,
+          direction: "outbound", message_type: "text", content: nudge,
+        });
+        await updateSessionDirect(session.id, {
+          current_node_id: null,
+          variables: updatedVariables,
+          status: "completed",
+          last_message_at: new Date().toISOString(),
+        });
+        if (settings.postFlowPauseEnabled) {
+          const pauseUntil = new Date(Date.now() + settings.postFlowPauseMinutes * 60_000).toISOString();
+          await supabase.from("subscriber_sessions").update({ cooldown_until: pauseUntil }).eq("id", session.id);
+          console.log("[flow] Post-flow pause set for", phone, "until", pauseUntil);
+        }
+        return new Response(
+          JSON.stringify({ ok: true, action: "strict_empty_nudge" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
     }
 
     // Final session update (handles flow completion and non-waitForInput cases)
