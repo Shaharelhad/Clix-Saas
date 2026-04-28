@@ -3027,6 +3027,7 @@ Deno.serve(async (req) => {
           .eq("session_id", session.id)
           .eq("direction", "inbound")
           .eq("content", userMessage)
+          .eq("node_id", session.current_node_id)
           .gte("created_at", dedupWindow)
           .limit(1);
 
