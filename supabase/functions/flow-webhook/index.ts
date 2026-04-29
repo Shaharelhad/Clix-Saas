@@ -1124,7 +1124,7 @@ function stripLeakedReasoning(text: string): string {
   // Remove markdown-bold lines that look like reasoning headers
   let cleaned = text.replace(/^\*\*.*?\*\*:?.*$/gm, "");
   // Remove lines referencing internal tool names or reasoning patterns
-  cleaned = cleaned.replace(/^.*\b(calendar_check|create_meeting|update_notion|book_event_date|find_slots|Thinking Process|Rule Checklist|Action:|Simulate Tool Response|Self-correction|User Input:|Construct User-Facing Message)\b.*$/gm, "");
+  cleaned = cleaned.replace(/^.*\b(calendar_check|create_meeting|check_slot|update_notion|book_event_date|find_slots|Thinking Process|Rule Checklist|Action:|Simulate Tool Response|Self-correction|User Input:|Construct User-Facing Message)\b.*$/gm, "");
   // Remove code blocks
   cleaned = cleaned.replace(/```[\s\S]*?```/g, "");
   // Remove JSON-like patterns on their own line
@@ -1326,7 +1326,7 @@ async function executeNotionAgent(
       }
     }
 
-    const toolGuide = `סדר שימוש בכלים (חובה לעקוב!):\n1. אסוף תאריך + אולם מהלקוח. אם חסר פרט — שאל את הלקוח ואל תמשיך.\n2. calendar_check — קרא מיד עם date ו-venue. המערכת תבדוק זמינות ביומן. אם פנוי — המערכת תשלח ללקוח הודעת "בודק זמינות" עם גלריה, תחפש זמני שיחה, תעדכן נוטיון, ותשלח ללקוח הצעת זמנים. אחרי calendar_check אל תשלח טקסט — המערכת כבר שלחה את ההודעה ללקוח.\n3. אם הלקוח מציע זמן אחר — קרא ל-find_slots. אל תשאל סוג פגישה — כל הפגישות הן שיחות טלפון.\n4. create_meeting — ברגע שהלקוח בחר זמן, קרא מיד. המערכת תעדכן את נוטיון אוטומטית.\nחשוב: כשאתה מוכן להפעיל כלים — קרא לכלי מיד, אל תשלח טקסט בלבד!\n`;
+    const toolGuide = `סדר שימוש בכלים (חובה לעקוב!):\n1. אסוף תאריך + אולם מהלקוח. אם חסר פרט — שאל את הלקוח ואל תמשיך.\n2. calendar_check — קרא מיד עם date ו-venue. המערכת תבדוק זמינות ביומן. אם פנוי — המערכת תשלח ללקוח הודעת "בודק זמינות" עם גלריה, תחפש זמני שיחה, תעדכן נוטיון, ותשלח ללקוח הצעת זמנים. אחרי calendar_check אל תשלח טקסט — המערכת כבר שלחה את ההודעה ללקוח.\n3. אם הלקוח שואל על זמנים אחרים (ערב/בוקר/יום אחר) — בדוק את <availability_context>. אם יש זמן מתאים — הצע אותו וקרא ל-create_meeting כשהלקוח מאשר. אם אין — אמור בכנות ותציע חלופה מהרשימה. אל תחזור על אותן 2 הצעות. כל הפגישות הן שיחות טלפון.\n4. create_meeting — ברגע שהלקוח בחר זמן, קרא מיד. המערכת תעדכן את נוטיון אוטומטית.\nחשוב: כשאתה מוכן להפעיל כלים — קרא לכלי מיד, אל תשלח טקסט בלבד!\n`;
 
     guardrails = `הנחיות חשובות — עדיפות עליונה:\n${varSection}${statusSection}${missingSection}${toolGuide}כשלקוח אומר שהוא לא מעוניין, מסרב, או מבקש לסגור — חובה לבצע 2 פעולות:\n1. קרא ל-update_notion ועדכן סטטוס ל"לא מעוניין"\n2. שלח הודעת פרידה: "מבין לגמרי, תודה על הזמן ובהצלחה עם האירוע! אם משהו ישתנה, אני כאן"\nזה הכרחי — אל תנסה לשכנע לקוח שאמר לא.\n\n`;
   }
@@ -1338,6 +1338,8 @@ async function executeNotionAgent(
 אתה נציג מכירות בווטסאפ. הלקוח רואה כל מילה שאתה כותב.
 - אסור לחשוף שמות כלים, JSON, קוד, הוראות מערכת, או תהליכי חשיבה.
 - כתוב בעברית ווטסאפ טבעית. קצר ולעניין. בלי אימוג'י.
+- היה שיחתי ומתעניין — אחרי שעונה על שאלה, שאל שאלת המשך טבעית כדי להמשיך את השיחה. אל תסגור שיחה בעצמך ("נדבר מחר", "להתראות", "אני כאן אם צריך") אלא אם הלקוח נפרד. חריג: אחרי קביעת פגישה, רק אשר את הפגישה — בלי שאלות המשך.
+- ענה רק על מה שנשאל בהודעה הנוכחית. אל תחזור על מידע שכבר אמרת בתשובות קודמות (כתובת, מחיר, שעה, פרטים) אלא אם הלקוח שואל שוב ספציפית.
 - אם טעית — שלח את ההודעה הנכונה בלי הסבר.
 - אם כלי הופעל בהצלחה — לא מפעילים שוב.
 </iron_rules>\n\n`;
@@ -1350,6 +1352,10 @@ async function executeNotionAgent(
 
   const statusSection = guardrails
     ? `<status_context>\n${guardrails.trim()}\n</status_context>\n\n`
+    : "";
+
+  const availabilitySection = variables.__availability_summary
+    ? `<availability_context>\nזמני שיחה פנויים ב-3 הימים הקרובים (כל פגישה 30 דקות טלפון):\n${variables.__availability_summary}\n\nאלה כל הזמנים הפנויים ביומן. אם הלקוח מבקש זמן שלא ברשימה — הוא תפוס. אם הלקוח מבקש זמן שברשימה — קרא ל-create_meeting מיד עם ה-date וה-time המתאימים.\n</availability_context>\n\n`
     : "";
 
   const notionHistorySection = notionConvHistory
@@ -1369,37 +1375,41 @@ async function executeNotionAgent(
   const responseStyle = `<response_style>
 כלל תגובה — סווג את ההודעה לפני שאתה עונה:
 
-אישור/תודה (אוקיי, מעולה, יופי, סבבה, תודה, אחלה, נדבר בקרוב, להתראות, ביי) →
-משפט אחד חם. בלי פרטים. בלי כלים.
+חריג חשוב: אם הצעת זמן ללקוח או שאלת "קובעים?" / "רוצה שאקבע?" — ו-הלקוח ענה "אוקיי" / "כן" / "יאללה" / "בוא" / "סבבה" — זו הסכמה לקבוע! קרא מיד ל-create_meeting עם התאריך והשעה שדיברתם עליהם. אל תחזור על הזמינות ואל תשאל שוב.
 
-שאלה/בקשה → תשובה + כלי אם צריך.
+אישור/תודה כלליים (תודה, אחלה, נדבר בקרוב, להתראות, ביי, אוקיי) — רק כשאין שאלה פתוחה ואין פגישה לקבוע →
+משפט אחד חם וטבעי. בלי פרטים. בלי כלים.
+כלל קריטי: אל תחזור על תוכן מהתשובה הקודמת שלך. השאלה כבר נענתה — הלקוח מאשר שקיבל. תגיב רק בסגירה חמה קצרה בלי לחזור על כתובת, שעה, מחיר, או כל מידע שכבר נאמר.
+חשוב: גוון את התגובות — אל תחזור על אותו משפט פעמיים ברצף. תגיב בטבעיות כמו בן אדם אמיתי, לא כמו בוט. אם כבר אמרת "בכיף", תגיד משהו אחר בפעם הבאה.
+
+שאלה/בקשה → תשובה קצרה + שאלת המשך טבעית שמקדמת את השיחה (התעניין בתאריך, סוג אירוע, מה חשוב להם). אל תסיים ב"נדבר" או "אני כאן" — תמשיך את השיחה כמו איש מכירות אמיתי.
+מחירים (אחרי get_pricing) → הצג את המחירון בדיוק כפי שהוא מופיע בתוצאת הכלי. אל תשנה סדר, אל תקצר, אל תנסח מחדש. הוסף בסוף שאלת המשך קצרה.
 מידע חדש → תודה קצרה + כלי.
 סירוב → הודעת פרידה + update_notion.
 
-דוגמאות לתגובות נכונות:
+דוגמאות — כלים:
 
-לקוח: "אוקיי תודה"
-אתה: "בכיף! אני כאן אם צריך"
-
-לקוח: "יופי מעולה"
-אתה: "אחלה, נדבר!"
-
-לקוח: "סבבה נשמע טוב"
-אתה: "מעולה! מחכה לשמוע"
-
-לקוח: "נדבר בקרוב"
-אתה: "בהחלט! תמיד כאן"
+לקוח: "אוקיי"  (אחרי ש-הצעת זמן או שאלת "קובעים?")
+אתה: (קרא ל-create_meeting עם התאריך והשעה שדובר עליהם, אחרי הצלחה ענה:) "מעולה, קבעתי לך שיחה ביום שני ב-16:00. מחכה!"
+חשוב: אחרי קביעת פגישה — רק אשר. אל תוסיף שאלת המשך. הלקוח יפנה אליך אם ירצה להמשיך.
 
 לקוח: "מחר ב-10 נשמע טוב"
-אתה: (קרא מיד ל-create_meeting — אל תשלח טקסט)
+אתה: (קרא ל-create_meeting, אחרי שהכלי מאשר הצלחה ענה:) "מעולה, קבעתי לך שיחה מחר ב-10:00. מחכה!"
 </response_style>`;
 
+  const meetingTimeNote = variables.__meeting_date && variables.__meeting_time
+    ? ` (${variables.__meeting_date} בשעה ${variables.__meeting_time})`
+    : "";
   const postMeetingSection = variables.__meeting_booked === "true"
-    ? `<post_meeting>\nפגישה כבר נקבעה בהצלחה. אל תזכיר את מועד הפגישה בכל תגובה. ענה על שאלות הלקוח בטבעיות — מחירים, פרטים, שאלות כלליות — בלי לחזור על שעת הפגישה. הזכר את הפגישה רק אם הלקוח שואל ספציפית מתי הפגישה.\n</post_meeting>\n\n`
+    ? `<post_meeting>\nפגישה כבר נקבעה בהצלחה${meetingTimeNote}. אל תזכיר את מועד הפגישה בכל תגובה. ענה על שאלות הלקוח בטבעיות — מחירים, פרטים, שאלות כלליות — בלי לחזור על שעת הפגישה. הזכר את הפגישה רק אם הלקוח שואל ספציפית מתי הפגישה בהודעה הנוכחית — לא בגלל ששאל בהודעה קודמת.\n</post_meeting>\n\n`
     : "";
 
-  // Prompt order: iron rules → date → business → workflow → status → post-meeting → notion history → personality → response style (few-shots last)
-  const systemPrompt = ironRules + dateSection + businessSection + workflowSection + statusSection + postMeetingSection + notionHistorySection + personalitySection + responseStyle;
+  const pendingBookingSection = (variables.__pending_booking_date && variables.__pending_booking_time && variables.__meeting_booked !== "true")
+    ? `<CRITICAL_ACTION>\nבבדיקה הקודמת, ${variables.__pending_booking_date} בשעה ${variables.__pending_booking_time} נמצא פנוי ושאלת את הלקוח אם לקבוע.\nאם ההודעה הנוכחית היא אישור (אוקיי/כן/בטח/יאללה/סבבה/בוא/בסדר) — קרא ל-create_meeting מיד עם date="${variables.__pending_booking_date}" ו-time="${variables.__pending_booking_time}".\nאל תחזור על הזמינות. אל תשאל שוב. פשוט תקבע.\n</CRITICAL_ACTION>\n\n`
+    : "";
+
+  // Prompt order: iron rules → CRITICAL pending booking → date → business → workflow → status → availability → post-meeting → notion history → personality → response style (few-shots last)
+  const systemPrompt = ironRules + pendingBookingSection + dateSection + businessSection + workflowSection + statusSection + availabilitySection + postMeetingSection + notionHistorySection + personalitySection + responseStyle;
   const tools = node.data.agentTools as Record<string, unknown> || {};
 
   console.log("[notion_ai_agent] Config:", { integrationId: integrationId || "EMPTY", toolsConfig: JSON.stringify(tools).substring(0, 200), promptLen: systemPrompt.length, historyLen: agentHistory.length });
@@ -1453,7 +1463,7 @@ Combine multiple fields in one call.`,
   if (findSlots?.enabled && findSlots.webhookUrl) {
     toolDefs.push({
       name: "find_slots",
-      description: "Save the customer's event details to Notion AND return 2 available 30-minute phone-call slots in one call. Pass date (event date) and venue — the system auto-updates Notion (saves event details, changes status to תהליך מכירה) before returning slot1/slot2 as Hebrew day-label + time (e.g. 'היום ב-13:30', 'מחר ב-10:00'). Do NOT call update_notion separately for these fields before find_slots — this tool handles it.",
+      description: "Save the customer's event details to Notion AND return 2 available 30-minute phone-call slots in one call. Pass date (event date) and venue — the system auto-updates Notion (saves event details, changes status to תהליך מכירה) before returning slot1/slot2 as Hebrew day-label + time (e.g. 'היום ב-11:00', 'מחר ב-17:00'). Do NOT call update_notion separately for these fields before find_slots — this tool handles it.",
       parameters: {
         type: "object",
         properties: {
@@ -1506,6 +1516,22 @@ Combine multiple fields in one call.`,
         properties: {
           date: { type: "string", description: "Meeting date YYYY-MM-DD" },
           time: { type: "string", description: "Meeting time HH:MM" },
+        },
+        required: ["date", "time"],
+      },
+    });
+  }
+
+  // check_slot — check a specific date+time without booking (for dates beyond the 3-day availability window)
+  if (findSlots?.enabled && findSlots.webhookUrl) {
+    toolDefs.push({
+      name: "check_slot",
+      description: "Check if a specific date+time slot is available in the calendar WITHOUT booking it. Use when the customer asks about a time outside the availability list (e.g. a date more than 3 days away). Returns available: true/false. If available — ask the customer 'רוצה שאקבע?'. When the customer confirms (אוקיי/כן/בוא/סבבה), call create_meeting immediately with that date+time. If taken — tell the customer honestly and ask for another time.",
+      parameters: {
+        type: "object",
+        properties: {
+          date: { type: "string", description: "Date to check YYYY-MM-DD" },
+          time: { type: "string", description: "Time to check HH:MM" },
         },
         required: ["date", "time"],
       },
@@ -1678,6 +1704,7 @@ Combine multiple fields in one call.`,
 
         variables.__proposed_slot1 = (slotsResult.slot1 as string) || "";
         variables.__proposed_slot2 = (slotsResult.slot2 as string) || "";
+        variables.__availability_summary = (slotsResult.availability_summary as string) || "";
 
         let notionUpdated = false;
         if (notionApiKey && variables.page_id && inNewLeadStatus) {
@@ -1843,6 +1870,7 @@ Combine multiple fields in one call.`,
       // 2. Remember proposals so create_meeting can validate the LLM picked one of these
       variables.__proposed_slot1 = (slotsResult?.slot1 as string) || "";
       variables.__proposed_slot2 = (slotsResult?.slot2 as string) || "";
+      variables.__availability_summary = (slotsResult?.availability_summary as string) || "";
 
       // 3. Auto-chain Notion: save event details + advance status, ONLY when still in
       //    "ליד חדש" ("New Lead") AND all 3 event details are known. Idempotent — re-calls
@@ -1893,6 +1921,32 @@ Combine multiple fields in one call.`,
       }
 
       return { ...slotsResult, notion_updated: notionUpdated };
+    }
+
+    if (name === "check_slot" && findSlots?.webhookUrl) {
+      const checkSlotUrl = findSlots.webhookUrl.replace(/find-slots$/, "check-slot");
+      const date = (args.date as string) || "";
+      const time = (args.time as string) || "";
+      if (!date || !time) {
+        return { error: "missing_params", message: "חסרים תאריך או שעה. צריך date (YYYY-MM-DD) ו-time (HH:MM)." };
+      }
+      try {
+        const resp = await fetch(checkSlotUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ date, time }),
+        });
+        const result = await resp.json();
+        console.log("[notion_ai_agent] check_slot result:", JSON.stringify(result));
+        if (result && (result.available === true || result.available === "true")) {
+          variables.__pending_booking_date = date;
+          variables.__pending_booking_time = time;
+        }
+        return result;
+      } catch (e) {
+        console.error("[notion_ai_agent] check_slot failed:", e);
+        return { error: "check_failed", message: "לא הצלחתי לבדוק את היומן כרגע. נסה שוב." };
+      }
     }
 
     if (name === "create_meeting" && createMeeting?.webhookUrl) {
@@ -1950,7 +2004,23 @@ Combine multiple fields in one call.`,
       }
 
       variables.__meeting_booked = "true";
+      delete variables.__pending_booking_date;
+      delete variables.__pending_booking_time;
       console.log("[notion_ai_agent] Meeting booked, __meeting_booked set to true");
+
+      // Build a fallback confirmation in case the LLM returns empty after booking.
+      const timeStr = (args.time as string) || "";
+      const dateStr = (args.date as string) || "";
+      const dateLabel = (() => {
+        const now = new Date();
+        const target = new Date(dateStr + "T00:00:00");
+        const diffDays = Math.round((target.getTime() - now.getTime()) / 86400000);
+        if (diffDays === 0) return "היום";
+        if (diffDays === 1) return "מחר";
+        const dayNames = ["ראשון","שני","שלישי","רביעי","חמישי","שישי","שבת"];
+        return "יום " + dayNames[target.getDay()];
+      })();
+      variables.__meeting_fallback = `מעולה, קבעתי לך שיחה ${dateLabel} ב-${timeStr}. מחכה!`;
 
       // Auto-chain Notion update: every successful create_meeting syncs these fields
       // so the LLM doesn't have to remember a separate update_notion call.
@@ -2035,14 +2105,48 @@ Combine multiple fields in one call.`,
     return { error: `Unknown tool: ${name}` };
   };
 
+  const compressedAgentHistory = agentHistory.map((m) => {
+    if (m.role === "assistant" && typeof m.content === "string" && m.content.length > 0) {
+      // Compress ALL assistant text — including content that accompanied a tool call.
+      // Preserve the tool_calls array (structural), only blank the free-text content.
+      // Without this, every tool-using turn leaks Grok's preamble verbatim into next-turn
+      // context and gets echoed back into responses.
+      return { ...m, content: "[✓]" };
+    }
+    return m;
+  });
+
   // Call the agent LLM
   const result = await callAgentLLM({
     systemPrompt,
-    conversationHistory: agentHistory,
+    conversationHistory: compressedAgentHistory,
     userMessage,
     tools: toolDefs,
     executeTool,
   });
+
+  // Safety net: if check_slot confirmed a slot on the previous turn and the LLM
+  // didn't call create_meeting despite the CRITICAL_ACTION prompt, auto-book here.
+  if (
+    variables.__pending_booking_date &&
+    variables.__pending_booking_time &&
+    variables.__meeting_booked !== "true"
+  ) {
+    const confirmPattern = /^[\s!.]*(?:אוקיי|אוקי|כן|בטח|יאללה|סבבה|בוא|נשמע\s*טוב|ok|yes|sure|בסדר|קובעים|קבע)[\s!.]*$/i;
+    if (confirmPattern.test(userMessage.trim())) {
+      console.log("[notion_ai_agent] Safety net: LLM missed booking confirmation, auto-calling create_meeting");
+      await executeTool("create_meeting", {
+        date: variables.__pending_booking_date,
+        time: variables.__pending_booking_time,
+      });
+      if (variables.__meeting_booked === "true" && variables.__meeting_fallback) {
+        result.response = variables.__meeting_fallback;
+        console.log("[notion_ai_agent] Safety net: using booking fallback response");
+      }
+    }
+    delete variables.__pending_booking_date;
+    delete variables.__pending_booking_time;
+  }
 
   // Safety net: strip any leaked internal reasoning before it reaches the customer
   result.response = stripLeakedReasoning(result.response);
@@ -2059,6 +2163,12 @@ Combine multiple fields in one call.`,
     delete variables.__hardcoded_response;
   }
 
+  if (!result.response && variables.__meeting_fallback) {
+    console.warn("[notion_ai_agent] LLM returned empty after create_meeting — using fallback confirmation");
+    result.response = variables.__meeting_fallback;
+  }
+  delete variables.__meeting_fallback;
+
   // Use the full messages array from callAgentLLM which includes tool calls + results.
   // This preserves the LLM's memory of what tools it called and what happened across turns.
   // Without this, the LLM re-calls create_meeting on "תודה" because it has no record of
@@ -2069,14 +2179,22 @@ Combine multiple fields in one call.`,
   // was called successfully), not the raw data (full pricing text, meeting JSON with
   // dates/times). The bot's own assistant response is preserved, so it can still reference
   // what it said if the customer asks.
+  // callAgentLLM's `result.messages` does NOT include the LLM's final text response
+  // (it only pushes intermediate assistant-with-tool_calls turns; the final stop-reason
+  // text reply is returned via `result.response` but never written into `messages`).
+  // If we don't append it here, the saved __agent_history is missing every text reply,
+  // and the next turn shows the LLM consecutive user messages with no assistant between
+  // them — the LLM then "catches up" by answering all of them at once, repeating facts.
   const rawHistory = result.messages
-    ? result.messages
+    ? [...result.messages, { role: "assistant", content: result.response }]
     : [...agentHistory, { role: "user", content: userMessage }, { role: "assistant", content: result.response }];
-  const compressedHistory = rawHistory.map(m => {
+  const compressedHistory = rawHistory.map((m) => {
     if (m.role === "tool" && typeof m.content === "string" && m.content.length > 100) {
-      // Preserve error/conflict info so the model knows the tool failed on subsequent turns
       const hasError = m.content.includes('"error"') || m.content.includes('"conflict"');
       return { ...m, content: hasError ? m.content.substring(0, 150) : "[done]" };
+    }
+    if (m.role === "assistant" && typeof m.content === "string" && m.content.length > 0) {
+      return { ...m, content: "[✓]" };
     }
     return m;
   });
