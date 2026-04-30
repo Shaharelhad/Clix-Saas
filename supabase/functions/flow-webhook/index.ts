@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { callLLMEngine, classifyTrigger, classifyIntent, callAgentLLM, validateCollectInput, detectRefusal, translateMessage, translateButtonLabels, formatApiResponse, type TriggerInfo, type LLMResult, type AgentToolDefinition, type AgentMessage } from "../_shared/llm-engine.ts";
+import { embedText } from "../_shared/embeddings.ts";
 import { resolveOperation } from "../_shared/integration-catalog.ts";
 import { normalizePhone as normalizePhoneHelper, getNotionHeadersForNode, lookupOrCreateNotionLead, formatEventDateForTitle } from "../_shared/notion-lead-helpers.ts";
 import { nowIsraelISO, israelOffsetForDate } from "../_shared/israel-time.ts";
@@ -1190,16 +1191,11 @@ async function executeNotionAgent(
     };
   }
 
-  // Split pricing from business content — pricing goes behind get_pricing tool
-  // so the LLM can't repeat it without an explicit tool call
-  let businessInfo = businessContent || "";
-  let pricingContent = "";
-  const pricingSeparator = /---\s*מחירון.*?---/;
-  const sepMatch = businessInfo.match(pricingSeparator);
-  if (sepMatch && sepMatch.index !== undefined) {
-    pricingContent = businessInfo.substring(sepMatch.index + sepMatch[0].length).trim();
-    businessInfo = businessInfo.substring(0, sepMatch.index).trim();
-  }
+  // Strip the legacy `--- מחירון --- ... ` block from businessInfo entirely.
+  // Pricing is now sourced from the FAQ via RAG (`<faq_context>`), not from a static prompt block.
+  const businessInfo = (businessContent || "")
+    .replace(/---\s*מחירון[\s\S]*$/i, "")
+    .trim();
 
   const integrationId = node.data.agentIntegrationId as string | undefined;
 
@@ -1319,10 +1315,10 @@ async function executeNotionAgent(
       if (!variables.event_date) missing.push("תאריך אירוע");
       if (!variables.venue_name) missing.push("שם אולם");
       if (missing.length > 0) {
-        missingSection = `לפי הנתונים בנוטיון, עדיין חסרים: ${missing.join(", ")}.\nאם הלקוח כבר נתן את הפרטים בשיחה — אתה יכול להמשיך לשמור אותם ולהציע זמני שיחה.\nאם לא — שאל את הלקוח.\n`;
+        missingSection = `לפי הנתונים בנוטיון, עדיין חסרים: ${missing.join(", ")}.\nאם הלקוח כבר נתן את הפרטים בשיחה — אתה יכול להמשיך לשמור אותם ולהציע זמני שיחה.\n\nחשוב: אסור להמשיך בלי לאסוף תאריך + אולם. בכל הודעה — בנוסף למענה על השאלה של הלקוח — סיים בשאלה ידידותית על תאריך/אולם החסר. זה צעד הכרחי לבדיקת זמינות, ולכן יש לאסוף אותו בכל הודעה עד שיתקבל. אל תיתקע במחזור של שאלות-תשובות על מחירים/חבילות בלי לקדם את השיחה לשלב הזמינות.\n\nדוגמה — אחרי שענית על שאלת מחיר/חבילה, סיים: "מתי החתונה ובאיזה אולם? אבדוק לכם זמינות ביומן." (או ניסוח דומה).\n`;
       }
       if (variables.__first_turn === "true") {
-        missingSection += `\nזו ההודעה הראשונה של הלקוח. כבר שלחנו ברכת "מזל טוב" קצרה.\nאל תחזור על ברכת המזל טוב — כבר נשלחה.\nבדוק אם הלקוח סיפק תאריך ו/או אולם בהודעה שלו:\n- אם שניהם קיימים — קרא מיד ל-calendar_check עם הפרטים.\n- אם רק אחד קיים — שאל בקצרה רק את הפרט החסר.\n- אם אף אחד לא סופק — שאל מתי האירוע ואיפה.\n`;
+        missingSection += `\nזו ההודעה הראשונה של הלקוח. כבר שלחנו ברכת "מזל טוב" קצרה.\nאל תחזור על ברכת המזל טוב — כבר נשלחה.\n\nטיפול בהודעה הראשונה (חובה לעקוב אחרי הסדר):\n1. אם הלקוח שאל שאלה כלשהי (מחירים, חבילות, מיקום, פרטים כלליים) — ענה תחילה על השאלה מתוך faq_context. שמור על הפורמט (בולטים, שורות נפרדות) כפי שמופיע ב-faq_context.\n2. אם הלקוח סיפק תאריך ואולם — אחרי המענה (אם היה), קרא מיד ל-calendar_check.\n3. בכל מקרה — אם תאריך או אולם עדיין לא ידועים, סיים את ההודעה בשאלה ידידותית על תאריך החתונה ומיקום האירוע. זה הצעד הקריטי לבדיקת זמינות.\n\nדוגמה — הלקוח שואל "מה המחירים?" כהודעה ראשונה (ללא תאריך/אולם):\nהמבנה: [תשובת המחירים מתוך faq_context בפורמט בולטים] + שורה ריקה + [שאלה ידידותית על תאריך ואולם].\nדוגמת סוף הודעה: "מתי החתונה ובאיזה אולם? אבדוק לכם זמינות ביומן."\n`;
       }
     }
 
@@ -1383,9 +1379,23 @@ async function executeNotionAgent(
 חשוב: גוון את התגובות — אל תחזור על אותו משפט פעמיים ברצף. תגיב בטבעיות כמו בן אדם אמיתי, לא כמו בוט. אם כבר אמרת "בכיף", תגיד משהו אחר בפעם הבאה.
 
 שאלה/בקשה → תשובה קצרה + שאלת המשך טבעית שמקדמת את השיחה (התעניין בתאריך, סוג אירוע, מה חשוב להם). אל תסיים ב"נדבר" או "אני כאן" — תמשיך את השיחה כמו איש מכירות אמיתי.
-מחירים (אחרי get_pricing) → הצג את המחירון בדיוק כפי שהוא מופיע בתוצאת הכלי. אל תשנה סדר, אל תקצר, אל תנסח מחדש. הוסף בסוף שאלת המשך קצרה.
+מחירים/חבילות → צטט בדיוק מתוך faq_context. שמור על מבנה הבולטים והפורמט המקורי: כל בולט בשורה נפרדת (תו מעבר שורה אמיתי \\n בין הבולטים), אל תאחד לפסקה אחת, אל תקצר, אל תמציא, אל תנסח מחדש. שמור על סימוני **bold** של מספרים. בסוף הוסף שאלת המשך קצרה בשורה נפרדת.
 מידע חדש → תודה קצרה + כלי.
 סירוב → הודעת פרידה + update_notion.
+
+דוגמה — תשובה על "מה כלול בחבילה הבסיסית?":
+
+החבילה הבסיסית עולה **6,850 ₪ (כולל מע"מ)** וכוללת:
+- צילום הכנות כלה + צילומי חוץ (וידאו וסטילס) משעות הצהריים
+- צלם סטילס אחד בערב האירוע
+- צלם וידאו אחד: תיעוד מלא של האירוע + סרט בעריכה בסיסית
+- היילייטס: טיזר של דקה + קליפ פרומו של 3 דקות בהתאמה אישית
+- אלבום דיגיטלי מעוצב ומודפס אחד (גודל 30×80 ס"מ, 10 דפים, עד 120 תמונות)
+- כל דף נוסף מעבר ל-10 הכלולים עולה 100 ₪
+
+יש משהו ספציפי שאתם מחפשים בחבילה?
+
+חשוב: שורה ריקה בין הכותרת, רשימת הבולטים, ושאלת ההמשך. כל בולט מתחיל ב-"-" ובשורה משלו.
 
 דוגמאות — כלים:
 
@@ -1408,8 +1418,35 @@ async function executeNotionAgent(
     ? `<CRITICAL_ACTION>\nבבדיקה הקודמת, ${variables.__pending_booking_date} בשעה ${variables.__pending_booking_time} נמצא פנוי ושאלת את הלקוח אם לקבוע.\nאם ההודעה הנוכחית היא אישור (אוקיי/כן/בטח/יאללה/סבבה/בוא/בסדר) — קרא ל-create_meeting מיד עם date="${variables.__pending_booking_date}" ו-time="${variables.__pending_booking_time}".\nאל תחזור על הזמינות. אל תשאל שוב. פשוט תקבע.\n</CRITICAL_ACTION>\n\n`
     : "";
 
-  // Prompt order: iron rules → CRITICAL pending booking → date → business → workflow → status → availability → post-meeting → notion history → personality → response style (few-shots last)
-  const systemPrompt = ironRules + pendingBookingSection + dateSection + businessSection + workflowSection + statusSection + availabilitySection + postMeetingSection + notionHistorySection + personalitySection + responseStyle;
+  // RAG: retrieve user-uploaded knowledge chunks (FAQ etc.) for the current message.
+  // Failure is non-fatal — empty ragContext just means no FAQ injection this turn.
+  let ragContext = "";
+  try {
+    const queryEmbedding = await embedText(userMessage);
+    if (queryEmbedding) {
+      const { data: matchedChunks } = await supabase.rpc("match_document_chunks", {
+        p_user_id: userId,
+        p_embedding: JSON.stringify(queryEmbedding),
+        p_match_count: 5,
+        p_match_threshold: 0.3,
+      });
+      if (matchedChunks && matchedChunks.length > 0) {
+        const sorted = [...matchedChunks].sort(
+          (a: { chunk_index: number }, b: { chunk_index: number }) => a.chunk_index - b.chunk_index,
+        );
+        ragContext = sorted.map((c: { content: string }) => c.content).join("\n\n");
+      }
+    }
+  } catch (e) {
+    console.error("[notion_ai_agent] RAG retrieval failed (non-fatal):", e);
+  }
+
+  const faqSection = ragContext
+    ? `<faq_context>\nשאלות נפוצות רלוונטיות (השתמש בזה כמקור עובדות לתשובה — אל תמציא, אל תשנה מחירים):\n${ragContext}\n</faq_context>\n\n`
+    : "";
+
+  // Prompt order: iron rules → CRITICAL pending booking → date → business → faq (RAG) → workflow → status → availability → post-meeting → notion history → personality → response style (few-shots last)
+  const systemPrompt = ironRules + pendingBookingSection + dateSection + businessSection + faqSection + workflowSection + statusSection + availabilitySection + postMeetingSection + notionHistorySection + personalitySection + responseStyle;
   const tools = node.data.agentTools as Record<string, unknown> || {};
 
   console.log("[notion_ai_agent] Config:", { integrationId: integrationId || "EMPTY", toolsConfig: JSON.stringify(tools).substring(0, 200), promptLen: systemPrompt.length, historyLen: agentHistory.length });
@@ -1535,15 +1572,6 @@ Combine multiple fields in one call.`,
         },
         required: ["date", "time"],
       },
-    });
-  }
-
-  // Pricing tool — only available when businessContent contains a pricing section
-  if (pricingContent) {
-    toolDefs.push({
-      name: "get_pricing",
-      description: "Retrieve pricing and package information. Call ONLY when the customer explicitly asks about prices, costs, packages, or 'how much' in their CURRENT message. Do NOT call on acknowledgments like 'thanks', 'ok', or 'great'.",
-      parameters: { type: "object", properties: { query: { type: "string", description: "Optional: specific pricing question from the customer" } } },
     });
   }
 
@@ -2096,10 +2124,6 @@ Combine multiple fields in one call.`,
       }
 
       return { ...meetingResult, notion_synced: true };
-    }
-
-    if (name === "get_pricing") {
-      return pricingContent || "No pricing information available.";
     }
 
     return { error: `Unknown tool: ${name}` };
@@ -3290,15 +3314,39 @@ Deno.serve(async (req) => {
                 });
               }
 
-              // If this is a brand-new lead, check if their first message contains event details.
-              // If yes → send short greeting + let LLM handle details extraction / calendar check.
-              // If no  → send full welcome asking for date & venue, return immediately (current behavior).
+              // Brand-new lead routing on first message:
+              // - Pure greeting (e.g. "hi", "shalom", "mazel tov" with no question/event hints) → full welcome, return early.
+              // - Anything substantive (question, event hints, mixed) → SHORT_WELCOME + fall through to LLM so it can answer the question + ask for event details.
               if (lookup.isNew && variables.welcome_sent !== "true") {
+                const trimmedMsg = userMessage.trim();
                 const hasEventHints = /\d{1,2}[.\/\-]\d{1,2}/.test(userMessage) ||
                   /(?:ינואר|פברואר|מרץ|אפריל|מאי|יוני|יולי|אוגוסט|ספטמבר|אוקטובר|נובמבר|דצמבר)/i.test(userMessage) ||
                   /(?:אולם|גן אירועים|גן\s*ארועים)/i.test(userMessage);
+                const hasQuestionWord = /\?|מה |איפה|כמה|מתי|האם|איך|למה|יש לכם|אפשר/.test(userMessage);
+                const greetingStripped = trimmedMsg
+                  .replace(/(?:היי|שלום|אהלן|הי|hello|hi|hey|מזל טוב|צהריים טובים|ערב טוב|בוקר טוב)/gi, "")
+                  .replace(/[\p{Emoji}\p{Punctuation}\s]/gu, "")
+                  .trim();
+                const isPureGreeting = !hasEventHints && !hasQuestionWord && trimmedMsg.length <= 25 && greetingStripped.length === 0;
 
-                if (hasEventHints) {
+                if (isPureGreeting) {
+                  const WELCOME_MSG_HE = "היי! קודם כל המון מזל טוב! 💍\nאיזה כיף שפניתם. לפני שאשלח את כל הפרטים על המבצע, בואו נבדוק רגע שאני בכלל פנוי בתאריך שלכם כדי שלא אבזבז לכם זמן סתם.\nמתי האירוע ואיפה?";
+                  try {
+                    await sendTextMessage(customerId, phone, WELCOME_MSG_HE, "system");
+                    await supabase.from("flow_message_log").insert({
+                      workflow_id: workflow.id, session_id: session.id,
+                      direction: "outbound", message_type: "text", content: WELCOME_MSG_HE,
+                    });
+                    variables = { ...variables, welcome_sent: "true" };
+                    await updateSessionDirect(session.id, { variables });
+                    console.log("[flow] [new-lead-welcome] full welcome (pure greeting) sent to", outPhone);
+                    return new Response(JSON.stringify({ ok: true, action: "new_lead_welcome_sent" }), {
+                      headers: { ...corsHeaders, "Content-Type": "application/json" },
+                    });
+                  } catch (welcomeErr) {
+                    console.error("[flow] [new-lead-welcome] send failed — agent will handle next turn:", welcomeErr);
+                  }
+                } else {
                   const SHORT_WELCOME = "היי! קודם כל המון מזל טוב! 💍\nאיזה כיף שפניתם.";
                   try {
                     await sendTextMessage(customerId, phone, SHORT_WELCOME, "system");
@@ -3313,24 +3361,7 @@ Deno.serve(async (req) => {
                       __agent_history: JSON.stringify([{ role: "assistant", content: SHORT_WELCOME }]),
                     };
                     await updateSessionDirect(session.id, { variables });
-                    console.log("[flow] [new-lead-welcome] short greeting sent to", outPhone, "— continuing to LLM");
-                  } catch (welcomeErr) {
-                    console.error("[flow] [new-lead-welcome] send failed — agent will handle next turn:", welcomeErr);
-                  }
-                } else {
-                  const WELCOME_MSG_HE = "היי! קודם כל המון מזל טוב! 💍\nאיזה כיף שפניתם. לפני שאשלח את כל הפרטים על המבצע, בואו נבדוק רגע שאני בכלל פנוי בתאריך שלכם כדי שלא אבזבז לכם זמן סתם.\nמתי האירוע ואיפה?";
-                  try {
-                    await sendTextMessage(customerId, phone, WELCOME_MSG_HE, "system");
-                    await supabase.from("flow_message_log").insert({
-                      workflow_id: workflow.id, session_id: session.id,
-                      direction: "outbound", message_type: "text", content: WELCOME_MSG_HE,
-                    });
-                    variables = { ...variables, welcome_sent: "true" };
-                    await updateSessionDirect(session.id, { variables });
-                    console.log("[flow] [new-lead-welcome] sent to", outPhone);
-                    return new Response(JSON.stringify({ ok: true, action: "new_lead_welcome_sent" }), {
-                      headers: { ...corsHeaders, "Content-Type": "application/json" },
-                    });
+                    console.log("[flow] [new-lead-welcome] short greeting sent to", outPhone, "— continuing to LLM (substantive first message)");
                   } catch (welcomeErr) {
                     console.error("[flow] [new-lead-welcome] send failed — agent will handle next turn:", welcomeErr);
                   }
