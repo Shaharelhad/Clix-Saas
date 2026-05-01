@@ -38,6 +38,9 @@ const dashboard = {
   resetSession: "איפוס שיחה",
   resetSessionConfirm: "פעולה זו תמחק את כל ההודעות ותאפס את התהליך להתחלה. הלקוח יתחיל מחדש בהודעה הבאה שלו.",
   resetSessionAction: "איפוס",
+  archiveSession: "ארכיון שיחה",
+  archiveSessionConfirm: "השיחה הזו תוסתר מהשיחות הפעילות. היא תחזור באופן אוטומטי כשהלקוח ישלח הודעה חדשה.",
+  archiveSessionAction: "ארכיון",
   sessionActive: "פעיל",
   sessionCompleted: "הושלם",
   sessionWaiting: "ממתין",
@@ -152,6 +155,24 @@ const dashboard = {
   testConnectionTesting: "...בודק",
   testConnectionSuccess: "החיבור אומת בהצלחה",
   testConnectionFailed: "בדיקת החיבור נכשלה",
+
+  // Daily Activity Card
+  activityTitle: "פעילות יומית",
+  activityToday: "היום",
+  activityNoData: "אין פעילות עדיין",
+  daysShortMon: 'יום ב\'',
+  daysShortTue: 'יום ג\'',
+  daysShortWed: 'יום ד\'',
+  daysShortThu: 'יום ה\'',
+  daysShortFri: 'יום ו\'',
+  daysShortSat: 'שבת',
+  daysShortSun: 'יום א\'',
+
+  // Contacts panel
+  contactsTitle: "אנשי קשר",
+  contactsAdd: "הוסף איש קשר",
+  contactsActiveSession: "שיחה פעילה",
+  contactsWaiting: "ממתין לתגובה...",
 };
 
 export default dashboard;

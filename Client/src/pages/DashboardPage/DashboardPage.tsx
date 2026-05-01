@@ -19,6 +19,7 @@ import { supabase } from "@/services/supabase";
 import { callWClixAPIConnect } from "@/services/edge-functions";
 import ConversationsSection from "./Sections/ConversationsSection";
 import BlockedNumbersModal from "./Sections/BlockedNumbersModal";
+import DailyActivityCard from "./Sections/DailyActivityCard";
 import WhatsAppConnectModal from "@/components/WhatsAppConnectModal";
 
 /* ─────────────────────── Animation config ──────────────────── */
@@ -252,27 +253,27 @@ function BotStatusPill({ userId }: { userId: string }) {
 
   return (
     <motion.div variants={fadeUp} className="relative shrink-0">
-      {/* ── Main pill ── */}
+      {/* ── Compact pill (lives inline with subtitle) ── */}
       <button
         type="button"
         onClick={() => setMenuOpen((o) => !o)}
         disabled={loading}
-        className={`flex items-center gap-2.5 px-4 py-2.5 rounded-2xl border ${config.border} ${config.bg} shadow-sm cursor-pointer transition-all hover:shadow-md active:scale-[0.98] disabled:opacity-60`}
+        className={`flex items-center gap-2 px-3 py-1.5 rounded-full border ${config.border} ${config.bg} cursor-pointer transition-all hover:shadow-sm active:scale-[0.98] disabled:opacity-60`}
       >
         {loading ? (
-          <Loader2 className="w-4 h-4 animate-spin text-[#7A7267]" />
+          <Loader2 className="w-3 h-3 animate-spin text-[#7A7267]" />
         ) : (
-          <span className="relative flex h-2.5 w-2.5">
+          <span className="relative flex h-2 w-2">
             {status === "connected" && (
               <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${config.dot} opacity-75`} />
             )}
-            <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${config.dot}`} />
+            <span className={`relative inline-flex rounded-full h-2 w-2 ${config.dot}`} />
           </span>
         )}
-        <span className={`text-xs font-bold uppercase tracking-wider ${config.text}`}>
+        <span className={`text-[11px] font-bold uppercase tracking-wider ${config.text}`}>
           {t(config.label)}
         </span>
-        <ChevronDown className={`w-3.5 h-3.5 ${config.text} transition-transform ${menuOpen ? "rotate-180" : ""}`} />
+        <ChevronDown className={`w-3 h-3 ${config.text} transition-transform ${menuOpen ? "rotate-180" : ""}`} />
       </button>
 
       {/* ── Dropdown menu ── */}
@@ -283,7 +284,7 @@ function BotStatusPill({ userId }: { userId: string }) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -8, scale: 0.95 }}
             transition={{ duration: 0.15 }}
-            className="absolute end-0 top-full mt-2 z-50 bg-white rounded-xl shadow-[0_8px_32px_rgba(45,42,38,0.12)] border border-[#EDE6DD]/50 overflow-hidden min-w-[180px]"
+            className="absolute start-0 top-full mt-2 z-50 bg-white rounded-xl shadow-[0_8px_32px_rgba(45,42,38,0.12)] border border-[#EDE6DD]/50 overflow-hidden min-w-[200px]"
           >
             {status === "connected" && (
               <>
@@ -423,7 +424,7 @@ function BotStatusPill({ userId }: { userId: string }) {
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
-            className={`absolute end-0 top-full mt-2 z-40 px-4 py-2 rounded-xl text-xs font-medium shadow-md whitespace-nowrap ${
+            className={`absolute start-0 top-full mt-2 z-40 px-4 py-2 rounded-xl text-xs font-medium shadow-md whitespace-nowrap ${
               feedback.type === "success"
                 ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
                 : "bg-red-50 text-red-700 border border-red-200"
@@ -460,48 +461,68 @@ export default function DashboardPage() {
   });
   const blockedCount = blockedNumbers.length;
 
+  // Workflow id (shared with ConversationsSection + DailyActivityCard via React Query cache)
+  const { data: workflowId } = useQuery({
+    queryKey: ["user_workflow_id", user?.id],
+    queryFn: async () => {
+      if (!user?.id) return null;
+      const { data } = await supabase
+        .from("profiles")
+        .select("active_flow_id")
+        .eq("id", user.id)
+        .single();
+      return data?.active_flow_id ?? null;
+    },
+    enabled: !!user?.id,
+  });
+
   return (
     <motion.div
       variants={stagger}
       initial="hidden"
       animate="show"
-      className="px-3 py-5 sm:px-5 sm:py-5 md:p-8 max-w-7xl mx-auto"
+      className="flex flex-col h-[calc(100vh-3.5rem)] px-4 py-3 sm:px-6 sm:py-4 md:px-8 md:py-5 max-w-[1400px] mx-auto"
     >
-      {/* ── Top Row: Welcome + Status ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-        {/* Welcome */}
-        <motion.div variants={fadeUp}>
-          <h1 className="text-2xl sm:text-3xl font-bold text-[#2D2A26] tracking-tight">
+      {/* ── Hero: Welcome + Daily Activity Card (12-col grid mirrors the bento below
+          so the activity card aligns to the contacts panel width). ── */}
+      <section className="mb-3 grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-5 items-center shrink-0">
+        {/* Welcome block */}
+        <motion.div variants={fadeUp} className="lg:col-span-8 min-w-0">
+          <h1
+            className="text-xl sm:text-2xl md:text-[26px] font-bold text-zinc-900 tracking-tight leading-tight"
+            style={{ fontFamily: "var(--font-display)" }}
+          >
             {t("welcome", { name: user?.full_name ?? "" })}
           </h1>
-          <p className="text-sm text-[#7A7267] mt-0.5">{t("subtitle")}</p>
-        </motion.div>
-
-        {/* Bot Status + Blocked Numbers */}
-        {user?.id && (
-          <motion.div variants={fadeUp} className="flex items-center gap-3">
+          <p className="text-sm text-zinc-500 mt-1.5">{t("subtitle")}</p>
+          <div className="flex flex-wrap items-center gap-2 mt-2">
+            {user?.id && <BotStatusPill userId={user.id} />}
             <button
               type="button"
               onClick={() => setBlockedModalOpen(true)}
-              className="flex items-center gap-2 px-3.5 py-2.5 rounded-2xl border border-[#EDE6DD] bg-white shadow-sm cursor-pointer transition-all hover:shadow-md hover:border-[#D5CEC5]"
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-zinc-200 bg-white shadow-sm cursor-pointer transition-all hover:shadow-md hover:border-zinc-300"
             >
-              <ShieldBan className="w-4 h-4 text-[#7A7267]" />
-              <span className="text-xs font-bold uppercase tracking-wider text-[#7A7267]">
+              <ShieldBan className="w-3 h-3 text-zinc-500" />
+              <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">
                 {t("blockedNumbers")}
               </span>
               {blockedCount > 0 && (
-                <span className="bg-red-500 text-white text-[10px] font-bold min-w-[18px] h-[18px] flex items-center justify-center rounded-full px-1">
+                <span className="bg-red-500 text-white text-[10px] font-bold min-w-[16px] h-4 flex items-center justify-center rounded-full px-1">
                   {blockedCount}
                 </span>
               )}
             </button>
-            <BotStatusPill userId={user.id} />
-          </motion.div>
-        )}
-      </div>
+          </div>
+        </motion.div>
 
-      {/* ── Conversations (full width) ── */}
-      <motion.div variants={fadeUp}>
+        {/* Activity card — same col-span as the contacts panel so widths align */}
+        <motion.div variants={fadeUp} className="lg:col-span-4">
+          <DailyActivityCard workflowId={workflowId} />
+        </motion.div>
+      </section>
+
+      {/* ── Conversations bento (fills remaining viewport) ── */}
+      <motion.div variants={fadeUp} className="flex-1 min-h-0 flex flex-col">
         <ConversationsSection />
       </motion.div>
 

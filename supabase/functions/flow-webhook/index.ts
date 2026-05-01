@@ -2887,6 +2887,16 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Auto-unarchive: any inbound message restores an archived session to Active Chats.
+    // Cheap UPDATE — no-op when archived_at is already null. Runs before any branching
+    // so both paused (LLM-only) and active flow paths benefit.
+    await supabase
+      .from("subscriber_sessions")
+      .update({ archived_at: null })
+      .eq("workflow_id", workflow.id)
+      .eq("phone", phone)
+      .not("archived_at", "is", null);
+
     // When workflow is not active (paused/draft), skip flow execution but still respond via LLM
     if (!isFlowActive) {
       console.log("[flow] Workflow paused, using LLM-only mode:", activeFlowId, workflow.status);

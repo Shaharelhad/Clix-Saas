@@ -7,6 +7,15 @@
   --brand-primary-light: #FF7E47;
   --brand-primary-lighter: #FF8F5C;
   --brand-primary-rgb: 255, 107, 44;
+
+  /* Manrope/Epilogue ship Latin only — Hebrew glyphs fall through to Secular One
+     automatically, so Latin UI text gets the Stitch fonts and Hebrew stays readable. */
+  --font-display: "Epilogue", "Secular One", system-ui, sans-serif;
+  --font-body: "Manrope", "Secular One", system-ui, sans-serif;
+}
+
+body {
+  font-family: var(--font-body);
 }
 
 /* ── Global UX base resets ── */
