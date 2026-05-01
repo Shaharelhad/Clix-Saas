@@ -363,11 +363,10 @@ export default function ConversationsSection() {
             </div>
           )}
 
-          {/* Messages Area */}
+          {/* Messages Area — slightly wider zinc thumb, transparent track */}
           <div
             ref={messagesContainerRef}
-            className="flex-1 overflow-y-auto px-4 sm:px-5 py-4 flex flex-col gap-2.5 min-h-0"
-            style={{ scrollbarWidth: "thin", scrollbarColor: "#E5DDD3 transparent" }}
+            className="scrollbar-zinc flex-1 overflow-y-auto px-4 sm:px-5 py-4 flex flex-col gap-2.5 min-h-0"
           >
             {!effectiveSelectedId ? (
               <div className="flex-1 flex flex-col items-center justify-center text-center">

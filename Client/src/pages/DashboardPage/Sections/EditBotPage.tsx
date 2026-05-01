@@ -13,8 +13,6 @@ import KnowledgeBaseSection from "./KnowledgeBaseSection";
 import EditBotSidebar from "./EditBotSidebar";
 import type { EditBotCategory } from "./EditBotSidebar";
 
-/* ═══════════════════════ MAIN COMPONENT ════════════════════ */
-
 export default function EditBotPage() {
   const { t } = useTranslation("dashboard");
   const { user } = useAuth();
@@ -22,7 +20,6 @@ export default function EditBotPage() {
   const [activeCategory, setActiveCategory] =
     useState<EditBotCategory>("edit");
 
-  // Fetch user's workflow for demo chat
   const { data: workflow } = useQuery({
     queryKey: ["user-workflow", user?.id],
     enabled: !!user?.id,
@@ -39,59 +36,63 @@ export default function EditBotPage() {
     },
   });
 
+  const isEditTab = activeCategory === "edit";
+
   return (
     <motion.div
       variants={stagger}
       initial="hidden"
       animate="show"
-      className="px-3 py-5 sm:px-5 sm:py-5 md:p-8 max-w-7xl mx-auto space-y-6"
+      className="px-3 py-5 sm:px-5 sm:py-6 md:px-8 md:py-8 max-w-7xl mx-auto"
     >
-      {/* ── Page Title ── */}
-      <motion.div variants={fadeUp}>
-        <h1 className="text-2xl sm:text-3xl font-bold text-[#2D2A26] tracking-tight">
+      {/* ── Centered hero ── */}
+      <motion.div variants={fadeUp} className="text-center mb-6 sm:mb-8">
+        <h1
+          className="text-2xl sm:text-3xl md:text-[34px] font-bold text-[#0F172A] tracking-tight leading-tight"
+          style={{ fontFamily: "var(--font-display)" }}
+        >
           {t("editBotPageTitle")}
         </h1>
-        <p className="text-sm text-[#7A7267] mt-0.5">
+        <p className="text-[13px] sm:text-sm text-slate-500 font-medium mt-1.5 max-w-xl mx-auto">
           {t("editBotPageSubtitle")}
         </p>
       </motion.div>
 
-      {/* ── Sidebar + Content ── */}
-      <motion.div variants={fadeUp} className="flex flex-col lg:flex-row gap-6">
-        <EditBotSidebar
-          activeCategory={activeCategory}
-          onCategoryChange={setActiveCategory}
-        />
-
-        <div className="flex-1 min-w-0">
-            {activeCategory === "edit" && (
-                <div className="grid grid-cols-1 lg:grid-cols-7 gap-5">
-                  <div className="lg:col-span-3">
-                    <EditBotSection
-                      onEditApplied={() => setResetKey((k) => k + 1)}
-                    />
-                  </div>
-                  <div className="lg:col-span-4">
-                    <DemoChatSection
-                      resetKey={resetKey}
-                      workflowId={workflow?.id}
-                    />
-                  </div>
-                </div>
-            )}
-
-            {activeCategory === "content" && (
-                <BusinessContentSection />
-            )}
-
-            {activeCategory === "faq" && (
-                <FaqSection />
-            )}
-
-            {activeCategory === "knowledge-base" && (
-                <KnowledgeBaseSection />
-            )}
+      {/* ── Editor grid: nav on the right (RTL), edit middle, test-bot on the left.
+            Mini-nav is source-first so RTL flow lands it on the right edge —
+            mirroring the inspiration's visual placement. */}
+      <motion.div
+        variants={fadeUp}
+        className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5"
+      >
+        <div className="lg:col-span-3">
+          <EditBotSidebar
+            activeCategory={activeCategory}
+            onCategoryChange={setActiveCategory}
+          />
         </div>
+
+        {isEditTab ? (
+          <>
+            <div className="lg:col-span-4 lg:h-[600px] flex flex-col">
+              <EditBotSection
+                onEditApplied={() => setResetKey((k) => k + 1)}
+              />
+            </div>
+            <div className="lg:col-span-5 lg:h-[600px] flex flex-col">
+              <DemoChatSection
+                resetKey={resetKey}
+                workflowId={workflow?.id}
+              />
+            </div>
+          </>
+        ) : (
+          <div className="lg:col-span-9 min-w-0">
+            {activeCategory === "content" && <BusinessContentSection />}
+            {activeCategory === "faq" && <FaqSection />}
+            {activeCategory === "knowledge-base" && <KnowledgeBaseSection />}
+          </div>
+        )}
       </motion.div>
     </motion.div>
   );

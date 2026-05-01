@@ -1416,6 +1416,10 @@ export type Database = {
         Args: { p_session_id: string }
         Returns: undefined
       }
+      reset_session_keep_history: {
+        Args: { p_session_id: string }
+        Returns: undefined
+      }
       search_products: {
         Args: { p_limit?: number; p_query: string; p_user_id: string }
         Returns: {

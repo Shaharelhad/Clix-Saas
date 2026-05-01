@@ -11,7 +11,7 @@ import {
   Headphones,
   Settings,
   HelpCircle,
-  LayoutGrid,
+  UserCircle,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useAuth } from "@/hooks/useAuth";
@@ -49,6 +49,16 @@ export default function UserLayout() {
   // existing cream so their previously-shipped look is preserved untouched.
   const isDefaultTenant = !tenantConfig || tenantConfig.slug === "clix";
   const surfaceBg = isDefaultTenant ? "bg-[#F8FAFC]" : "bg-[#FFF8F6]";
+
+  // Decorative header icon mirrors the active route. Specific sub-paths first;
+  // /dashboard root falls through last because it prefixes every sub-route.
+  const CurrentPageIcon = (() => {
+    const p = location.pathname;
+    if (p.startsWith("/dashboard/edit-bot")) return Pencil;
+    if (p.startsWith("/dashboard/flow-builder")) return GitBranch;
+    if (p.startsWith("/dashboard/profile")) return UserCircle;
+    return LayoutDashboard;
+  })();
 
   // Scroll to top on route change
   useEffect(() => {
@@ -210,12 +220,12 @@ export default function UserLayout() {
           {/* Vertical separator between profile chip and the decorative mark */}
           <span aria-hidden className="h-8 w-px bg-zinc-200 hidden md:block" />
 
-          {/* Decorative grid mark — non-interactive */}
+          {/* Passive page indicator — mirrors the active route's icon */}
           <span
             aria-hidden
             className="text-zinc-400 hidden md:inline-flex items-center justify-center w-9 h-9 select-none cursor-default pointer-events-none"
           >
-            <LayoutGrid className="w-5 h-5" />
+            <CurrentPageIcon className="w-5 h-5" />
           </span>
         </div>
       </header>

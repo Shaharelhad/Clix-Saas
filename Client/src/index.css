@@ -318,6 +318,27 @@ body {
   display: none;
 }
 
+/* Subtle floating scrollbar — zinc-300 thumb, transparent track. WebKit gets a
+   custom width (CSS `scrollbar-width` only supports auto/thin/none). */
+.scrollbar-zinc {
+  scrollbar-width: thin;
+  scrollbar-color: #d4d4d8 transparent;
+}
+.scrollbar-zinc::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+.scrollbar-zinc::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-zinc::-webkit-scrollbar-thumb {
+  background-color: #d4d4d8;
+  border-radius: 9999px;
+}
+.scrollbar-zinc::-webkit-scrollbar-thumb:hover {
+  background-color: #a1a1aa;
+}
+
 .animate-fade-in {
   animation: fadeIn 0.5s ease-out forwards;
 }
