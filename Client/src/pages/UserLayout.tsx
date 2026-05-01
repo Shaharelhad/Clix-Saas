@@ -8,15 +8,17 @@ import {
   LayoutDashboard,
   Pencil,
   GitBranch,
-  UserCircle,
   Headphones,
-  ChevronDown,
+  Settings,
+  HelpCircle,
+  UserCircle,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useAuth } from "@/hooks/useAuth";
 import SupportTicketModal from "@/components/SupportTicketModal";
 import { cn } from "@/lib/utils";
 import LanguageToggle from "@/components/LanguageToggle";
+import { useTenantStore } from "@/store/tenant.store";
 
 const navItems = [
   { to: "/dashboard", icon: LayoutDashboard, label: "dashboard", end: true },
@@ -38,140 +40,132 @@ export default function UserLayout() {
   const { signOut, user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [supportModalOpen, setSupportModalOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
-  const triggerRef = useRef<HTMLButtonElement>(null);
+  const settingsMenuRef = useRef<HTMLDivElement>(null);
+  const settingsTriggerRef = useRef<HTMLButtonElement>(null);
+  const tenantConfig = useTenantStore((s) => s.config);
+  // Default CLIX tenant gets the new slate surface; white-label tenants keep the
+  // existing cream so their previously-shipped look is preserved untouched.
+  const isDefaultTenant = !tenantConfig || tenantConfig.slug === "clix";
+  const surfaceBg = isDefaultTenant ? "bg-[#F8FAFC]" : "bg-[#FFF8F6]";
+
+  // Decorative header icon mirrors the active route. Specific sub-paths first;
+  // /dashboard root falls through last because it prefixes every sub-route.
+  const CurrentPageIcon = (() => {
+    const p = location.pathname;
+    if (p.startsWith("/dashboard/edit-bot")) return Pencil;
+    if (p.startsWith("/dashboard/flow-builder")) return GitBranch;
+    if (p.startsWith("/dashboard/profile")) return UserCircle;
+    return LayoutDashboard;
+  })();
 
   // Scroll to top on route change
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [location.pathname]);
 
-  // Close dropdown on click outside
+  // Close settings popover on click outside
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (triggerRef.current?.contains(e.target as Node)) return;
-      if (menuRef.current && !menuRef.current.contains(e.target as Node))
-        setMenuOpen(false);
+      if (settingsTriggerRef.current?.contains(e.target as Node)) return;
+      if (settingsMenuRef.current && !settingsMenuRef.current.contains(e.target as Node))
+        setSettingsOpen(false);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  // Close dropdown on Escape
+  // Close settings popover on Escape
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setMenuOpen(false);
+      if (e.key === "Escape") setSettingsOpen(false);
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
   }, []);
 
   const handleSignOut = async () => {
-    setMenuOpen(false);
+    setSettingsOpen(false);
     await signOut();
     navigate("/auth", { replace: true });
   };
 
   return (
-    <div
-      dir="rtl"
-      className="min-h-screen font-secular-one"
-      style={{ background: "linear-gradient(170deg, #FDF8F2 0%, #F8F0E6 40%, #FBF5EE 100%)" }}
-    >
-      {/* Top Bar */}
-      <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-xl border-b border-[#EDE6DD]/60 shadow-[0_1px_12px_rgba(45,42,38,0.04)]">
-        <div className="max-w-full mx-auto px-3 sm:px-5 md:px-8 flex items-center justify-between h-14">
-          {/* Logo */}
-          <div className="flex items-center gap-3">
-            <BrandLogo className="h-6 drop-shadow-[0_0_8px_rgba(var(--brand-primary-rgb),0.3)]" />
-          </div>
+    <div dir="rtl" className={`min-h-screen ${surfaceBg} text-[#261815]`}>
+      {/* ── Right Sidebar (always pinned to the visual right edge, matching the
+          Stitch design which uses physical positioning so RTL and LTR look identical). */}
+      <aside
+        className="fixed right-0 top-0 h-full w-64 z-50 hidden md:flex flex-col bg-white border-l border-zinc-200/50 shadow-[-20px_0_40px_rgba(0,0,0,0.02)]"
+      >
+        {/* Brand — static, non-interactive label */}
+        <div className="px-8 py-6 cursor-default select-none">
+          <BrandLogo className="h-9" />
+        </div>
 
-          {/* Nav Tabs */}
-          <nav className="flex items-center gap-1 overflow-x-auto">
-            {navItems.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end={item.end}
-                preventScrollReset
-                className={({ isActive }) =>
-                  cn(
-                    "flex items-center gap-2 px-4 py-2 rounded-lg text-sm whitespace-nowrap transition-all duration-200",
-                    isActive
-                      ? "bg-[var(--brand-primary-light)]/10 text-[var(--brand-primary-light)] border border-[var(--brand-primary-light)]/20"
-                      : "text-[#7A7267] hover:text-[#2D2A26] hover:bg-[#EDE6DD]/40 border border-transparent",
-                  )
-                }
-              >
-                <item.icon className="w-4 h-4 shrink-0" />
-                <span className="hidden sm:inline">{t(item.label)}</span>
-              </NavLink>
-            ))}
-          </nav>
+        {/* Primary nav */}
+        <nav className="flex-1 flex flex-col">
+          {navItems.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              end={item.end}
+              preventScrollReset
+              className={({ isActive }) =>
+                cn(
+                  "flex items-center gap-3 px-8 py-4 transition-all duration-200 active:scale-[0.97]",
+                  isActive
+                    ? "text-[var(--brand-primary)] font-bold border-l-4 border-[var(--brand-primary)] bg-[var(--brand-primary)]/5"
+                    : "text-zinc-500 font-medium hover:bg-white/50",
+                )
+              }
+            >
+              <item.icon className="w-5 h-5 shrink-0" />
+              <span>{t(item.label)}</span>
+            </NavLink>
+          ))}
+        </nav>
 
-          {/* Language + Avatar Dropdown */}
-          <div className="flex items-center gap-2">
-          <LanguageToggle />
+        {/* Footer block */}
+        <div className="mt-auto p-4 flex flex-col gap-1 border-t border-zinc-100">
+          <button
+            type="button"
+            onClick={() => isMainDomain() && setSupportModalOpen(true)}
+            className="flex items-center gap-3 px-4 py-3 text-zinc-500 font-medium hover:bg-white/50 transition-all duration-200 rounded-xl text-start"
+          >
+            <HelpCircle className="w-5 h-5 shrink-0" />
+            <span>{t("help")}</span>
+          </button>
+
+          {/* Settings — opens a popover above with language + logout */}
           <div className="relative">
             <button
-              ref={triggerRef}
+              ref={settingsTriggerRef}
               type="button"
-              onClick={() => setMenuOpen((o) => !o)}
-              className="flex items-center gap-2 rounded-full transition-all duration-200 hover:opacity-80 active:scale-95"
-              aria-label="User menu"
+              onClick={() => setSettingsOpen((o) => !o)}
+              className="w-full flex items-center gap-3 px-4 py-3 text-zinc-500 font-medium hover:bg-white/50 transition-all duration-200 rounded-xl text-start"
             >
-              <span className="w-9 h-9 rounded-full bg-[var(--brand-primary-light)] text-white text-xs font-bold flex items-center justify-center shadow-sm">
-                {user ? getInitials(user.full_name) : "?"}
-              </span>
-              <ChevronDown
-                className={cn(
-                  "w-3.5 h-3.5 text-[#7A7267] transition-transform duration-200 hidden sm:block",
-                  menuOpen && "rotate-180",
-                )}
-              />
+              <Settings className="w-5 h-5 shrink-0" />
+              <span>{t("settings")}</span>
             </button>
 
             <AnimatePresence>
-              {menuOpen && (
+              {settingsOpen && (
                 <motion.div
-                  ref={menuRef}
-                  initial={{ opacity: 0, y: -8, scale: 0.95 }}
+                  ref={settingsMenuRef}
+                  initial={{ opacity: 0, y: 8, scale: 0.97 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -8, scale: 0.95 }}
+                  exit={{ opacity: 0, y: 8, scale: 0.97 }}
                   transition={{ duration: 0.15 }}
-                  className="absolute end-0 top-full mt-2 z-50 bg-white rounded-xl shadow-[0_8px_32px_rgba(45,42,38,0.12)] border border-[#EDE6DD]/50 overflow-hidden min-w-[220px]"
+                  className="absolute bottom-full mb-2 inset-x-0 z-50 bg-white rounded-2xl shadow-[0_8px_32px_rgba(45,42,38,0.12)] border border-[#EDE6DD]/50 overflow-hidden"
                 >
-                  {/* User info header */}
-                  {user && (
-                    <div className="px-4 py-3 border-b border-[#EDE6DD]/50">
-                      <p className="text-sm font-bold text-[#2D2A26] truncate">
-                        {user.full_name}
-                      </p>
-                      <p className="text-xs text-[#A39B90] truncate" dir="ltr">
-                        {user.email}
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Profile */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMenuOpen(false);
-                      navigate("/dashboard/profile");
-                    }}
-                    className="w-full flex items-center gap-3 px-4 py-3 text-sm text-[#2D2A26] hover:bg-[#FAF7F3] transition-colors"
-                  >
-                    <UserCircle className="w-4 h-4 text-[#7A7267]" />
-                    {t("profile")}
-                  </button>
-
-                  {/* Divider */}
+                  <div className="flex items-center justify-between px-4 py-3">
+                    <span className="text-sm font-medium text-[#2D2A26]">
+                      {t("language")}
+                    </span>
+                    <LanguageToggle />
+                  </div>
                   <div className="border-t border-[#EDE6DD]/50" />
-
-                  {/* Logout */}
                   <button
                     type="button"
                     onClick={handleSignOut}
@@ -184,21 +178,69 @@ export default function UserLayout() {
               )}
             </AnimatePresence>
           </div>
-          </div>
+        </div>
+      </aside>
+
+      {/* ── Slim Top Header ── */}
+      <header className="fixed top-0 inset-x-0 h-14 z-40 bg-transparent flex items-center pr-4 md:pr-72 pl-4 md:pl-8">
+        {/* Mobile-only brand mark on the left */}
+        <div className="flex items-center gap-3 md:hidden">
+          <BrandLogo className="h-6" />
+        </div>
+
+        {/* Action cluster sits on the visual right (next to the sidebar).
+            ml-auto pushes everything before it to the left, so the cluster floats
+            against the sidebar. dir="ltr" locks an unambiguous left-to-right
+            reading order inside the chip — avatar → name+plan → grid —
+            independent of the page's RTL/LTR direction. */}
+        <div dir="ltr" className="flex items-center gap-3 md:gap-4 ml-auto">
+          <NavLink
+            to="/dashboard/profile"
+            className="flex items-center gap-2.5 pl-1 pr-2 py-1 rounded-full hover:bg-white/60 transition-all duration-200 active:scale-95"
+            aria-label="Open profile"
+          >
+            <span className="w-9 h-9 rounded-full bg-[var(--brand-primary-light)] text-white text-[11px] font-bold flex items-center justify-center shadow-sm border-2 border-white">
+              {user ? getInitials(user.full_name) : "?"}
+            </span>
+            {user && (
+              <div className="text-left hidden sm:block leading-tight">
+                <p
+                  className="text-sm font-bold text-zinc-900"
+                  style={{ fontFamily: "var(--font-display)" }}
+                >
+                  {user.full_name}
+                </p>
+                <p className="text-[10px] text-zinc-400 uppercase tracking-wider">
+                  {user.role}
+                </p>
+              </div>
+            )}
+          </NavLink>
+
+          {/* Vertical separator between profile chip and the decorative mark */}
+          <span aria-hidden className="h-8 w-px bg-zinc-200 hidden md:block" />
+
+          {/* Passive page indicator — mirrors the active route's icon */}
+          <span
+            aria-hidden
+            className="text-zinc-400 hidden md:inline-flex items-center justify-center w-9 h-9 select-none cursor-default pointer-events-none"
+          >
+            <CurrentPageIcon className="w-5 h-5" />
+          </span>
         </div>
       </header>
 
-      {/* Main content */}
-      <main className="flex-1 min-w-0">
+      {/* ── Main content (right padding reserves space for the right-anchored sidebar) ── */}
+      <main className="md:pr-64 pt-14 min-h-screen">
         <Outlet />
       </main>
 
-      {/* Floating Support Button — only on main domain, hidden on flow builder */}
+      {/* ── Mobile floating support button (hidden on flow builder; collapses bigger on mobile) ── */}
       {isMainDomain() && !location.pathname.includes("/flow-builder") && (
         <button
           type="button"
           onClick={() => setSupportModalOpen(true)}
-          className="fixed bottom-6 left-6 z-40 w-12 h-12 rounded-full bg-[var(--brand-primary-light)] text-white shadow-lg hover:shadow-xl hover:scale-105 active:scale-95 transition-all duration-200 flex items-center justify-center"
+          className="md:hidden fixed bottom-6 left-6 z-40 w-12 h-12 rounded-full bg-[var(--brand-primary-light)] text-white shadow-lg hover:shadow-xl hover:scale-105 active:scale-95 transition-all duration-200 flex items-center justify-center"
           aria-label={t("support")}
           title={t("support")}
         >

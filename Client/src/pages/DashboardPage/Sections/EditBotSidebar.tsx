@@ -29,48 +29,59 @@ export default function EditBotSidebar({
 }: EditBotSidebarProps) {
   const { t } = useTranslation("sidebar");
 
+  const active = categories.find((c) => c.id === activeCategory) ?? categories[0];
+  const inactive = categories.filter((c) => c.id !== activeCategory);
+  const ActiveIcon = active.icon;
+
   return (
     <>
-      {/* ── Desktop: vertical sidebar ── */}
-      <nav className="hidden lg:block w-56 shrink-0 sticky top-24 self-start">
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-[0_2px_24px_rgba(45,42,38,0.05)] border border-[#EDE6DD]/50 p-2.5 flex flex-col gap-1">
-          {categories.map((cat) => {
-            const isActive = activeCategory === cat.id;
-            const Icon = cat.icon;
+      {/* ── Desktop / tablet: stacked card mini-nav ── */}
+      <nav className="hidden lg:flex lg:sticky lg:top-24 flex-col gap-3">
+        {/* Active card — thick brand border framing an inner brand-light pill */}
+        <motion.div
+          layout
+          className="bg-white rounded-2xl border-2 border-[var(--brand-primary)] p-1 shadow-[0_6px_24px_-12px_rgba(255,107,44,0.35)]"
+        >
+          <button
+            type="button"
+            aria-current="page"
+            className="w-full flex items-center justify-between px-4 py-3.5 rounded-xl bg-[var(--brand-primary)]/8 cursor-default"
+            style={{ background: "rgba(var(--brand-primary-rgb), 0.08)" }}
+          >
+            <span className="text-sm font-bold text-[var(--brand-primary)] tracking-tight">
+              {t(active.labelKey)}
+            </span>
+            <ActiveIcon className="w-[18px] h-[18px] text-[var(--brand-primary)]" />
+          </button>
+        </motion.div>
 
-            return (
-              <button
-                type="button"
-                key={cat.id}
-                onClick={() => onCategoryChange(cat.id)}
-                className={`
-                  relative flex items-center gap-3 w-full rounded-xl px-4 py-3
-                  text-sm font-medium transition-colors duration-200 cursor-pointer
-                  ${
-                    isActive
-                      ? "text-[var(--brand-primary-light)] font-bold"
-                      : "text-[#7A7267] hover:bg-[#FAF7F3] hover:text-[#2D2A26]"
-                  }
-                `}
-              >
-                {isActive && (
-                  <motion.div
-                    layoutId="sidebar-active"
-                    className="absolute inset-0 rounded-xl bg-gradient-to-l from-[var(--brand-primary-light)]/10 to-[var(--brand-primary-light)]/5 border-e-[3px] border-[var(--brand-primary-light)]"
-                    transition={{ type: "spring", stiffness: 380, damping: 30 }}
-                  />
-                )}
-                <Icon className="relative z-10 w-[18px] h-[18px] shrink-0" />
-                <span className="relative z-10">{t(cat.labelKey)}</span>
-              </button>
-            );
-          })}
+        {/* Inactive list card */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-2 shadow-[0_2px_18px_-10px_rgba(15,23,42,0.06)]">
+          <ul className="flex flex-col gap-0.5">
+            {inactive.map((cat) => {
+              const Icon = cat.icon;
+              return (
+                <li key={cat.id}>
+                  <button
+                    type="button"
+                    onClick={() => onCategoryChange(cat.id)}
+                    className="group w-full flex items-center justify-between px-4 py-3.5 rounded-xl hover:bg-slate-50 transition-colors duration-200 cursor-pointer"
+                  >
+                    <span className="text-sm font-medium text-slate-500 group-hover:text-slate-900 transition-colors">
+                      {t(cat.labelKey)}
+                    </span>
+                    <Icon className="w-[18px] h-[18px] text-slate-400 group-hover:text-slate-700 transition-colors" />
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
         </div>
       </nav>
 
       {/* ── Mobile: horizontal pill tabs ── */}
       <nav className="lg:hidden">
-        <div className="flex gap-1.5 sm:gap-2 overflow-x-auto bg-white/80 backdrop-blur-sm rounded-xl shadow-[0_2px_24px_rgba(45,42,38,0.05)] border border-[#EDE6DD]/50 p-1.5 sm:p-2">
+        <div className="flex gap-1.5 overflow-x-auto bg-white rounded-2xl shadow-[0_2px_18px_-10px_rgba(15,23,42,0.08)] border border-slate-200 p-1.5">
           {categories.map((cat) => {
             const isActive = activeCategory === cat.id;
             const Icon = cat.icon;
@@ -80,20 +91,17 @@ export default function EditBotSidebar({
                 type="button"
                 key={cat.id}
                 onClick={() => onCategoryChange(cat.id)}
-                className={`
-                  relative flex items-center gap-2 rounded-xl px-4 py-2.5
-                  text-sm whitespace-nowrap transition-colors duration-200 cursor-pointer
-                  ${
-                    isActive
-                      ? "text-[var(--brand-primary-light)] font-bold"
-                      : "text-[#7A7267] hover:bg-[#FAF7F3] hover:text-[#2D2A26]"
-                  }
-                `}
+                className={`relative flex items-center gap-2 rounded-xl px-3.5 py-2.5 text-sm whitespace-nowrap transition-colors duration-200 cursor-pointer ${
+                  isActive
+                    ? "text-[var(--brand-primary)] font-bold"
+                    : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
+                }`}
               >
                 {isActive && (
                   <motion.div
-                    layoutId="sidebar-active-mobile"
-                    className="absolute inset-0 rounded-xl bg-[var(--brand-primary-light)]/10"
+                    layoutId="editbot-mininav-active-mobile"
+                    className="absolute inset-0 rounded-xl"
+                    style={{ background: "rgba(var(--brand-primary-rgb), 0.1)" }}
                     transition={{ type: "spring", stiffness: 380, damping: 30 }}
                   />
                 )}

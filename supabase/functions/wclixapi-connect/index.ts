@@ -61,8 +61,11 @@ Deno.serve(async (req) => {
         .update({ bot_status: "not_created" })
         .eq("id", user_id);
 
-      // Reset all active sessions so stale conversations don't block the next connection.
-      // Skip for Eliron — his leads must keep conversation history across reconnects.
+      // Reset stale node state so the next connection isn't blocked. History is preserved
+      // for everyone (we use reset_session_keep_history, not reset_conversation_session) so
+      // the dashboard's Daily Bot Activity chart doesn't lose data on disconnect.
+      // Skip for Eliron entirely — his leads also need their mid-flow node state and
+      // collected variables preserved across reconnects, not just history.
       const ELIRON_USER_ID = "260222c1-9b83-4206-bb90-7445907fb582";
       if (user_id !== ELIRON_USER_ID) {
         const { data: userWorkflows } = await supabase
@@ -81,10 +84,10 @@ Deno.serve(async (req) => {
           if (activeSessions?.length) {
             await Promise.allSettled(
               activeSessions.map((s: { id: string }) =>
-                supabase.rpc("reset_conversation_session", { p_session_id: s.id })
+                supabase.rpc("reset_session_keep_history", { p_session_id: s.id })
               )
             );
-            console.log("[wclixapi-connect] Reset", activeSessions.length, "active sessions on disconnect");
+            console.log("[wclixapi-connect] Reset state for", activeSessions.length, "active sessions on disconnect (history preserved)");
           }
         }
       }

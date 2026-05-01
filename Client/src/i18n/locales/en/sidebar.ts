@@ -10,6 +10,9 @@ const sidebar = {
   support: "Support",
   profile: "Profile",
   logout: "Logout",
+  settings: "Settings",
+  help: "Help",
+  language: "Language",
 };
 
 export default sidebar;

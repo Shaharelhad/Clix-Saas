@@ -61,7 +61,9 @@ Deno.serve(async (req) => {
         .update({ bot_status: "not_created" })
         .eq("id", user_id);
 
-      // Reset all active sessions so stale conversations don't block the next connection
+      // Reset stale node state so the next connection isn't blocked. History is preserved
+      // (we use reset_session_keep_history) so the dashboard's Daily Bot Activity chart
+      // doesn't lose data on disconnect.
       const { data: userWorkflows } = await supabase
         .from("workflows")
         .select("id")
@@ -78,10 +80,10 @@ Deno.serve(async (req) => {
         if (activeSessions?.length) {
           await Promise.allSettled(
             activeSessions.map((s: { id: string }) =>
-              supabase.rpc("reset_conversation_session", { p_session_id: s.id })
+              supabase.rpc("reset_session_keep_history", { p_session_id: s.id })
             )
           );
-          console.log("[wa-connect] Reset", activeSessions.length, "active sessions on disconnect");
+          console.log("[wa-connect] Reset state for", activeSessions.length, "active sessions on disconnect (history preserved)");
         }
       }
 

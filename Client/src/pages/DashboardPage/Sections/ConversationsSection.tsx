@@ -5,12 +5,11 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   MessageSquare,
   Phone,
-  Clock,
   ArrowLeft,
-  MessageCircle,
-  Users,
   RotateCcw,
   AlertTriangle,
+  MoreVertical,
+  Archive,
 } from "lucide-react";
 import { supabase } from "@/services/supabase";
 import { useAuth } from "@/hooks/useAuth";
@@ -48,7 +47,9 @@ function relativeTime(dateStr: string | null) {
   const hrs = Math.floor(mins / 60);
   if (hrs < 24) return `${hrs}h`;
   const days = Math.floor(hrs / 24);
-  return `${days}d`;
+  if (days < 30) return `${days}d`;
+  const months = Math.floor(days / 30);
+  return `${months}mo`;
 }
 
 function formatPhone(phone: string) {
@@ -70,9 +71,17 @@ function formatTime(dateStr: string) {
   });
 }
 
+/** Last 2 digits of a phone number, used for the avatar tile. */
+function avatarDigits(phone: string) {
+  const clean = phone.replace(/\D/g, "");
+  return clean.slice(-2) || "??";
+}
+
 /* ─────────────────────── Message Bubble ────────────────────── */
 
 function MessageBubble({ msg }: { msg: Message }) {
+  // "inbound" = customer → us (rendered on the start side, dark)
+  // "outbound" = bot → customer (rendered on the end side, white)
   const isInbound = msg.direction === "inbound";
 
   return (
@@ -80,27 +89,29 @@ function MessageBubble({ msg }: { msg: Message }) {
       initial={{ opacity: 0, y: 8, scale: 0.97 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ duration: 0.3, ease: EASE }}
-      className={`max-w-[80%] ${isInbound ? "self-start" : "self-end"}`}
+      className={`max-w-[70%] ${isInbound ? "self-start" : "self-end"}`}
     >
       <div
-        className={`rounded-2xl px-3.5 py-2.5 shadow-sm ${
+        className={
           isInbound
-            ? "bg-white border border-[#EDE6DD]/60 text-[#2D2A26] rounded-ss-sm"
-            : "bg-[#2D2A26] text-white rounded-ee-sm"
-        }`}
+            ? "bg-zinc-900 text-white px-3.5 py-2 rounded-[20px] rounded-ss-none shadow-md"
+            : "bg-white border border-[#f3f0e6] text-zinc-800 px-3.5 py-2 rounded-[20px] rounded-ee-none shadow-sm"
+        }
       >
         {(msg.message_type === "buttons" || msg.message_type === "image") && (
-          <span className={`text-[10px] font-semibold uppercase tracking-wide ${isInbound ? "text-[#B8AFA4]" : "text-white/60"} block mb-1`}>
+          <span
+            className={`text-[9px] font-bold uppercase tracking-wider block mb-0.5 ${
+              isInbound ? "text-white/60" : "text-[var(--brand-primary)]/60"
+            }`}
+          >
             [{msg.message_type === "buttons" ? "BUTTONS SENT" : "IMAGE SENT"}]
           </span>
         )}
-        <p className="text-[13px] leading-relaxed whitespace-pre-wrap">
-          {msg.content ?? ""}
-        </p>
+        <p className="text-[13px] leading-snug whitespace-pre-wrap">{msg.content ?? ""}</p>
       </div>
       <span
-        className={`text-[10px] text-[#B8AFA4] mt-0.5 block px-1 ${
-          isInbound ? "text-start" : "text-end"
+        className={`text-[9px] text-zinc-400 mt-0.5 block px-1 ${
+          isInbound ? "text-end" : "text-start"
         }`}
       >
         {formatTime(msg.created_at)}
@@ -118,7 +129,34 @@ export default function ConversationsSection() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [resetting, setResetting] = useState(false);
+  const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
+  const [archiving, setArchiving] = useState(false);
+  const [chatMenuOpen, setChatMenuOpen] = useState(false);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const chatMenuRef = useRef<HTMLDivElement>(null);
+  const chatMenuTriggerRef = useRef<HTMLButtonElement>(null);
+
+  // Close chat menu on click outside
+  useEffect(() => {
+    if (!chatMenuOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (chatMenuTriggerRef.current?.contains(e.target as Node)) return;
+      if (chatMenuRef.current && !chatMenuRef.current.contains(e.target as Node))
+        setChatMenuOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [chatMenuOpen]);
+
+  // Close chat menu on Escape
+  useEffect(() => {
+    if (!chatMenuOpen) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setChatMenuOpen(false);
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [chatMenuOpen]);
 
   /* ── Query: user's active_flow_id ── */
   const { data: workflowId } = useQuery({
@@ -144,6 +182,7 @@ export default function ConversationsSection() {
         .from("subscriber_sessions")
         .select("id, phone, status, last_message_at, created_at")
         .eq("workflow_id", workflowId)
+        .is("archived_at", null)
         .order("last_message_at", { ascending: false });
       return (data ?? []) as Session[];
     },
@@ -199,157 +238,228 @@ export default function ConversationsSection() {
     }
   };
 
+  /* ── Archive session handler — soft-hides the session from active chats.
+        flow-webhook clears archived_at on next inbound message, so it auto-restores. */
+  const handleArchiveSession = async () => {
+    if (!effectiveSelectedId) return;
+    setArchiving(true);
+    try {
+      const { error } = await supabase.rpc("archive_conversation_session" as never, {
+        p_session_id: effectiveSelectedId,
+      } as never);
+      if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: ["active_sessions"] });
+      setSelectedId(null);
+    } catch (err) {
+      console.error("Archive session error:", err);
+    } finally {
+      setArchiving(false);
+      setShowArchiveConfirm(false);
+    }
+  };
+
   /* ═══════════════════════ RENDER ═══════════════════════════ */
 
   return (
-    <motion.div variants={fadeUp} className="flex flex-col">
-      {/* Section Header */}
-      <div className="flex items-center gap-2.5 mb-3">
-        <div className="w-8 h-8 rounded-xl bg-[var(--brand-primary-light)]/10 flex items-center justify-center">
-          <MessageSquare className="w-4 h-4 text-[var(--brand-primary-light)]" />
-        </div>
-        <h2 className="text-base font-bold text-[#2D2A26]">
+    <motion.div variants={fadeUp} className="flex flex-col flex-1 min-h-0">
+      {/* Section Header (lifted from inner card per design) */}
+      <div className="flex items-center gap-2.5 mb-3 shrink-0">
+        <span
+          className="bg-[var(--brand-primary)] text-white text-[11px] font-bold w-6 h-6 rounded-full flex items-center justify-center"
+          style={{ fontFamily: "var(--font-body)" }}
+        >
+          {sessions.length}
+        </span>
+        <h3
+          className="text-[20px] font-semibold text-zinc-900 tracking-tight"
+          style={{ fontFamily: "var(--font-display)" }}
+        >
           {t("conversationsTitle")}
-        </h2>
-        {sessions.length > 0 && (
-          <span className="text-[11px] font-semibold text-[#A39B90] bg-[#FAF7F3] px-2 py-0.5 rounded-full">
-            {sessions.length}
-          </span>
-        )}
+        </h3>
       </div>
 
-      {/* Master-Detail Card */}
-      <div className="bg-white rounded-2xl overflow-hidden shadow-[0_2px_28px_rgba(45,42,38,0.06)] border border-[#EDE6DD]/50 flex flex-col lg:flex-row min-h-[420px] max-h-[520px]">
-        {/* ── Left Panel: Session List ── */}
-        <div className="lg:w-[280px] w-full border-b lg:border-b-0 lg:border-e border-[#EDE6DD]/50 flex flex-col shrink-0">
-          {/* List Header */}
-          <div className="px-4 py-3 border-b border-[#EDE6DD]/40 bg-[#FDFBF8]">
-            <div className="flex items-center gap-2 text-[11px] font-bold text-[#A39B90] uppercase tracking-wider">
-              <Users className="w-3.5 h-3.5" />
-              {t("phoneLabel")}
-            </div>
-          </div>
-
-          {/* Session Items */}
-          <div
-            className="flex-1 overflow-y-auto"
-            style={{ scrollbarWidth: "thin", scrollbarColor: "#E5DDD3 transparent" }}
-          >
-            {sessions.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full px-4 py-10 text-center">
-                <div className="w-12 h-12 rounded-2xl bg-[#FAF7F3] flex items-center justify-center mb-3">
-                  <MessageCircle className="w-5 h-5 text-[#B8AFA4]" />
-                </div>
-                <p className="text-sm text-[#A39B90] font-medium">
-                  {t("conversationsEmpty")}
-                </p>
-              </div>
-            ) : (
-              <AnimatePresence>
-                {sessions.map((session) => (
-                  <motion.button
-                    type="button"
-                    key={session.id}
-                    initial={{ opacity: 0, x: -8 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -8 }}
-                    onClick={() => setSelectedId(session.id)}
-                    className={`w-full text-start px-4 py-3.5 transition-all duration-200 border-b border-[#EDE6DD]/30 cursor-pointer group ${
-                      effectiveSelectedId === session.id
-                        ? "bg-[var(--brand-primary-light)]/[0.06] border-s-2 border-s-[var(--brand-primary-light)]"
-                        : "hover:bg-[#FAF7F3]"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-1.5">
-                      <div className="flex items-center gap-2">
-                        <Phone className="w-3.5 h-3.5 text-[#A39B90] group-hover:text-[var(--brand-primary-light)] transition-colors" />
-                        <span className="text-[13px] font-bold text-[#2D2A26] tracking-tight font-mono truncate">
-                          {formatPhone(session.phone)}
-                        </span>
-                      </div>
-                    </div>
-                    <span className="flex items-center gap-1 text-[10px] text-[#B8AFA4]">
-                      <Clock className="w-2.5 h-2.5" />
-                      {relativeTime(session.last_message_at)}
-                    </span>
-                  </motion.button>
-                ))}
-              </AnimatePresence>
-            )}
-          </div>
-        </div>
-
-        {/* ── Right Panel: Message History ── */}
-        <div className="flex-1 flex flex-col min-w-0 min-h-0">
+      {/* Bento layout: chat-window first → start side (right in RTL, near the
+          sidebar); contacts second → end side (left in RTL). Matches the
+          Stitch design. */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-5 flex-1 min-h-0">
+        {/* ── Chat Window (col-span-8) ── */}
+        <div className="lg:col-span-8 bg-white rounded-[28px] shadow-[0_40px_80px_rgba(0,0,0,0.04)] flex flex-col overflow-hidden border border-zinc-100 min-h-0">
           {/* Chat Header */}
           {selectedSession ? (
-            <div className="px-4 sm:px-5 py-3 border-b border-[#EDE6DD]/40 bg-[#FDFBF8] flex items-center gap-3 shrink-0">
-              <button
-                type="button"
-                onClick={() => setSelectedId(null)}
-                className="lg:hidden p-1 rounded-lg hover:bg-[#FAF7F3] transition-colors cursor-pointer"
-              >
-                <ArrowLeft className="w-4 h-4 text-[#7A7267] rtl:rotate-180" />
-              </button>
-              <div className="w-8 h-8 rounded-full bg-[#2D2A26] flex items-center justify-center">
-                <Phone className="w-3.5 h-3.5 text-white" />
+            <div className="px-4 sm:px-5 py-3 border-b border-zinc-50 flex items-center justify-between bg-zinc-50/30 shrink-0">
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setSelectedId(null)}
+                  className="lg:hidden p-1 rounded-lg hover:bg-zinc-100 transition-colors"
+                >
+                  <ArrowLeft className="w-4 h-4 text-zinc-500 rtl:rotate-180" />
+                </button>
+                <div className="w-9 h-9 rounded-full bg-zinc-900 flex items-center justify-center text-white font-bold text-xs">
+                  {avatarDigits(selectedSession.phone)}
+                </div>
+                <div className="min-w-0">
+                  <p
+                    className="text-sm font-bold text-zinc-900 truncate"
+                    style={{ fontFamily: "var(--font-display)" }}
+                    dir="ltr"
+                  >
+                    {formatPhone(selectedSession.phone)}
+                  </p>
+                </div>
               </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-[13px] font-bold text-[#2D2A26] font-mono truncate">
-                  {formatPhone(selectedSession.phone)}
-                </p>
-                <span className="text-[10px] text-[#B8AFA4]">
-                  {relativeTime(selectedSession.last_message_at)}
-                </span>
+              <div className="relative">
+                <button
+                  ref={chatMenuTriggerRef}
+                  type="button"
+                  onClick={() => setChatMenuOpen((o) => !o)}
+                  className="p-1.5 hover:bg-zinc-100 rounded-full text-zinc-400 transition-colors"
+                  aria-label="More"
+                >
+                  <MoreVertical className="w-3.5 h-3.5" />
+                </button>
+                <AnimatePresence>
+                  {chatMenuOpen && (
+                    <motion.div
+                      ref={chatMenuRef}
+                      initial={{ opacity: 0, y: -6, scale: 0.97 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -6, scale: 0.97 }}
+                      transition={{ duration: 0.15 }}
+                      className="absolute end-0 top-full mt-2 z-30 bg-white rounded-xl shadow-[0_8px_32px_rgba(45,42,38,0.12)] border border-[#EDE6DD]/50 overflow-hidden min-w-[200px]"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setChatMenuOpen(false);
+                          setShowResetConfirm(true);
+                        }}
+                        className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[#4A4640] hover:bg-red-50 hover:text-red-500 transition-colors text-start"
+                      >
+                        <RotateCcw className="w-4 h-4" />
+                        {t("resetSession")}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setChatMenuOpen(false);
+                          setShowArchiveConfirm(true);
+                        }}
+                        className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[#4A4640] hover:bg-zinc-50 transition-colors text-start"
+                      >
+                        <Archive className="w-4 h-4" />
+                        {t("archiveSession")}
+                      </button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
-              <button
-                type="button"
-                onClick={() => setShowResetConfirm(true)}
-                className="p-1.5 rounded-lg hover:bg-red-50 transition-colors cursor-pointer group"
-                title={t("resetSession")}
-              >
-                <RotateCcw className="w-4 h-4 text-[#A39B90] group-hover:text-red-500 transition-colors" />
-              </button>
             </div>
           ) : (
-            <div className="px-4 sm:px-5 py-3 border-b border-[#EDE6DD]/40 bg-[#FDFBF8] shrink-0">
-              <p className="text-[13px] font-bold text-[#A39B90]">
+            <div className="px-4 sm:px-5 py-3 border-b border-zinc-50 bg-zinc-50/30 shrink-0">
+              <p className="text-sm font-bold text-zinc-400">
                 {t("conversationsSelectPrompt")}
               </p>
             </div>
           )}
 
-          {/* Messages Area */}
+          {/* Messages Area — slightly wider zinc thumb, transparent track */}
           <div
             ref={messagesContainerRef}
-            className="flex-1 px-4 sm:px-5 py-4 overflow-y-auto flex flex-col gap-2"
-            style={{
-              background:
-                "linear-gradient(180deg, #FDFBF8 0%, #FAF7F3 100%)",
-              scrollbarWidth: "thin",
-              scrollbarColor: "#E5DDD3 transparent",
-            }}
+            className="scrollbar-zinc flex-1 overflow-y-auto px-4 sm:px-5 py-4 flex flex-col gap-2.5 min-h-0"
           >
             {!effectiveSelectedId ? (
-              <div className="flex flex-col items-center justify-center h-full text-center">
-                <div className="w-16 h-16 rounded-2xl bg-[#FAF7F3] border border-[#EDE6DD]/50 flex items-center justify-center mb-3">
-                  <MessageSquare className="w-7 h-7 text-[#C8C0B6]" />
+              <div className="flex-1 flex flex-col items-center justify-center text-center">
+                <div className="w-16 h-16 rounded-2xl bg-zinc-50 border border-zinc-100 flex items-center justify-center mb-3">
+                  <MessageSquare className="w-7 h-7 text-zinc-300" />
                 </div>
-                <p className="text-sm text-[#A39B90]">
+                <p className="text-sm text-zinc-400">
                   {t("conversationsSelectPrompt")}
                 </p>
               </div>
             ) : messages.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full text-center">
-                <p className="text-sm text-[#A39B90]">
-                  {t("noMessages")}
-                </p>
+              <div className="flex-1 flex flex-col items-center justify-center text-center">
+                <p className="text-sm text-zinc-400">{t("noMessages")}</p>
               </div>
             ) : (
-              messages.map((msg) => (
-                <MessageBubble key={msg.id} msg={msg} />
-              ))
+              messages.map((msg) => <MessageBubble key={msg.id} msg={msg} />)
             )}
+          </div>
+        </div>
+
+        {/* ── Contacts Panel (col-span-4) ── */}
+        <div className="lg:col-span-4 flex flex-col gap-4 min-h-0">
+          <div className="bg-white rounded-[28px] p-4 sm:p-5 shadow-[0_40px_80px_rgba(0,0,0,0.04)] border border-zinc-100 flex-1 flex flex-col min-h-0">
+            <div className="mb-3 shrink-0">
+              <h4
+                className="text-[13px] font-semibold uppercase tracking-widest text-zinc-400"
+                style={{ fontFamily: "var(--font-display)" }}
+              >
+                {t("contactsTitle")}
+              </h4>
+            </div>
+
+            <div
+              className="flex-1 min-h-0 overflow-y-auto -mx-1.5 px-1.5 space-y-1.5"
+              style={{ scrollbarWidth: "thin", scrollbarColor: "#E5DDD3 transparent" }}
+            >
+              {sessions.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full px-4 py-10 text-center">
+                  <div className="w-12 h-12 rounded-2xl bg-zinc-50 flex items-center justify-center mb-3">
+                    <Phone className="w-5 h-5 text-zinc-300" />
+                  </div>
+                  <p className="text-sm text-zinc-400 font-medium">
+                    {t("conversationsEmpty")}
+                  </p>
+                </div>
+              ) : (
+                <AnimatePresence>
+                  {sessions.map((session) => {
+                    const isActive = effectiveSelectedId === session.id;
+                    return (
+                      <motion.button
+                        type="button"
+                        key={session.id}
+                        initial={{ opacity: 0, x: -8 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -8 }}
+                        onClick={() => setSelectedId(session.id)}
+                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl transition-colors text-start ${
+                          isActive
+                            ? "bg-[rgba(var(--brand-primary-rgb),0.05)] border border-[rgba(var(--brand-primary-rgb),0.1)]"
+                            : "hover:bg-zinc-50 border border-transparent"
+                        }`}
+                      >
+                        <div
+                          className={`w-10 h-10 rounded-xl flex items-center justify-center text-[11px] font-bold shrink-0 ${
+                            isActive
+                              ? "bg-zinc-900 text-white"
+                              : "bg-zinc-200 text-zinc-600"
+                          }`}
+                        >
+                          {avatarDigits(session.phone)}
+                        </div>
+                        <div className="flex-1 min-w-0 text-start">
+                          <p
+                            className="font-bold text-zinc-900 truncate text-[13px]"
+                            style={{ fontFamily: "var(--font-display)" }}
+                            dir="ltr"
+                          >
+                            {formatPhone(session.phone)}
+                          </p>
+                        </div>
+                        <div className="text-end flex flex-col items-end gap-0.5 shrink-0">
+                          <span className="text-[10px] font-bold text-zinc-400">
+                            {relativeTime(session.last_message_at)}
+                          </span>
+                          <Phone className="w-3.5 h-3.5 text-zinc-300" />
+                        </div>
+                      </motion.button>
+                    );
+                  })}
+                </AnimatePresence>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -380,14 +490,12 @@ export default function ConversationsSection() {
                   {t("resetSession")}
                 </h3>
               </div>
-              <p className="text-sm text-[#7A7267]">
-                {t("resetSessionConfirm")}
-              </p>
+              <p className="text-sm text-[#7A7267]">{t("resetSessionConfirm")}</p>
               <div className="flex gap-3 pt-1">
                 <button
                   type="button"
                   onClick={() => setShowResetConfirm(false)}
-                  className="flex-1 px-4 py-2.5 rounded-xl border border-[#EDE6DD] text-sm font-semibold text-[#7A7267] hover:bg-[#FAF7F3] transition-colors cursor-pointer"
+                  className="flex-1 px-4 py-2.5 rounded-xl border border-[#EDE6DD] text-sm font-semibold text-[#7A7267] hover:bg-[#FAF7F3] transition-colors"
                 >
                   {t("cancel")}
                 </button>
@@ -395,9 +503,58 @@ export default function ConversationsSection() {
                   type="button"
                   onClick={handleResetSession}
                   disabled={resetting}
-                  className="flex-1 px-4 py-2.5 rounded-xl bg-red-500 text-white text-sm font-semibold hover:bg-red-600 transition-colors disabled:opacity-50 cursor-pointer"
+                  className="flex-1 px-4 py-2.5 rounded-xl bg-red-500 text-white text-sm font-semibold hover:bg-red-600 transition-colors disabled:opacity-50"
                 >
                   {resetting ? "..." : t("resetSessionAction")}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Archive Confirmation Modal */}
+      <AnimatePresence>
+        {showArchiveConfirm && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4"
+            onClick={() => setShowArchiveConfirm(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm space-y-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center">
+                  <Archive className="w-5 h-5 text-amber-500" />
+                </div>
+                <h3 className="text-base font-bold text-[#2D2A26]">
+                  {t("archiveSession")}
+                </h3>
+              </div>
+              <p className="text-sm text-[#7A7267]">{t("archiveSessionConfirm")}</p>
+              <div className="flex gap-3 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setShowArchiveConfirm(false)}
+                  className="flex-1 px-4 py-2.5 rounded-xl border border-[#EDE6DD] text-sm font-semibold text-[#7A7267] hover:bg-[#FAF7F3] transition-colors"
+                >
+                  {t("cancel")}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleArchiveSession}
+                  disabled={archiving}
+                  className="flex-1 px-4 py-2.5 rounded-xl bg-amber-500 text-white text-sm font-semibold hover:bg-amber-600 transition-colors disabled:opacity-50"
+                >
+                  {archiving ? "..." : t("archiveSessionAction")}
                 </button>
               </div>
             </motion.div>

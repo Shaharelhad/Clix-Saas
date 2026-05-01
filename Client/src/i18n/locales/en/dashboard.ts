@@ -38,6 +38,9 @@ const dashboard = {
   resetSession: "Reset Conversation",
   resetSessionConfirm: "This will clear all messages and reset the flow to the beginning. The customer will start fresh on their next message.",
   resetSessionAction: "Reset",
+  archiveSession: "Archive Conversation",
+  archiveSessionConfirm: "This conversation will be hidden from Active Chats. It will reappear automatically when the customer sends a new message.",
+  archiveSessionAction: "Archive",
   sessionActive: "Active",
   sessionCompleted: "Completed",
   sessionWaiting: "Waiting",
@@ -153,6 +156,24 @@ const dashboard = {
   testConnectionTesting: "Testing...",
   testConnectionSuccess: "Connection verified",
   testConnectionFailed: "Connection test failed",
+
+  // Daily Activity Card
+  activityTitle: "Daily Bot Activity",
+  activityToday: "Today",
+  activityNoData: "No activity yet",
+  daysShortMon: "MON",
+  daysShortTue: "TUE",
+  daysShortWed: "WED",
+  daysShortThu: "THU",
+  daysShortFri: "FRI",
+  daysShortSat: "SAT",
+  daysShortSun: "SUN",
+
+  // Contacts panel
+  contactsTitle: "Contacts",
+  contactsAdd: "Add contact",
+  contactsActiveSession: "Active session",
+  contactsWaiting: "Waiting for response...",
 };
 
 export default dashboard;

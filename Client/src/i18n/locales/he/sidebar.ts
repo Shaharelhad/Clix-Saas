@@ -10,6 +10,9 @@ const sidebar = {
   support: "תמיכה",
   profile: "פרופיל",
   logout: "התנתק",
+  settings: "הגדרות",
+  help: "עזרה",
+  language: "שפה",
 };
 
 export default sidebar;
