@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/services/supabase";
 import { cn } from "@/lib/utils";
+import AdminSectionHeader from "../components/AdminSectionHeader";
 
 type TenantRow = {
   id: string;
@@ -77,17 +78,13 @@ export default function AdminTenantsSection() {
   ];
 
   return (
-    <div className="p-6 md:p-8 max-w-5xl mx-auto">
-      {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: -12 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="mb-8"
-      >
-        <h1 className="text-2xl font-bold text-[#111111]">{t("tenantsTitle")}</h1>
-        <p className="text-[#999999] text-sm mt-1">{t("tenantsSubtitle")}</p>
-      </motion.div>
+    <div className="p-4 lg:p-5 max-w-[1600px] mx-auto space-y-4">
+      <AdminSectionHeader
+        title={t("tenantsTitle")}
+        subtitle={t("tenantsSubtitle")}
+      />
 
+      <div className="max-w-5xl">
       {/* Filters */}
       <div className="flex items-center gap-2 mb-6 flex-wrap">
         {filters.map((f) => (
@@ -304,6 +301,7 @@ export default function AdminTenantsSection() {
           </motion.div>
         ))}
       </AnimatePresence>
+      </div>
     </div>
   );
 }

@@ -1,11 +1,11 @@
 import { useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { motion } from "framer-motion";
 import { Loader2, Send, Ticket } from "lucide-react";
 import { supabase } from "@/services/supabase";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
+import AdminSectionHeader from "../components/AdminSectionHeader";
 
 const STATUS_COLORS: Record<string, string> = {
   open: "bg-blue-100 text-blue-700",
@@ -23,8 +23,6 @@ const STATUS_KEYS: Record<string, string> = {
 
 const STATUSES = ["all", "open", "in_progress", "resolved", "closed"] as const;
 const STATUS_VALUES = ["open", "in_progress", "resolved", "closed"] as const;
-
-const EASE = [0.22, 1, 0.36, 1] as const;
 
 export default function AdminTicketsSection() {
   const { t } = useTranslation("admin");
@@ -124,46 +122,38 @@ export default function AdminTicketsSection() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
-        <Loader2 className="w-8 h-8 animate-spin text-[#D8723C]" />
+        <Loader2 className="w-8 h-8 animate-spin text-[var(--brand-primary)]" />
       </div>
     );
   }
 
-  return (
-    <div className="h-full flex flex-col p-5 gap-4 overflow-hidden">
-      {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: -8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.35, ease: EASE }}
-        className="shrink-0"
-      >
-        <h1 className="text-xl font-bold text-[#111111]">
-          {t("ticketsTitle")}
-        </h1>
-        <p className="text-xs text-[#999999] mt-0.5">
-          {t("ticketsSubtitle")}
-        </p>
-      </motion.div>
+  const filterChips = (
+    <>
+      {STATUSES.map((s) => (
+        <button
+          type="button"
+          key={s}
+          onClick={() => setStatusFilter(s)}
+          className={cn(
+            "px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer",
+            statusFilter === s
+              ? "bg-[var(--brand-primary)]/10 text-[var(--brand-primary)] border border-[var(--brand-primary)]/25"
+              : "text-[#999999] hover:text-[#111111] hover:bg-black/[0.04] border border-transparent",
+          )}
+        >
+          {t(filterKeys[s])}
+        </button>
+      ))}
+    </>
+  );
 
-      {/* Filters */}
-      <div className="flex gap-2 shrink-0">
-        {STATUSES.map((s) => (
-          <button
-            type="button"
-            key={s}
-            onClick={() => setStatusFilter(s)}
-            className={cn(
-              "px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer",
-              statusFilter === s
-                ? "bg-[#D8723C]/10 text-[#D8723C] border border-[#D8723C]/25"
-                : "text-[#999999] hover:text-[#111111] hover:bg-black/[0.04] border border-transparent"
-            )}
-          >
-            {t(filterKeys[s])}
-          </button>
-        ))}
-      </div>
+  return (
+    <div className="h-full flex flex-col p-4 lg:p-5 gap-4 overflow-hidden max-w-[1600px] mx-auto w-full">
+      <AdminSectionHeader
+        title={t("ticketsTitle")}
+        subtitle={t("ticketsSubtitle")}
+        actions={<div className="flex gap-2 flex-wrap">{filterChips}</div>}
+      />
 
       {/* Two-panel layout */}
       <div className="flex gap-4 flex-1 min-h-0">
@@ -188,7 +178,7 @@ export default function AdminTicketsSection() {
                   onClick={() => setSelectedId(ticket.id)}
                   className={cn(
                     "w-full text-start px-4 py-3.5 border-b border-[#F0ECE7] hover:bg-[#FAFAF8] transition-colors cursor-pointer",
-                    selectedId === ticket.id && "bg-[#FDF9F6] border-s-2 border-s-[#D8723C]"
+                    selectedId === ticket.id && "bg-[#FDF9F6] border-s-2 border-s-[var(--brand-primary)]"
                   )}
                 >
                   <div className="flex items-center justify-between mb-1">
@@ -226,7 +216,7 @@ export default function AdminTicketsSection() {
                   <select
                     value={selected.status}
                     onChange={(e) => statusMutation.mutate(e.target.value)}
-                    className="text-xs font-bold px-2 py-1 rounded-lg border border-[#E8E4DF] bg-white text-[#111111] cursor-pointer focus:outline-none focus:border-[#D8723C]"
+                    className="text-xs font-bold px-2 py-1 rounded-lg border border-[#E8E4DF] bg-white text-[#111111] cursor-pointer focus:outline-none focus:border-[var(--brand-primary)]"
                   >
                     {STATUS_VALUES.map((s) => (
                       <option key={s} value={s}>
@@ -256,8 +246,8 @@ export default function AdminTicketsSection() {
                       </div>
                     )}
                     {msg.bot_response && (
-                      <div className="bg-[#D8723C]/5 border border-[#D8723C]/10 rounded-xl px-4 py-3">
-                        <p className="text-[10px] font-bold text-[#D8723C] mb-1">
+                      <div className="bg-[var(--brand-primary)]/5 border border-[var(--brand-primary)]/10 rounded-xl px-4 py-3">
+                        <p className="text-[10px] font-bold text-[var(--brand-primary)] mb-1">
                           Admin
                         </p>
                         <p className="text-sm text-[#111111] whitespace-pre-wrap">
@@ -280,13 +270,13 @@ export default function AdminTicketsSection() {
                     onChange={(e) => setReply(e.target.value)}
                     placeholder={t("ticketReplyPlaceholder")}
                     rows={2}
-                    className="flex-1 border border-[#E8E4DF] rounded-xl px-4 py-2.5 text-sm text-[#111111] placeholder:text-[#CCCCCC] focus:outline-none focus:border-[#D8723C] focus:ring-1 focus:ring-[#D8723C]/20 transition-colors resize-none"
+                    className="flex-1 border border-[#E8E4DF] rounded-xl px-4 py-2.5 text-sm text-[#111111] placeholder:text-[#CCCCCC] focus:outline-none focus:border-[var(--brand-primary)] focus:ring-1 focus:ring-[var(--brand-primary)]/20 transition-colors resize-none"
                   />
                   <button
                     type="button"
                     onClick={() => replyMutation.mutate()}
                     disabled={!reply.trim() || replyMutation.isPending}
-                    className="self-end px-4 py-2.5 rounded-xl bg-[#D8723C] hover:bg-[#C4632F] disabled:opacity-50 text-white text-sm font-bold transition-colors cursor-pointer disabled:cursor-not-allowed flex items-center gap-1.5"
+                    className="self-end px-4 py-2.5 rounded-xl bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-hover)] disabled:opacity-50 text-white text-sm font-bold transition-colors cursor-pointer disabled:cursor-not-allowed flex items-center gap-1.5"
                   >
                     <Send className="w-4 h-4" />
                     {t("ticketReply")}

@@ -12,6 +12,7 @@ import {
   Check,
   X,
   ChevronLeft,
+  CheckCircle2,
 } from "lucide-react";
 import {
   AreaChart,
@@ -30,6 +31,8 @@ import {
 import { supabase } from "@/services/supabase";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
+import { useTenantStore } from "@/store/tenant.store";
+import AdminSectionHeader from "../components/AdminSectionHeader";
 
 function getGreetingKey(): string {
   const hour = new Date().getHours();
@@ -61,15 +64,28 @@ function groupByMonth(
 }
 
 const EASE = [0.22, 1, 0.36, 1] as const;
-const STATUS_CHART_COLORS = ["#F59E0B", "#10B981", "#EF4444"];
-const BOT_CHART_COLORS = ["#E5E7EB", "#60A5FA", "#D8723C"];
+const STATUS_CHART_COLORS = ["#FBBF24", "#10B981", "#F43F5E"];
 
 export default function DashboardSection() {
   const { t } = useTranslation("admin");
   const { user } = useAuth();
+  const tenantName = useTenantStore((s) => s.config?.name) ?? "CLIX";
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [processingId, setProcessingId] = useState<string | null>(null);
+
+  const brandPrimary = useMemo(() => {
+    if (typeof window === "undefined") return "#FF6B2C";
+    const v = getComputedStyle(document.documentElement)
+      .getPropertyValue("--brand-primary")
+      .trim();
+    return v || "#FF6B2C";
+  }, []);
+
+  const botChartColors = useMemo(
+    () => ["#E5E7EB", "#60A5FA", brandPrimary],
+    [brandPrimary]
+  );
 
   const { data: counts, isLoading: countsLoading } = useQuery({
     queryKey: ["admin", "counts"],
@@ -177,8 +193,9 @@ export default function DashboardSection() {
       label: t("statTotalUsers"),
       value: totalUsers,
       icon: Users,
-      color: "text-[#444444]",
-      bgColor: "bg-[#F2EDE8]",
+      iconClass: "text-[color:var(--brand-primary)]",
+      pillClass:
+        "bg-gradient-to-br from-[rgba(var(--brand-primary-rgb),0.18)] to-[rgba(var(--brand-primary-rgb),0.08)]",
       link: "/admin/users",
     },
     {
@@ -186,8 +203,8 @@ export default function DashboardSection() {
       label: t("statPendingApprovals"),
       value: counts?.pending_users ?? 0,
       icon: UserCheck,
-      color: "text-amber-600",
-      bgColor: "bg-amber-50",
+      iconClass: "text-amber-600",
+      pillClass: "bg-gradient-to-br from-amber-100 to-orange-100",
       link: "/admin/approvals",
     },
     {
@@ -195,8 +212,8 @@ export default function DashboardSection() {
       label: t("statOpenTickets"),
       value: counts?.open_tickets ?? 0,
       icon: Ticket,
-      color: "text-purple-600",
-      bgColor: "bg-purple-50",
+      iconClass: "text-rose-600",
+      pillClass: "bg-gradient-to-br from-rose-100 to-red-100",
       link: "/admin/tickets",
     },
     {
@@ -204,14 +221,17 @@ export default function DashboardSection() {
       label: t("statActiveWorkflows"),
       value: activeWorkflows,
       icon: GitBranch,
-      color: "text-blue-600",
-      bgColor: "bg-blue-50",
+      iconClass: "text-emerald-600",
+      pillClass: "bg-gradient-to-br from-emerald-100 to-teal-100",
       link: null,
     },
   ];
 
   const card =
-    "bg-white rounded-2xl border border-[#E8E4DF] shadow-[0_1px_3px_rgba(0,0,0,0.06)]";
+    "rounded-2xl bg-white/70 backdrop-blur-xl border border-white/80 shadow-[0_8px_32px_0_rgba(31,38,135,0.05)] transition-shadow hover:shadow-[0_12px_40px_0_rgba(31,38,135,0.08)]";
+
+  const sectionTitle =
+    "border-b border-gray-100/60 pb-2 mb-3 flex items-center justify-between shrink-0";
 
   const tooltipStyle = {
     background: "#111111",
@@ -221,438 +241,492 @@ export default function DashboardSection() {
     fontSize: 12,
   };
 
-  return (
-    <div className="h-full flex flex-col p-5 gap-4 overflow-hidden">
-      {isLoading ? (
-        <div className="flex-1 flex items-center justify-center">
-          <Loader2 className="w-8 h-8 animate-spin text-[#D8723C]" />
+  if (isLoading) {
+    return (
+      <div className="h-[calc(100vh-3.5rem)] overflow-hidden p-4 lg:p-5 max-w-[1600px] mx-auto flex flex-col gap-4">
+        <div className="h-9 w-64 rounded-xl bg-white/60 animate-pulse shrink-0" />
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 shrink-0">
+          {[0, 1, 2, 3].map((i) => (
+            <div
+              key={i}
+              className={cn(card, "h-20 animate-pulse")}
+              style={{ animationDelay: `${i * 80}ms` }}
+            />
+          ))}
         </div>
-      ) : (
-        <>
-          {/* Header */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1 min-h-0">
+          <div className={cn(card, "animate-pulse")} />
+          <div className={cn(card, "animate-pulse")} />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 shrink-0">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className={cn(card, "h-44 animate-pulse")} />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-[calc(100vh-3.5rem)] overflow-hidden p-4 lg:p-5 max-w-[1600px] mx-auto flex flex-col gap-4">
+      <AdminSectionHeader
+        title={`${t(getGreetingKey())}${user?.full_name ? `, ${user.full_name}` : ""}`}
+        subtitle={t("dashboardSubtitle", { brandName: tenantName })}
+      />
+
+      {/* KPI Row */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 shrink-0">
+        {statCards.map((c, i) => (
           <motion.div
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.35, ease: EASE }}
-            className="shrink-0"
-          >
-            <h1 className="text-xl font-bold text-[#111111]">
-              {t(getGreetingKey())}
-              {user?.full_name ? `, ${user.full_name}` : ""}
-            </h1>
-            <p className="text-xs text-[#999999] mt-0.5">
-              {t("dashboardSubtitle")}
-            </p>
-          </motion.div>
-
-          {/* Row 1: Approvals + Donut + Stats (2x2) */}
-          <div className="flex gap-4 flex-1 min-h-0">
-            {/* Left: Pending Approvals */}
-            <motion.div
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.05, duration: 0.4, ease: EASE }}
-              className={cn(
-                card,
-                "w-[490px] shrink-0 px-4 py-4 flex flex-col"
-              )}
-            >
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-sm font-semibold text-[#111111]">
-                  {t("approvalsTitle")}
-                </p>
-                <button
-                  type="button"
-                  onClick={() => navigate("/admin/approvals")}
-                  className="text-[10px] text-[#D8723C] font-medium hover:underline cursor-pointer transition-all"
-                >
-                  {t("navApprovals")}
-                </button>
-              </div>
-
-              <div className="flex-1 overflow-y-auto space-y-2 min-h-0">
-                <AnimatePresence mode="popLayout">
-                  {pendingUsers.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-full text-[#CCCCCC]">
-                      <Users className="w-8 h-8 mb-2" />
-                      <p className="text-xs">{t("emptyState")}</p>
-                    </div>
-                  ) : (
-                    pendingUsers.slice(0, 8).map((u) => (
-                      <motion.div
-                        key={u.id}
-                        layout
-                        initial={{ opacity: 0, x: 12 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: -12, scale: 0.95 }}
-                        className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-[#FAFAF8] border border-[#F0ECE7] hover:border-[#E0DBD6] transition-colors"
-                      >
-                        <div className="w-8 h-8 rounded-full bg-[#D8723C]/10 border border-[#D8723C]/20 flex items-center justify-center shrink-0 text-[#D8723C] font-bold text-xs">
-                          {u.full_name?.charAt(0) ?? "?"}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-bold text-[#111111] truncate leading-tight">
-                            {u.full_name}
-                          </p>
-                          <p className="text-[10px] text-[#AAAAAA] truncate leading-tight">
-                            {u.email}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-1 shrink-0">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              statusMutation.mutate({
-                                id: u.id,
-                                status: "rejected",
-                              })
-                            }
-                            disabled={processingId === u.id}
-                            className={cn(
-                              "w-9 h-9 rounded-lg border border-red-200 bg-red-50 text-red-500",
-                              "hover:bg-red-100 transition-colors flex items-center justify-center cursor-pointer",
-                              processingId === u.id &&
-                                "opacity-40 pointer-events-none"
-                            )}
-                          >
-                            {processingId === u.id ? (
-                              <Loader2 className="w-3 h-3 animate-spin" />
-                            ) : (
-                              <X className="w-3 h-3" />
-                            )}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              statusMutation.mutate({
-                                id: u.id,
-                                status: "approved",
-                              })
-                            }
-                            disabled={processingId === u.id}
-                            className={cn(
-                              "w-9 h-9 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-600",
-                              "hover:bg-emerald-100 transition-colors flex items-center justify-center cursor-pointer",
-                              processingId === u.id &&
-                                "opacity-40 pointer-events-none"
-                            )}
-                          >
-                            {processingId === u.id ? (
-                              <Loader2 className="w-3 h-3 animate-spin" />
-                            ) : (
-                              <Check className="w-3 h-3" />
-                            )}
-                          </button>
-                        </div>
-                      </motion.div>
-                    ))
-                  )}
-                </AnimatePresence>
-              </div>
-            </motion.div>
-
-            {/* Center: Donut chart (narrower) */}
-            <motion.div
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.15, duration: 0.4, ease: EASE }}
-              className={cn(
-                card,
-                "w-[490px] shrink-0 px-5 py-4 flex flex-col min-h-0"
-              )}
-            >
-              <p className="text-sm font-semibold text-[#111111]">
-                {t("chartUserStatus")}
-              </p>
-              <p className="text-[11px] text-[#999999] mb-1">
-                {t("chartUserStatusSub")}
-              </p>
-              <div className="flex-1 min-h-0">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={statusData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius="40%"
-                      outerRadius="70%"
-                      dataKey="value"
-                      paddingAngle={3}
-                      animationDuration={800}
-                    >
-                      {statusData.map((_, idx) => (
-                        <Cell
-                          key={idx}
-                          fill={STATUS_CHART_COLORS[idx]}
-                          stroke="none"
-                        />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      contentStyle={tooltipStyle}
-                      itemStyle={{ color: "#fff" }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="flex justify-center gap-4 pt-2">
-                {statusData.map((entry, idx) => (
-                  <div key={idx} className="flex items-center gap-1.5">
-                    <div
-                      className="w-2.5 h-2.5 rounded-full"
-                      style={{ backgroundColor: STATUS_CHART_COLORS[idx] }}
-                    />
-                    <span className="text-[11px] text-[#777777] font-medium">
-                      {entry.name}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </motion.div>
-
-            {/* Right: 2x2 stat cards */}
-            <motion.div
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1, duration: 0.4, ease: EASE }}
-              className="flex-1 grid grid-cols-2 gap-3 min-h-0"
-            >
-              {statCards.map((c, i) => (
-                <motion.div
-                  key={c.key}
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{
-                    delay: 0.15 + i * 0.06,
-                    duration: 0.35,
-                    ease: EASE,
-                  }}
-                  onClick={() => c.link && navigate(c.link)}
-                  className={cn(
-                    card,
-                    "px-5 py-4 flex flex-col justify-between transition-all duration-200",
-                    c.link &&
-                      "cursor-pointer hover:bg-[#FDF9F6] hover:border-[#D8723C]/30 hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)]"
-                  )}
-                >
-                  <div className="flex items-center justify-between">
-                    <div
-                      className={cn(
-                        "w-10 h-10 rounded-xl flex items-center justify-center",
-                        c.bgColor
-                      )}
-                    >
-                      <c.icon className={cn("w-5 h-5", c.color)} />
-                    </div>
-                    <ChevronLeft
-                      className={cn(
-                        "w-4 h-4 text-[#CCCCCC]",
-                        !c.link && "opacity-0"
-                      )}
-                    />
-                  </div>
-                  <div className="mt-auto">
-                    <p className="text-3xl font-bold text-[#111111] leading-none">
-                      {c.value}
-                    </p>
-                    <p className="text-xs text-[#999999] font-medium mt-1">
-                      {c.label}
-                    </p>
-                  </div>
-                </motion.div>
-              ))}
-            </motion.div>
-          </div>
-
-          {/* Row 2: Charts */}
-          <motion.div
+            key={c.key}
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.35, duration: 0.4, ease: EASE }}
-            className="grid grid-cols-3 gap-4 shrink-0 h-[220px]"
+            transition={{ delay: i * 0.06, duration: 0.4, ease: EASE }}
+            onClick={() => c.link && navigate(c.link)}
+            className={cn(
+              card,
+              "group px-5 py-4 flex items-center gap-4 transition-all duration-300",
+              c.link &&
+                "cursor-pointer hover:bg-white/85 hover:border-[rgba(var(--brand-primary-rgb),0.25)]"
+            )}
           >
-            {/* User Registrations */}
-            <div className={cn(card, "px-5 py-4 flex flex-col min-h-0")}>
-              <p className="text-sm font-semibold text-[#111111]">
-                {t("chartRegistrations")}
+            <div
+              className={cn(
+                "w-11 h-11 rounded-xl flex items-center justify-center shrink-0 shadow-sm border border-white/60",
+                "group-hover:scale-110 transition-transform duration-300",
+                c.pillClass
+              )}
+            >
+              <c.icon className={cn("w-5 h-5", c.iconClass)} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-[11px] text-[#777777] font-light mb-0.5">
+                {c.label}
               </p>
-              <p className="text-[11px] text-[#999999] mb-2">
+              <p className="text-2xl font-bold leading-none tracking-tight text-[#111111]">
+                {c.value}
+              </p>
+            </div>
+            {c.link && (
+              <ChevronLeft className="w-3.5 h-3.5 text-[#CCCCCC] shrink-0 group-hover:text-[color:var(--brand-primary)] transition-colors" />
+            )}
+          </motion.div>
+        ))}
+      </div>
+
+      {/* Donut + Pending Approvals */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1 min-h-0">
+        {/* Donut chart */}
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.25, duration: 0.4, ease: EASE }}
+          className={cn(card, "px-5 py-4 flex flex-col min-h-0")}
+        >
+          <div className={sectionTitle}>
+            <div>
+              <h3 className="text-sm font-semibold text-[#111111] tracking-tight">
+                {t("chartUserStatus")}
+              </h3>
+              <p className="text-[11px] text-[#999999] font-light mt-0.5">
+                {t("chartUserStatusSub")}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-col lg:flex-row items-center justify-center gap-4 lg:gap-8 flex-1 min-h-0">
+            <div className="relative w-[160px] h-[160px] shrink-0">
+              <div
+                className="absolute inset-3 rounded-full"
+                style={{
+                  background:
+                    "radial-gradient(circle at 30% 30%, rgba(255,255,255,0.95) 0%, rgba(248,250,252,0.7) 60%, rgba(241,245,249,0.4) 100%)",
+                  boxShadow:
+                    "inset 0 2px 8px rgba(0,0,0,0.04), 0 4px 24px rgba(15,23,42,0.06)",
+                }}
+              />
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <defs>
+                    {STATUS_CHART_COLORS.map((color, idx) => (
+                      <linearGradient
+                        key={idx}
+                        id={`donutGrad-${idx}`}
+                        x1="0"
+                        y1="0"
+                        x2="0"
+                        y2="1"
+                      >
+                        <stop offset="0%" stopColor={color} stopOpacity={1} />
+                        <stop offset="100%" stopColor={color} stopOpacity={0.78} />
+                      </linearGradient>
+                    ))}
+                  </defs>
+                  <Pie
+                    data={statusData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius="62%"
+                    outerRadius="92%"
+                    dataKey="value"
+                    paddingAngle={4}
+                    cornerRadius={8}
+                    animationDuration={900}
+                    animationBegin={150}
+                  >
+                    {statusData.map((_, idx) => (
+                      <Cell
+                        key={idx}
+                        fill={`url(#donutGrad-${idx})`}
+                        stroke="#ffffff"
+                        strokeWidth={2}
+                      />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={tooltipStyle}
+                    itemStyle={{ color: "#fff" }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                <span className="text-3xl font-bold tracking-tight text-[#0f172a] leading-none">
+                  {totalUsers}
+                </span>
+                <span className="text-[10px] tracking-[0.3em] uppercase text-gray-400 font-semibold mt-1.5">
+                  {t("dashboardTotal")}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2.5">
+              {statusData.map((entry, idx) => (
+                <div key={idx} className="flex items-center gap-3">
+                  <div
+                    className="w-2.5 h-2.5 rounded-full shrink-0 shadow-sm"
+                    style={{
+                      backgroundColor: STATUS_CHART_COLORS[idx],
+                      boxShadow: `0 0 10px ${STATUS_CHART_COLORS[idx]}50`,
+                    }}
+                  />
+                  <span className="text-xs text-[#777777] font-light w-20">
+                    {entry.name}
+                  </span>
+                  <span className="text-sm font-semibold text-[#111111]">
+                    {entry.value}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Pending Approvals */}
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3, duration: 0.4, ease: EASE }}
+          className={cn(card, "px-5 py-4 flex flex-col min-h-0")}
+        >
+          <div className={sectionTitle}>
+            <h3 className="text-sm font-semibold text-[#111111] tracking-tight">
+              {t("approvalsTitle")}
+            </h3>
+            <button
+              type="button"
+              onClick={() => navigate("/admin/approvals")}
+              className="text-[10px] font-semibold tracking-wider uppercase text-[color:var(--brand-primary)] hover:opacity-70 transition-opacity"
+            >
+              {t("navApprovals")}
+            </button>
+          </div>
+
+          <div className="flex-1 flex flex-col min-h-0">
+            <AnimatePresence mode="popLayout">
+              {pendingUsers.length === 0 ? (
+                <div className="flex-1 flex flex-col items-center justify-center text-center bg-white/30 rounded-2xl border border-dashed border-gray-200/60 py-4">
+                  <div className="w-14 h-14 rounded-full bg-[rgba(var(--brand-primary-rgb),0.08)] border border-[rgba(var(--brand-primary-rgb),0.18)] flex items-center justify-center mb-3 text-[color:var(--brand-primary)] shadow-inner">
+                    <CheckCircle2 className="w-6 h-6" strokeWidth={1.5} />
+                  </div>
+                  <h4 className="text-sm font-semibold text-[#111111] mb-1 tracking-tight">
+                    {t("emptyState")}
+                  </h4>
+                  <p className="text-[11px] text-[#999999] font-light max-w-xs">
+                    {t("dashboardSubtitle", { brandName: tenantName })}
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-1.5 overflow-y-auto flex-1 min-h-0 pr-1">
+                  {pendingUsers.slice(0, 8).map((u) => (
+                    <motion.div
+                      key={u.id}
+                      layout
+                      initial={{ opacity: 0, x: 12 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -12, scale: 0.95 }}
+                      className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-white/60 border border-white/80 hover:border-[rgba(var(--brand-primary-rgb),0.2)] transition-colors"
+                    >
+                      <div className="w-8 h-8 rounded-full bg-[rgba(var(--brand-primary-rgb),0.1)] border border-[rgba(var(--brand-primary-rgb),0.2)] flex items-center justify-center shrink-0 text-[color:var(--brand-primary)] font-bold text-xs">
+                        {u.full_name?.charAt(0) ?? "?"}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-bold text-[#111111] truncate leading-tight">
+                          {u.full_name}
+                        </p>
+                        <p className="text-[10px] text-[#999999] truncate leading-tight mt-0.5 font-light">
+                          {u.email}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            statusMutation.mutate({
+                              id: u.id,
+                              status: "rejected",
+                            })
+                          }
+                          disabled={processingId === u.id}
+                          className={cn(
+                            "w-7 h-7 rounded-lg border border-rose-200 bg-rose-50/80 text-rose-500",
+                            "hover:bg-rose-100 transition-colors flex items-center justify-center cursor-pointer",
+                            processingId === u.id &&
+                              "opacity-40 pointer-events-none"
+                          )}
+                        >
+                          {processingId === u.id ? (
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                          ) : (
+                            <X className="w-3 h-3" />
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            statusMutation.mutate({
+                              id: u.id,
+                              status: "approved",
+                            })
+                          }
+                          disabled={processingId === u.id}
+                          className={cn(
+                            "w-7 h-7 rounded-lg border border-emerald-200 bg-emerald-50/80 text-emerald-600",
+                            "hover:bg-emerald-100 transition-colors flex items-center justify-center cursor-pointer",
+                            processingId === u.id &&
+                              "opacity-40 pointer-events-none"
+                          )}
+                        >
+                          {processingId === u.id ? (
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                          ) : (
+                            <Check className="w-3 h-3" />
+                          )}
+                        </button>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              )}
+            </AnimatePresence>
+          </div>
+        </motion.div>
+      </div>
+
+      {/* Trend charts row */}
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.4, duration: 0.4, ease: EASE }}
+        className="grid grid-cols-1 md:grid-cols-3 gap-4 flex-1 min-h-0"
+      >
+        {/* User Registrations */}
+        <div className={cn(card, "px-5 py-4 flex flex-col")}>
+          <div className={sectionTitle}>
+            <div>
+              <h3 className="text-sm font-semibold text-[#111111] tracking-tight">
+                {t("chartRegistrations")}
+              </h3>
+              <p className="text-[11px] text-[#999999] font-light mt-0.5">
                 {t("chartRegistrationsSub")}
               </p>
-              <div className="flex-1 min-h-0">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart
-                    data={registrationTrend}
-                    margin={{ top: 5, right: 5, bottom: 0, left: -5 }}
-                  >
-                    <defs>
-                      <linearGradient
-                        id="regFill"
-                        x1="0"
-                        y1="0"
-                        x2="0"
-                        y2="1"
-                      >
-                        <stop
-                          offset="0%"
-                          stopColor="#D8723C"
-                          stopOpacity={0.15}
-                        />
-                        <stop
-                          offset="100%"
-                          stopColor="#D8723C"
-                          stopOpacity={0.02}
-                        />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid
-                      strokeDasharray="3 3"
-                      stroke="#E8E4DF"
-                      vertical={false}
-                    />
-                    <XAxis
-                      dataKey="month"
-                      tick={{ fontSize: 10, fill: "#999" }}
-                      axisLine={false}
-                      tickLine={false}
-                    />
-                    <YAxis
-                      tick={{ fontSize: 10, fill: "#999" }}
-                      axisLine={false}
-                      tickLine={false}
-                      allowDecimals={false}
-                      width={24}
-                    />
-                    <Tooltip contentStyle={tooltipStyle} itemStyle={{ color: "#fff" }} labelStyle={{ color: "#fff" }} />
-                    <Area
-                      type="monotone"
-                      dataKey="count"
-                      stroke="#D8723C"
-                      strokeWidth={2}
-                      fill="url(#regFill)"
-                      animationDuration={800}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
             </div>
+          </div>
+          <div className="flex-1 min-h-0">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart
+                data={registrationTrend}
+                margin={{ top: 5, right: 5, bottom: 0, left: -5 }}
+              >
+                <defs>
+                  <linearGradient id="regFill" x1="0" y1="0" x2="0" y2="1">
+                    <stop
+                      offset="0%"
+                      stopColor={brandPrimary}
+                      stopOpacity={0.18}
+                    />
+                    <stop
+                      offset="100%"
+                      stopColor={brandPrimary}
+                      stopOpacity={0.02}
+                    />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="#EEF1F8"
+                  vertical={false}
+                />
+                <XAxis
+                  dataKey="month"
+                  tick={{ fontSize: 10, fill: "#999" }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis
+                  tick={{ fontSize: 10, fill: "#999" }}
+                  axisLine={false}
+                  tickLine={false}
+                  allowDecimals={false}
+                  width={24}
+                />
+                <Tooltip
+                  contentStyle={tooltipStyle}
+                  itemStyle={{ color: "#fff" }}
+                  labelStyle={{ color: "#fff" }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="count"
+                  stroke={brandPrimary}
+                  strokeWidth={2.5}
+                  fill="url(#regFill)"
+                  animationDuration={800}
+                  dot={{ r: 4, strokeWidth: 2.5, fill: "#fff", stroke: brandPrimary }}
+                  activeDot={{ r: 5, strokeWidth: 2.5, fill: "#fff", stroke: brandPrimary }}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
 
-            {/* Bot Status */}
-            <div className={cn(card, "px-5 py-4 flex flex-col min-h-0")}>
-              <p className="text-sm font-semibold text-[#111111]">
+        {/* Bot Status */}
+        <div className={cn(card, "px-5 py-4 flex flex-col")}>
+          <div className={sectionTitle}>
+            <div>
+              <h3 className="text-sm font-semibold text-[#111111] tracking-tight">
                 {t("chartBotStatus")}
-              </p>
-              <p className="text-[11px] text-[#999999] mb-2">
+              </h3>
+              <p className="text-[11px] text-[#999999] font-light mt-0.5">
                 {t("chartBotStatusSub")}
               </p>
-              <div className="flex-1 min-h-0">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={botStatusData}
-                    barCategoryGap="25%"
-                    margin={{ top: 5, right: 5, bottom: 0, left: -5 }}
-                  >
-                    <CartesianGrid
-                      strokeDasharray="3 3"
-                      stroke="#E8E4DF"
-                      vertical={false}
-                    />
-                    <XAxis
-                      dataKey="name"
-                      tick={{ fontSize: 10, fill: "#999" }}
-                      axisLine={false}
-                      tickLine={false}
-                    />
-                    <YAxis
-                      tick={{ fontSize: 10, fill: "#999" }}
-                      axisLine={false}
-                      tickLine={false}
-                      allowDecimals={false}
-                      width={24}
-                    />
-                    <Tooltip contentStyle={tooltipStyle} itemStyle={{ color: "#fff" }} labelStyle={{ color: "#fff" }} />
-                    <Bar
-                      dataKey="value"
-                      radius={[6, 6, 0, 0]}
-                      animationDuration={800}
-                    >
-                      {botStatusData.map((_, idx) => (
-                        <Cell key={idx} fill={BOT_CHART_COLORS[idx]} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
             </div>
+          </div>
+          <div className="flex-1 min-h-0">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={botStatusData}
+                barCategoryGap="25%"
+                margin={{ top: 5, right: 5, bottom: 0, left: -5 }}
+              >
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="#EEF1F8"
+                  vertical={false}
+                />
+                <XAxis
+                  dataKey="name"
+                  tick={{ fontSize: 10, fill: "#999" }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis
+                  tick={{ fontSize: 10, fill: "#999" }}
+                  axisLine={false}
+                  tickLine={false}
+                  allowDecimals={false}
+                  width={24}
+                />
+                <Tooltip
+                  contentStyle={tooltipStyle}
+                  itemStyle={{ color: "#fff" }}
+                  labelStyle={{ color: "#fff" }}
+                />
+                <Bar
+                  dataKey="value"
+                  radius={[8, 8, 0, 0]}
+                  animationDuration={800}
+                >
+                  {botStatusData.map((_, idx) => (
+                    <Cell key={idx} fill={botChartColors[idx]} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
 
-            {/* Support Tickets */}
-            <div className={cn(card, "px-5 py-4 flex flex-col min-h-0")}>
-              <p className="text-sm font-semibold text-[#111111]">
+        {/* Support Tickets */}
+        <div className={cn(card, "px-5 py-4 flex flex-col")}>
+          <div className={sectionTitle}>
+            <div>
+              <h3 className="text-sm font-semibold text-[#111111] tracking-tight">
                 {t("chartTickets")}
-              </p>
-              <p className="text-[11px] text-[#999999] mb-2">
+              </h3>
+              <p className="text-[11px] text-[#999999] font-light mt-0.5">
                 {t("chartTicketsSub")}
               </p>
-              <div className="flex-1 min-h-0">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart
-                    data={ticketTrend}
-                    margin={{ top: 5, right: 5, bottom: 0, left: -5 }}
-                  >
-                    <defs>
-                      <linearGradient
-                        id="ticketFill"
-                        x1="0"
-                        y1="0"
-                        x2="0"
-                        y2="1"
-                      >
-                        <stop
-                          offset="0%"
-                          stopColor="#7C3AED"
-                          stopOpacity={0.15}
-                        />
-                        <stop
-                          offset="100%"
-                          stopColor="#7C3AED"
-                          stopOpacity={0.02}
-                        />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid
-                      strokeDasharray="3 3"
-                      stroke="#E8E4DF"
-                      vertical={false}
-                    />
-                    <XAxis
-                      dataKey="month"
-                      tick={{ fontSize: 10, fill: "#999" }}
-                      axisLine={false}
-                      tickLine={false}
-                    />
-                    <YAxis
-                      tick={{ fontSize: 10, fill: "#999" }}
-                      axisLine={false}
-                      tickLine={false}
-                      allowDecimals={false}
-                      width={24}
-                    />
-                    <Tooltip contentStyle={tooltipStyle} itemStyle={{ color: "#fff" }} labelStyle={{ color: "#fff" }} />
-                    <Area
-                      type="monotone"
-                      dataKey="count"
-                      stroke="#7C3AED"
-                      strokeWidth={2}
-                      fill="url(#ticketFill)"
-                      animationDuration={800}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
             </div>
-          </motion.div>
-        </>
-      )}
+          </div>
+          <div className="flex-1 min-h-0">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart
+                data={ticketTrend}
+                margin={{ top: 5, right: 5, bottom: 0, left: -5 }}
+              >
+                <defs>
+                  <linearGradient id="ticketFill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#7C3AED" stopOpacity={0.18} />
+                    <stop offset="100%" stopColor="#7C3AED" stopOpacity={0.02} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="#EEF1F8"
+                  vertical={false}
+                />
+                <XAxis
+                  dataKey="month"
+                  tick={{ fontSize: 10, fill: "#999" }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis
+                  tick={{ fontSize: 10, fill: "#999" }}
+                  axisLine={false}
+                  tickLine={false}
+                  allowDecimals={false}
+                  width={24}
+                />
+                <Tooltip
+                  contentStyle={tooltipStyle}
+                  itemStyle={{ color: "#fff" }}
+                  labelStyle={{ color: "#fff" }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="count"
+                  stroke="#7C3AED"
+                  strokeWidth={2.5}
+                  fill="url(#ticketFill)"
+                  animationDuration={800}
+                  dot={{ r: 4, strokeWidth: 2.5, fill: "#fff", stroke: "#7C3AED" }}
+                  activeDot={{ r: 5, strokeWidth: 2.5, fill: "#fff", stroke: "#7C3AED" }}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </motion.div>
     </div>
   );
 }

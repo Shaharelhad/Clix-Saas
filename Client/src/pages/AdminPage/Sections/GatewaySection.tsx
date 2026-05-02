@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { motion } from "framer-motion";
 import {
   Loader2,
   Plus,
@@ -16,6 +15,7 @@ import {
 } from "lucide-react";
 import { callGatewayAdmin } from "@/services/edge-functions";
 import { cn } from "@/lib/utils";
+import AdminSectionHeader from "../components/AdminSectionHeader";
 
 /* ── constants ───────────────────────────────────────────── */
 
@@ -32,8 +32,6 @@ const STATUS_KEYS: Record<string, string> = {
   qr_generated: "gatewayStatusQr",
   not_found: "gatewayStatusNotFound",
 };
-
-const EASE = [0.22, 1, 0.36, 1] as const;
 
 const card =
   "bg-white rounded-2xl border border-[#E8E4DF] shadow-[0_1px_3px_rgba(0,0,0,0.06)]";
@@ -296,7 +294,7 @@ export default function GatewaySection() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
-        <Loader2 className="w-8 h-8 animate-spin text-[#D8723C]" />
+        <Loader2 className="w-8 h-8 animate-spin text-[var(--brand-primary)]" />
       </div>
     );
   }
@@ -304,46 +302,34 @@ export default function GatewaySection() {
   /* ── render ──────────────────────────────────────────── */
 
   return (
-    <div className="h-full flex flex-col p-5 gap-4 overflow-hidden">
-      {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: -8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.35, ease: EASE }}
-        className="shrink-0 flex items-center justify-between"
-      >
-        <div>
-          <h1 className="text-xl font-bold text-[#111111]">
-            {t("gatewayTitle")}
-          </h1>
-          <p className="text-xs text-[#999999] mt-0.5">
-            {t("gatewaySubtitle")}
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          {/* Health indicator */}
-          <div className="flex items-center gap-1.5">
-            <span
-              className={cn(
-                "w-2 h-2 rounded-full",
-                healthData?.healthy ? "bg-emerald-500" : "bg-red-400"
-              )}
-            />
-            <span className="text-[10px] text-[#999999]">
-              {t(healthData?.healthy ? "gatewayHealthOk" : "gatewayHealthDown")}
-            </span>
-          </div>
-          {/* Create button */}
-          <button
-            type="button"
-            onClick={() => setShowCreate(true)}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#D8723C] hover:bg-[#C4632F] text-white text-xs font-bold transition-colors cursor-pointer"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            {t("gatewayCreateNew")}
-          </button>
-        </div>
-      </motion.div>
+    <div className="h-full flex flex-col p-4 lg:p-5 gap-4 overflow-hidden max-w-[1600px] mx-auto w-full">
+      <AdminSectionHeader
+        title={t("gatewayTitle")}
+        subtitle={t("gatewaySubtitle")}
+        actions={
+          <>
+            <div className="flex items-center gap-1.5">
+              <span
+                className={cn(
+                  "w-2 h-2 rounded-full",
+                  healthData?.healthy ? "bg-emerald-500" : "bg-red-400",
+                )}
+              />
+              <span className="text-[10px] text-[#999999]">
+                {t(healthData?.healthy ? "gatewayHealthOk" : "gatewayHealthDown")}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowCreate(true)}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-hover)] text-white text-xs font-bold transition-colors cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              {t("gatewayCreateNew")}
+            </button>
+          </>
+        }
+      />
 
       {/* Feedback toast — always mounted, visibility toggled */}
       <div
@@ -392,7 +378,7 @@ export default function GatewaySection() {
                   )
                 }
                 placeholder="my-bot-1"
-                className="w-full border border-[#E8E4DF] rounded-xl px-4 py-2.5 text-sm text-[#111111] placeholder:text-[#CCCCCC] focus:outline-none focus:border-[#D8723C] focus:ring-1 focus:ring-[#D8723C]/20 transition-colors"
+                className="w-full border border-[#E8E4DF] rounded-xl px-4 py-2.5 text-sm text-[#111111] placeholder:text-[#CCCCCC] focus:outline-none focus:border-[var(--brand-primary)] focus:ring-1 focus:ring-[var(--brand-primary)]/20 transition-colors"
               />
               <p className="text-[10px] text-[#AAAAAA] mt-1">
                 {t("gatewayInstanceIdHint")}
@@ -408,7 +394,7 @@ export default function GatewaySection() {
                 value={newLabel}
                 onChange={(e) => setNewLabel(e.target.value)}
                 placeholder="My WhatsApp Bot"
-                className="w-full border border-[#E8E4DF] rounded-xl px-4 py-2.5 text-sm text-[#111111] placeholder:text-[#CCCCCC] focus:outline-none focus:border-[#D8723C] focus:ring-1 focus:ring-[#D8723C]/20 transition-colors"
+                className="w-full border border-[#E8E4DF] rounded-xl px-4 py-2.5 text-sm text-[#111111] placeholder:text-[#CCCCCC] focus:outline-none focus:border-[var(--brand-primary)] focus:ring-1 focus:ring-[var(--brand-primary)]/20 transition-colors"
               />
             </div>
 
@@ -425,7 +411,7 @@ export default function GatewaySection() {
                 onChange={(e) => setNewWebhook(e.target.value)}
                 placeholder="https://n8n.example.com/webhook/..."
                 dir="ltr"
-                className="w-full border border-[#E8E4DF] rounded-xl px-4 py-2.5 text-sm text-[#111111] placeholder:text-[#CCCCCC] focus:outline-none focus:border-[#D8723C] focus:ring-1 focus:ring-[#D8723C]/20 transition-colors font-mono text-xs"
+                className="w-full border border-[#E8E4DF] rounded-xl px-4 py-2.5 text-sm text-[#111111] placeholder:text-[#CCCCCC] focus:outline-none focus:border-[var(--brand-primary)] focus:ring-1 focus:ring-[var(--brand-primary)]/20 transition-colors font-mono text-xs"
               />
               <p className="text-[10px] text-[#AAAAAA] mt-1">
                 {t("gatewayWebhookUrlHint")}
@@ -437,7 +423,7 @@ export default function GatewaySection() {
             type="button"
             onClick={() => createMutation.mutate()}
             disabled={!newId.trim() || createMutation.isPending}
-            className="mt-5 w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#D8723C] hover:bg-[#C4632F] disabled:opacity-50 text-white text-sm font-bold transition-colors cursor-pointer disabled:cursor-not-allowed"
+            className="mt-5 w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-hover)] disabled:opacity-50 text-white text-sm font-bold transition-colors cursor-pointer disabled:cursor-not-allowed"
           >
             <span className="w-4 h-4">
               {createMutation.isPending ? (
@@ -527,7 +513,7 @@ export default function GatewaySection() {
                   className={cn(
                     "w-full text-start px-4 py-3.5 border-b border-[#F0ECE7] hover:bg-[#FAFAF8] transition-colors cursor-pointer",
                     selectedId === inst.id &&
-                      "bg-[#FDF9F6] border-s-2 border-s-[#D8723C]"
+                      "bg-[#FDF9F6] border-s-2 border-s-[var(--brand-primary)]"
                   )}
                 >
                   <div className="flex items-center justify-between mb-1">
@@ -606,7 +592,7 @@ export default function GatewaySection() {
                             startMutation.mutate(selected.instance_id)
                           }
                           disabled={startMutation.isPending}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-[#D8723C] hover:bg-[#D8723C]/10 transition-colors cursor-pointer"
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-[var(--brand-primary)] hover:bg-[var(--brand-primary)]/10 transition-colors cursor-pointer"
                         >
                           <RefreshCw
                             className={cn(
@@ -624,7 +610,7 @@ export default function GatewaySection() {
                           startMutation.mutate(selected.instance_id)
                         }
                         disabled={startMutation.isPending}
-                        className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 border-dashed border-[#E8E4DF] text-xs font-bold text-[#999999] hover:border-[#D8723C] hover:text-[#D8723C] transition-colors cursor-pointer"
+                        className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 border-dashed border-[#E8E4DF] text-xs font-bold text-[#999999] hover:border-[var(--brand-primary)] hover:text-[var(--brand-primary)] transition-colors cursor-pointer"
                       >
                         <span className="w-4 h-4">
                           {startMutation.isPending ? (
@@ -666,7 +652,7 @@ export default function GatewaySection() {
                       onChange={(e) => setWebhookInput(e.target.value)}
                       placeholder="https://n8n.example.com/webhook/..."
                       dir="ltr"
-                      className="flex-1 border border-[#E8E4DF] rounded-xl px-4 py-2.5 text-sm text-[#111111] placeholder:text-[#CCCCCC] focus:outline-none focus:border-[#D8723C] focus:ring-1 focus:ring-[#D8723C]/20 transition-colors font-mono text-xs"
+                      className="flex-1 border border-[#E8E4DF] rounded-xl px-4 py-2.5 text-sm text-[#111111] placeholder:text-[#CCCCCC] focus:outline-none focus:border-[var(--brand-primary)] focus:ring-1 focus:ring-[var(--brand-primary)]/20 transition-colors font-mono text-xs"
                     />
                     <button
                       type="button"
@@ -703,7 +689,7 @@ export default function GatewaySection() {
                         onChange={(e) => setTestPhone(e.target.value)}
                         placeholder="972501234567"
                         dir="ltr"
-                        className="w-full border border-[#E8E4DF] rounded-xl px-4 py-2.5 text-sm text-[#111111] placeholder:text-[#CCCCCC] focus:outline-none focus:border-[#D8723C] focus:ring-1 focus:ring-[#D8723C]/20 transition-colors font-mono text-xs"
+                        className="w-full border border-[#E8E4DF] rounded-xl px-4 py-2.5 text-sm text-[#111111] placeholder:text-[#CCCCCC] focus:outline-none focus:border-[var(--brand-primary)] focus:ring-1 focus:ring-[var(--brand-primary)]/20 transition-colors font-mono text-xs"
                       />
                       <div className="flex gap-2">
                         <textarea
@@ -711,7 +697,7 @@ export default function GatewaySection() {
                           onChange={(e) => setTestMessage(e.target.value)}
                           placeholder={t("gatewayTestMessage")}
                           rows={2}
-                          className="flex-1 border border-[#E8E4DF] rounded-xl px-4 py-2.5 text-sm text-[#111111] placeholder:text-[#CCCCCC] focus:outline-none focus:border-[#D8723C] focus:ring-1 focus:ring-[#D8723C]/20 transition-colors resize-none"
+                          className="flex-1 border border-[#E8E4DF] rounded-xl px-4 py-2.5 text-sm text-[#111111] placeholder:text-[#CCCCCC] focus:outline-none focus:border-[var(--brand-primary)] focus:ring-1 focus:ring-[var(--brand-primary)]/20 transition-colors resize-none"
                         />
                         <button
                           type="button"
@@ -721,7 +707,7 @@ export default function GatewaySection() {
                             !testMessage.trim() ||
                             sendTestMutation.isPending
                           }
-                          className="self-end px-4 py-2.5 rounded-xl bg-[#D8723C] hover:bg-[#C4632F] disabled:opacity-50 text-white text-xs font-bold transition-colors cursor-pointer disabled:cursor-not-allowed flex items-center gap-1.5"
+                          className="self-end px-4 py-2.5 rounded-xl bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-hover)] disabled:opacity-50 text-white text-xs font-bold transition-colors cursor-pointer disabled:cursor-not-allowed flex items-center gap-1.5"
                         >
                           <span className="w-4 h-4">
                             {sendTestMutation.isPending ? (

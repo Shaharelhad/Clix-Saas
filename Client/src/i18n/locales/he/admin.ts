@@ -10,6 +10,7 @@ const admin = {
   dashboardGreetingEvening: "ערב טוב",
   dashboardSubtitle: "הנה מה שקורה ב-{{brandName}}",
   statTotalUsers: "סה\"כ משתמשים",
+  dashboardTotal: "סה\"כ",
   statPendingApprovals: "ממתינים לאישור",
   statOpenTickets: "פניות פתוחות",
   statActiveWorkflows: "תהליכים פעילים",
