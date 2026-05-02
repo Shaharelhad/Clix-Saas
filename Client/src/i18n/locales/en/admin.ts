@@ -10,6 +10,7 @@ const admin = {
   dashboardGreetingEvening: "Good evening",
   dashboardSubtitle: "Here's what's happening in {{brandName}}",
   statTotalUsers: "Total Users",
+  dashboardTotal: "Total",
   statPendingApprovals: "Pending Approvals",
   statOpenTickets: "Open Tickets",
   statActiveWorkflows: "Active Workflows",

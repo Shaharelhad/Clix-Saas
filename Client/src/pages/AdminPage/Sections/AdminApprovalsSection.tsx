@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Check, X, Loader2, Users } from "lucide-react";
 import { supabase } from "@/services/supabase";
 import { cn } from "@/lib/utils";
+import AdminSectionHeader from "../components/AdminSectionHeader";
 
 export default function AdminApprovalsSection() {
   const { t } = useTranslation("admin");
@@ -48,23 +49,17 @@ export default function AdminApprovalsSection() {
   });
 
   return (
-    <div className="p-6 md:p-8 max-w-4xl mx-auto">
-      {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: -12 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="mb-8"
-      >
-        <h1 className="text-2xl font-bold text-[#111111]">
-          {t("approvalsTitle")}
-        </h1>
-        <p className="text-[#999999] text-sm mt-1">{t("approvalsSubtitle")}</p>
-      </motion.div>
+    <div className="p-4 lg:p-5 max-w-[1600px] mx-auto space-y-4">
+      <AdminSectionHeader
+        title={t("approvalsTitle")}
+        subtitle={t("approvalsSubtitle")}
+      />
 
+      <div className="max-w-4xl">
       {/* Loading */}
       {isLoading && (
         <div className="flex justify-center py-20">
-          <Loader2 className="w-8 h-8 animate-spin text-[#D8723C]" />
+          <Loader2 className="w-8 h-8 animate-spin text-[var(--brand-primary)]" />
         </div>
       )}
 
@@ -100,7 +95,7 @@ export default function AdminApprovalsSection() {
             className="mb-3 rounded-2xl border border-[#E8E4DF] bg-white px-5 py-4 flex items-center gap-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)]"
           >
             {/* Avatar */}
-            <div className="w-10 h-10 rounded-full bg-[#D8723C]/10 border border-[#D8723C]/20 flex items-center justify-center shrink-0 text-[#D8723C] font-bold text-sm">
+            <div className="w-10 h-10 rounded-full bg-[var(--brand-primary)]/10 border border-[var(--brand-primary)]/20 flex items-center justify-center shrink-0 text-[var(--brand-primary)] font-bold text-sm">
               {user.full_name?.charAt(0) ?? "?"}
             </div>
 
@@ -165,6 +160,7 @@ export default function AdminApprovalsSection() {
           </motion.div>
         ))}
       </AnimatePresence>
+      </div>
     </div>
   );
 }

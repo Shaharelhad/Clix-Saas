@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Loader2, Search, Users, Trash2, AlertTriangle, X } from "lucide-react";
 import { supabase } from "@/services/supabase";
 import { cn } from "@/lib/utils";
+import AdminSectionHeader from "../components/AdminSectionHeader";
 
 type StatusFilter = "all" | "pending" | "approved" | "rejected";
 type BotFilter = "all" | "not_created" | "created" | "connected";
@@ -123,17 +124,13 @@ export default function AdminUsersSection() {
   };
 
   return (
-    <div className="p-6 md:p-8 max-w-5xl mx-auto">
-      {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: -12 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="mb-6"
-      >
-        <h1 className="text-2xl font-bold text-[#111111]">{t("usersTitle")}</h1>
-        <p className="text-[#999999] text-sm mt-1">{t("usersSubtitle")}</p>
-      </motion.div>
+    <div className="p-4 lg:p-5 max-w-[1600px] mx-auto space-y-4">
+      <AdminSectionHeader
+        title={t("usersTitle")}
+        subtitle={t("usersSubtitle")}
+      />
 
+      <div className="max-w-5xl">
       {/* Search + Filters */}
       <motion.div
         initial={{ opacity: 0, y: -8 }}
@@ -149,7 +146,7 @@ export default function AdminUsersSection() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={t("searchPlaceholder")}
-            className="w-full bg-white border border-[#E8E4DF] rounded-xl pr-10 pl-4 py-2.5 text-sm text-[#111111] placeholder:text-[#BBBBBB] focus:outline-none focus:border-[#D8723C]/50 focus:ring-2 focus:ring-[#D8723C]/10 transition-colors"
+            className="w-full bg-white border border-[#E8E4DF] rounded-xl pr-10 pl-4 py-2.5 text-sm text-[#111111] placeholder:text-[#BBBBBB] focus:outline-none focus:border-[var(--brand-primary)]/50 focus:ring-2 focus:ring-[var(--brand-primary)]/10 transition-colors"
           />
         </div>
 
@@ -164,7 +161,7 @@ export default function AdminUsersSection() {
               className={cn(
                 "px-3 py-1.5 rounded-lg text-xs font-medium border transition-all duration-200 cursor-pointer",
                 statusFilter === s
-                  ? "bg-[#D8723C]/10 text-[#D8723C] border-[#D8723C]/30"
+                  ? "bg-[var(--brand-primary)]/10 text-[var(--brand-primary)] border-[var(--brand-primary)]/30"
                   : "bg-transparent text-[#777777] border-[#E0DBD6] hover:text-[#333333] hover:border-[#C5BEB8]"
               )}
             >
@@ -183,7 +180,7 @@ export default function AdminUsersSection() {
               className={cn(
                 "px-3 py-1.5 rounded-lg text-xs font-medium border transition-all duration-200 cursor-pointer",
                 botFilter === b
-                  ? "bg-[#D8723C]/10 text-[#D8723C] border-[#D8723C]/30"
+                  ? "bg-[var(--brand-primary)]/10 text-[var(--brand-primary)] border-[var(--brand-primary)]/30"
                   : "bg-transparent text-[#777777] border-[#E0DBD6] hover:text-[#333333] hover:border-[#C5BEB8]"
               )}
             >
@@ -196,7 +193,7 @@ export default function AdminUsersSection() {
       {/* Loading */}
       {isLoading && (
         <div className="flex justify-center py-20">
-          <Loader2 className="w-8 h-8 animate-spin text-[#D8723C]" />
+          <Loader2 className="w-8 h-8 animate-spin text-[var(--brand-primary)]" />
         </div>
       )}
 
@@ -236,7 +233,7 @@ export default function AdminUsersSection() {
               "mb-2 rounded-2xl border bg-white px-5 py-4 flex items-center gap-4 cursor-pointer hover:bg-[#FDF9F6] hover:shadow-[0_2px_8px_rgba(0,0,0,0.06)] transition-all duration-200 shadow-[0_1px_3px_rgba(0,0,0,0.06)]",
               selectedUserId === user.id
                 ? "border-red-300 hover:border-red-300"
-                : "border-[#E8E4DF] hover:border-[#D8723C]/30"
+                : "border-[#E8E4DF] hover:border-[var(--brand-primary)]/30"
             )}
           >
             {/* Trash icon \u2014 slides in from left when selected */}
@@ -263,7 +260,7 @@ export default function AdminUsersSection() {
             </AnimatePresence>
 
             {/* Avatar */}
-            <div className="w-10 h-10 rounded-full bg-[#D8723C]/10 border border-[#D8723C]/20 flex items-center justify-center shrink-0 text-[#D8723C] font-bold text-sm">
+            <div className="w-10 h-10 rounded-full bg-[var(--brand-primary)]/10 border border-[var(--brand-primary)]/20 flex items-center justify-center shrink-0 text-[var(--brand-primary)] font-bold text-sm">
               {user.full_name?.charAt(0) ?? "?"}
             </div>
 
@@ -307,6 +304,7 @@ export default function AdminUsersSection() {
           </motion.div>
         ))}
       </AnimatePresence>
+      </div>
 
       {/* Delete confirmation modal */}
       <AnimatePresence>
@@ -357,7 +355,7 @@ export default function AdminUsersSection() {
 
               {/* User info */}
               <div className="flex items-center gap-3 p-3 rounded-xl bg-[#FDF9F6] border border-[#E8E4DF]">
-                <div className="w-9 h-9 rounded-full bg-[#D8723C]/10 border border-[#D8723C]/20 flex items-center justify-center text-[#D8723C] font-bold text-sm shrink-0">
+                <div className="w-9 h-9 rounded-full bg-[var(--brand-primary)]/10 border border-[var(--brand-primary)]/20 flex items-center justify-center text-[var(--brand-primary)] font-bold text-sm shrink-0">
                   {deleteTarget.full_name?.charAt(0) ?? "?"}
                 </div>
                 <div className="min-w-0">
