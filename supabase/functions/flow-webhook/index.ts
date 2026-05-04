@@ -3319,38 +3319,16 @@ Deno.serve(async (req) => {
               }
 
               // Brand-new lead routing on first message:
-              // - Pure greeting (e.g. "hi", "shalom", "mazel tov" with no question/event hints) → full welcome, return early.
-              // - Anything substantive (question, event hints, mixed) → SHORT_WELCOME + fall through to LLM so it can answer the question + ask for event details.
+              // - Event-detail hint (date or venue) → SHORT_WELCOME + __first_turn=true, fall through to LLM
+              //   so it can call calendar_check or ask for the missing piece.
+              // - Anything else (greeting, question, free-form text) → full welcome asking date+venue, return early.
+              //   The bot must NOT answer free-form questions on the very first message.
               if (lookup.isNew && variables.welcome_sent !== "true") {
-                const trimmedMsg = userMessage.trim();
                 const hasEventHints = /\d{1,2}[.\/\-]\d{1,2}/.test(userMessage) ||
                   /(?:ינואר|פברואר|מרץ|אפריל|מאי|יוני|יולי|אוגוסט|ספטמבר|אוקטובר|נובמבר|דצמבר)/i.test(userMessage) ||
                   /(?:אולם|גן אירועים|גן\s*ארועים)/i.test(userMessage);
-                const hasQuestionWord = /\?|מה |איפה|כמה|מתי|האם|איך|למה|יש לכם|אפשר/.test(userMessage);
-                const greetingStripped = trimmedMsg
-                  .replace(/(?:היי|שלום|אהלן|הי|hello|hi|hey|מזל טוב|צהריים טובים|ערב טוב|בוקר טוב)/gi, "")
-                  .replace(/[\p{Emoji}\p{Punctuation}\s]/gu, "")
-                  .trim();
-                const isPureGreeting = !hasEventHints && !hasQuestionWord && trimmedMsg.length <= 25 && greetingStripped.length === 0;
 
-                if (isPureGreeting) {
-                  const WELCOME_MSG_HE = "היי! קודם כל המון מזל טוב! 💍\nאיזה כיף שפניתם. לפני שאשלח את כל הפרטים על המבצע, בואו נבדוק רגע שאני בכלל פנוי בתאריך שלכם כדי שלא אבזבז לכם זמן סתם.\nמתי האירוע ואיפה?";
-                  try {
-                    await sendTextMessage(customerId, phone, WELCOME_MSG_HE, "system");
-                    await supabase.from("flow_message_log").insert({
-                      workflow_id: workflow.id, session_id: session.id,
-                      direction: "outbound", message_type: "text", content: WELCOME_MSG_HE,
-                    });
-                    variables = { ...variables, welcome_sent: "true" };
-                    await updateSessionDirect(session.id, { variables });
-                    console.log("[flow] [new-lead-welcome] full welcome (pure greeting) sent to", outPhone);
-                    return new Response(JSON.stringify({ ok: true, action: "new_lead_welcome_sent" }), {
-                      headers: { ...corsHeaders, "Content-Type": "application/json" },
-                    });
-                  } catch (welcomeErr) {
-                    console.error("[flow] [new-lead-welcome] send failed — agent will handle next turn:", welcomeErr);
-                  }
-                } else {
+                if (hasEventHints) {
                   const SHORT_WELCOME = "היי! קודם כל המון מזל טוב! 💍\nאיזה כיף שפניתם.";
                   try {
                     await sendTextMessage(customerId, phone, SHORT_WELCOME, "system");
@@ -3365,7 +3343,24 @@ Deno.serve(async (req) => {
                       __agent_history: JSON.stringify([{ role: "assistant", content: SHORT_WELCOME }]),
                     };
                     await updateSessionDirect(session.id, { variables });
-                    console.log("[flow] [new-lead-welcome] short greeting sent to", outPhone, "— continuing to LLM (substantive first message)");
+                    console.log("[flow] [new-lead-welcome] short greeting sent to", outPhone, "— continuing to LLM (event detail in first message)");
+                  } catch (welcomeErr) {
+                    console.error("[flow] [new-lead-welcome] send failed — agent will handle next turn:", welcomeErr);
+                  }
+                } else {
+                  const WELCOME_MSG_HE = "היי! קודם כל המון מזל טוב! 💍\nאיזה כיף שפניתם. לפני שאשלח את כל הפרטים על המבצע, בואו נבדוק רגע שאני בכלל פנוי בתאריך שלכם כדי שלא אבזבז לכם זמן סתם.\nמתי האירוע ואיפה?";
+                  try {
+                    await sendTextMessage(customerId, phone, WELCOME_MSG_HE, "system");
+                    await supabase.from("flow_message_log").insert({
+                      workflow_id: workflow.id, session_id: session.id,
+                      direction: "outbound", message_type: "text", content: WELCOME_MSG_HE,
+                    });
+                    variables = { ...variables, welcome_sent: "true" };
+                    await updateSessionDirect(session.id, { variables });
+                    console.log("[flow] [new-lead-welcome] full welcome sent to", outPhone, "(no event hints — greeting/question/free-form first message)");
+                    return new Response(JSON.stringify({ ok: true, action: "new_lead_welcome_sent" }), {
+                      headers: { ...corsHeaders, "Content-Type": "application/json" },
+                    });
                   } catch (welcomeErr) {
                     console.error("[flow] [new-lead-welcome] send failed — agent will handle next turn:", welcomeErr);
                   }
