@@ -2694,15 +2694,9 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Eliron-only silence gates — scoped strictly to his customerId so other tenants are unaffected.
-    // Both checks use strict `!== false` so missing/null field (gateway cold-start) also silences (fail-safe).
+    // Eliron-only silence gate — scoped strictly to his customerId so other tenants are unaffected.
+    // Strict `!== false` so missing/null field (gateway cold-start) also silences (fail-safe).
     if (body.customerId === ELIRON_CUSTOMER_ID && body.chatType === "private") {
-      if (body.isSavedContact !== false) {
-        console.log("[flow] [skip:saved-contact]", body.from);
-        return new Response(JSON.stringify({ ok: true, skipped: "saved_contact" }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
       if (body.hasChatHistory !== false) {
         console.log("[flow] [skip:pre-cutoff-chat]", body.from);
         return new Response(JSON.stringify({ ok: true, skipped: "pre_cutoff_chat" }), {
