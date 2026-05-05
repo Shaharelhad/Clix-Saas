@@ -1,9 +1,10 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { callLLMEngine, classifyTrigger, classifyIntent, callAgentLLM, validateCollectInput, detectRefusal, translateMessage, translateButtonLabels, formatApiResponse, type TriggerInfo, type LLMResult, type AgentToolDefinition, type AgentMessage } from "../_shared/llm-engine.ts";
+import { callLLMEngine, classifyTrigger, classifyIntent, callAgentLLM, validateCollectInput, detectRefusal, translateMessage, translateButtonLabels, formatApiResponse, type TriggerInfo, type LLMResult, type AgentToolDefinition, type AgentMessage, type AgentToolCall } from "../_shared/llm-engine.ts";
 import { embedText } from "../_shared/embeddings.ts";
 import { resolveOperation } from "../_shared/integration-catalog.ts";
 import { normalizePhone as normalizePhoneHelper, getNotionHeadersForNode, lookupOrCreateNotionLead, formatEventDateForTitle } from "../_shared/notion-lead-helpers.ts";
 import { nowIsraelISO, israelOffsetForDate } from "../_shared/israel-time.ts";
+import { buildMorAiAgent } from "../_shared/lead-storage-helpers.ts";
 
 // Eliron-only lead-capture scoping. All new behavior below is gated on this customerId.
 const ELIRON_CUSTOMER_ID = "260222c1-9b83-4206-bb90-7445907fb582";
@@ -720,6 +721,11 @@ async function executeNode(
 
   // Notion AI Agent — stay on this node and wait for user input
   if (node.type === "notion_ai_agent") {
+    return { nextNodeId: node.id, waitForInput: true };
+  }
+
+  // MOR AI Agent — stay on this node and wait for user input
+  if (node.type === "mor_ai_agent") {
     return { nextNodeId: node.id, waitForInput: true };
   }
 
@@ -2417,6 +2423,44 @@ Combine multiple fields in one call.`,
   };
 }
 
+// ── MOR AI Agent Executor ────────────────────────────────────
+// Thin shell — every piece of logic (system prompt, tool schemas,
+// tool handlers, DB calls, status enums, time-of-day) lives in
+// _shared/lead-storage-helpers.ts. To change anything about the
+// MOR AI Agent's behavior, edit THAT file, never this one.
+
+async function executeMorAiAgent(
+  node: { id: string; type: string; data: Record<string, unknown> },
+  userMessage: string,
+  variables: Record<string, string>,
+  agentHistory: AgentMessage[],
+): Promise<{ response: string; toolCalls: AgentToolCall[]; updatedHistory: AgentMessage[] }> {
+  const phone = (variables.phone as string) ?? "";
+  const userPrompt = (node.data.systemPrompt as string) ?? "";
+
+  const agent = buildMorAiAgent({ supabase, phone, userPrompt });
+
+  const result = await callAgentLLM({
+    systemPrompt: agent.systemPrompt,
+    conversationHistory: agentHistory,
+    userMessage,
+    tools: agent.tools,
+    executeTool: agent.executeTool,
+  });
+
+  // Build full history with the LLM's text reply appended (mirrors executeNotionAgent's pattern)
+  const rawHistory = result.messages
+    ? [...result.messages, { role: "assistant" as const, content: result.response }]
+    : [...agentHistory, { role: "user" as const, content: userMessage }, { role: "assistant" as const, content: result.response }];
+  const trimmedHistory = trimAgentHistory(rawHistory, 30);
+
+  return {
+    response: result.response,
+    toolCalls: result.toolCalls,
+    updatedHistory: trimmedHistory,
+  };
+}
+
 // ── Persistent message deduplication (DB-level, works across function instances) ──
 async function isDuplicateDb(messageId: string): Promise<boolean> {
   // Try to insert the message ID. If it already exists (unique violation), it's a duplicate.
@@ -3860,6 +3904,25 @@ Deno.serve(async (req) => {
           });
         }
 
+        // If trigger restart landed on mor_ai_agent, enter MOR agent conversation
+        if (restartLandedNode?.type === "mor_ai_agent") {
+          const agentHistory = parseAgentHistory(updatedVariables.__mor_agent_history);
+          const agentResult = await executeMorAiAgent(restartLandedNode, userMessage, updatedVariables, agentHistory);
+          if (agentResult.response) await sendTextMessage(customerId, phone, agentResult.response, "system");
+          await supabase.from("flow_message_log").insert({
+            workflow_id: workflow.id, session_id: session.id,
+            node_id: restartLandedNode.id, direction: "outbound",
+            message_type: "mor_agent", content: agentResult.response,
+          });
+          updatedVariables.__mor_agent_history = JSON.stringify(agentResult.updatedHistory);
+          await updateSessionDirect(session.id, {
+            current_node_id: nextNodeId,
+            variables: updatedVariables,
+            status: restartStatus,
+            last_message_at: new Date().toISOString(),
+          });
+        }
+
         return new Response(
           JSON.stringify({ ok: true, current_node: nextNodeId, status: restartStatus }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -4020,6 +4083,28 @@ Deno.serve(async (req) => {
         last_message_at: new Date().toISOString(),
       });
       return new Response(JSON.stringify({ ok: true, action: "notion_agent" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // MOR AI Agent node — agentic conversation with lead-CRM tools
+    if (currentNode.type === "mor_ai_agent") {
+      const agentHistory = parseAgentHistory(updatedVariables.__mor_agent_history);
+      const agentResult = await executeMorAiAgent(currentNode, userMessage, updatedVariables, agentHistory);
+      if (agentResult.response) await sendTextMessage(customerId, phone, agentResult.response, "system");
+      await supabase.from("flow_message_log").insert({
+        workflow_id: workflow.id, session_id: session.id,
+        node_id: currentNode.id, direction: "outbound",
+        message_type: "mor_agent", content: agentResult.response,
+      });
+      updatedVariables.__mor_agent_history = JSON.stringify(agentResult.updatedHistory);
+      await updateSessionDirect(session.id, {
+        current_node_id: currentNode.id,
+        variables: updatedVariables,
+        status: "active",
+        last_message_at: new Date().toISOString(),
+      });
+      return new Response(JSON.stringify({ ok: true, action: "mor_agent" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }

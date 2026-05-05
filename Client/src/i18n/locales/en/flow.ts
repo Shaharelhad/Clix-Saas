@@ -230,6 +230,11 @@ const flow = {
   // Notion AI Agent node
   nodeNotionAiAgent: "Notion AI Agent",
   nodeNotionAiAgentDesc: "AI agent with Notion + Calendar tools",
+  nodeMorAiAgent: "MOR AI Agent",
+  nodeMorAiAgentDesc: "AI agent with lead-CRM tools (save_lead, update_lead_status, mark_paid)",
+  morAgentSystemPromptLabel: "System Prompt",
+  morAgentSystemPromptHint: "Instructions for the AI — describe persona, behavior, and when to call save_lead / update_lead_status / mark_paid.",
+  morAgentSystemPromptPlaceholder: "You are Liora, Mor's assistant. Greet users warmly. When they introduce themselves, call save_lead. When they show interest, call update_lead_status with status='engaging'. When they confirm payment ('שילמתי'), call mark_paid.",
   notionAgentIntegration: "Notion Integration",
   notionAgentIntegrationHint: "Select your Notion integration",
   notionAgentNoIntegration: "No Notion integration found. Add one in the integrations panel.",
