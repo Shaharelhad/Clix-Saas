@@ -172,6 +172,49 @@ const LEAD_TOOL_SCHEMAS: AgentToolDefinition[] = [
 
 // ── Layer 3: system prompt composition (private to this file) ───
 
+// Mirrors callLLMEngine's reply-style block so the MOR AI Agent's voice
+// matches the regular CLIX bot for the same business. Copied (not imported)
+// from _shared/llm-engine.ts:256–268 — keeping that file untouched per
+// CLAUDE.md sensitive-file rule. If the CLIX bot's wording changes there,
+// update this string by hand.
+const REPLY_STYLE_GUIDELINES = `הנחיות קריטיות לסגנון התשובה:
+- אתה בעל העסק, לא בוט. דבר בגוף ראשון: "אצלי", "אני", "שלי"
+- כתוב בצורה טבעית, קצרה וחמה
+- תשובות קצרות וממוקדות! מקסימום 3-4 שורות לכל הודעה
+- אל תכתוב פסקאות ארוכות, אל תעשה רשימות מפורטות
+- אל תשתמש במילים: "בוט", "מערכת", "שירות לקוחות", "אוטומטי"
+- תגיב כמו בשיחת וואטסאפ אמיתית בין שני אנשים
+- אל תשתמש באימוג'ים בשום מקרה, אלא אם הפרומפט למעלה מציין במפורש להשתמש באימוג'ים. ברירת המחדל היא ללא אימוג'ים
+
+הנחיות קריטיות למידע:
+- השתמש אך ורק במידע שסופק לך למעלה (פרומפט)
+- אל תמציא מוצרים, מחירים, שירותים, או פרטים שלא מופיעים בהקשר
+- אם אין לך מידע על משהו שהלקוח שואל, אמור בצורה טבעית שתבדוק ותחזור אליו`;
+
+/** Fetch the user's saved bot persona from form_responses (same source the CLIX bot reads). */
+async function fetchBusinessBotPrompt(
+  supabase: SupabaseLike,
+  userId: string,
+): Promise<string> {
+  if (!userId) return "";
+  try {
+    const { data } = await supabase
+      .from("form_responses")
+      .select("bot_prompt, business_name")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .single();
+    if (data?.bot_prompt && (data.bot_prompt as string).trim().length > 0) {
+      return data.bot_prompt as string;
+    }
+    const business = (data?.business_name as string) ?? "העסק";
+    return `אתה בעל עסק בשם ${business}. דבר בגוף ראשון, בצורה טבעית ואנושית כמו בוואטסאפ.`;
+  } catch {
+    return "";
+  }
+}
+
 function timeOfDayContext(israelISO: string): string {
   const hour = parseInt(israelISO.slice(11, 13), 10);
   let mode: "normal" | "unavailable" | "night";
@@ -182,9 +225,13 @@ function timeOfDayContext(israelISO: string): string {
   return `<context>Current Israel time: ${hhmm}. Mode: ${mode}.</context>`;
 }
 
-function composeSystemPrompt(userPrompt: string): string {
-  return [
-    userPrompt.trim(),
+function composeSystemPrompt(basePrompt: string, extraInstructions: string): string {
+  const parts: string[] = [];
+  if (basePrompt.trim()) parts.push(basePrompt.trim());
+  if (extraInstructions.trim()) parts.push("", extraInstructions.trim());
+  parts.push(
+    "",
+    REPLY_STYLE_GUIDELINES,
     "",
     timeOfDayContext(nowIsraelISO()),
     "",
@@ -198,32 +245,39 @@ function composeSystemPrompt(userPrompt: string): string {
     "Call tools silently — never narrate the call to the user. After a tool returns,",
     "continue the conversation naturally without mentioning the database.",
     "</tool_guidance>",
-  ].join("\n");
+  );
+  return parts.join("\n");
 }
 
 // ── Layer 4: single entrypoint for flow-webhook ─────────────────
 
 /**
  * One call from flow-webhook returns everything needed for callAgentLLM:
- *   - systemPrompt (already composed with time-of-day context + tool guidance)
+ *   - systemPrompt (form_responses.bot_prompt + node textarea + reply-style + time + tools)
  *   - tools (the 3 lead-CRM tool schemas)
  *   - executeTool (router that dispatches by tool name to the right helper)
  *
+ * Async because we fetch the saved business bot_prompt from the DB (same source
+ * the regular CLIX bot reads) so the MOR AI Agent's voice matches.
+ *
  * Adding/editing a tool, status, prompt structure, or DB target = ONLY edit this file.
  */
-export function buildMorAiAgent(params: {
+export async function buildMorAiAgent(params: {
   supabase: SupabaseLike;
   phone: string;
-  userPrompt: string;
-}): {
+  userId: string;
+  /** Optional Mor-specific instructions from the node's textarea — appended to bot_prompt. */
+  extraInstructions?: string;
+}): Promise<{
   systemPrompt: string;
   tools: AgentToolDefinition[];
   executeTool: (name: string, args: Record<string, unknown>) => Promise<unknown>;
-} {
-  const { supabase, phone, userPrompt } = params;
+}> {
+  const { supabase, phone, userId, extraInstructions = "" } = params;
+  const basePrompt = await fetchBusinessBotPrompt(supabase, userId);
 
   return {
-    systemPrompt: composeSystemPrompt(userPrompt ?? ""),
+    systemPrompt: composeSystemPrompt(basePrompt, extraInstructions),
     tools: LEAD_TOOL_SCHEMAS,
     executeTool: async (name, args) => {
       switch (name) {

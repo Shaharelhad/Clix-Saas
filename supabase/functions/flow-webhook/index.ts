@@ -2434,11 +2434,12 @@ async function executeMorAiAgent(
   userMessage: string,
   variables: Record<string, string>,
   agentHistory: AgentMessage[],
+  userId: string,
 ): Promise<{ response: string; toolCalls: AgentToolCall[]; updatedHistory: AgentMessage[] }> {
   const phone = (variables.phone as string) ?? "";
-  const userPrompt = (node.data.systemPrompt as string) ?? "";
+  const extraInstructions = (node.data.systemPrompt as string) ?? "";
 
-  const agent = buildMorAiAgent({ supabase, phone, userPrompt });
+  const agent = await buildMorAiAgent({ supabase, phone, userId, extraInstructions });
 
   const result = await callAgentLLM({
     systemPrompt: agent.systemPrompt,
@@ -3907,7 +3908,7 @@ Deno.serve(async (req) => {
         // If trigger restart landed on mor_ai_agent, enter MOR agent conversation
         if (restartLandedNode?.type === "mor_ai_agent") {
           const agentHistory = parseAgentHistory(updatedVariables.__mor_agent_history);
-          const agentResult = await executeMorAiAgent(restartLandedNode, userMessage, updatedVariables, agentHistory);
+          const agentResult = await executeMorAiAgent(restartLandedNode, userMessage, updatedVariables, agentHistory, profile.id);
           if (agentResult.response) await sendTextMessage(customerId, phone, agentResult.response, "system");
           await supabase.from("flow_message_log").insert({
             workflow_id: workflow.id, session_id: session.id,
@@ -4090,7 +4091,7 @@ Deno.serve(async (req) => {
     // MOR AI Agent node — agentic conversation with lead-CRM tools
     if (currentNode.type === "mor_ai_agent") {
       const agentHistory = parseAgentHistory(updatedVariables.__mor_agent_history);
-      const agentResult = await executeMorAiAgent(currentNode, userMessage, updatedVariables, agentHistory);
+      const agentResult = await executeMorAiAgent(currentNode, userMessage, updatedVariables, agentHistory, profile.id);
       if (agentResult.response) await sendTextMessage(customerId, phone, agentResult.response, "system");
       await supabase.from("flow_message_log").insert({
         workflow_id: workflow.id, session_id: session.id,
