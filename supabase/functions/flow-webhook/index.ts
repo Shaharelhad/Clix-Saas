@@ -1095,15 +1095,6 @@ async function executeNode(
 
 // ── Notion AI Agent Executor ────────────────────────────────
 
-// Hoisted so it's not rebuilt every invocation. Anchored by short-message gate
-// (≤6 words) to avoid substring false positives like
-// "לא בא לי לסגור היום אבל אני מעוניין" matching "תסגור".
-const NOT_INTERESTED_PATTERNS = [
-  "לא מעוניין", "לא מעונינת", "לא רוצה", "לא צריך", "לא רלוונטי",
-  "לא מתאים", "תסגור", "סגור את", "תמחק", "לא תודה", "not interested",
-];
-const NOT_INTERESTED_MAX_WORDS = 6;
-
 function parseAgentHistory(raw: unknown): AgentMessage[] {
   if (!raw) return [];
   try {
@@ -1156,41 +1147,6 @@ async function executeNotionAgent(
   sessionId?: string,
   customerId?: string,
 ): Promise<{ response: string; checkingMessage?: string; toolCalls: Array<{ name: string; input: Record<string, unknown>; result: unknown }>; updatedHistory: AgentMessage[] }> {
-  // ── Code-level "not interested" detection — bypass LLM entirely ──
-  const msgTrim = userMessage.trim();
-  const msgLower = msgTrim.toLowerCase();
-  const wordCount = msgTrim.split(/\s+/).filter(Boolean).length;
-  const isNotInterested = wordCount > 0 && wordCount <= NOT_INTERESTED_MAX_WORDS
-    && NOT_INTERESTED_PATTERNS.some(p => msgLower.includes(p));
-
-  if (isNotInterested && variables.page_id) {
-    console.log("[notion_ai_agent] Not-interested detected, bypassing LLM. Updating Notion status.");
-    // Load Notion credentials for the update
-    let notionKey = "";
-    if (node.data.agentIntegrationId) {
-      const { data: intg } = await supabase.from("integrations").select("config").eq("id", node.data.agentIntegrationId as string).single();
-      if (intg?.config) notionKey = ((intg.config as Record<string, unknown>).apiKey as string) || "";
-    }
-    const toolCalls: Array<{ name: string; input: Record<string, unknown>; result: unknown }> = [];
-    if (notionKey) {
-      const updateBody = { properties: { "סטטוס": { status: { name: "לא מעוניין" } } } };
-      const resp = await fetch(`https://api.notion.com/v1/pages/${variables.page_id}`, {
-        method: "PATCH",
-        headers: { "Authorization": `Bearer ${notionKey}`, "Notion-Version": "2022-06-28", "Content-Type": "application/json" },
-        body: JSON.stringify(updateBody),
-      });
-      const result = resp.ok ? { success: true } : { error: `HTTP ${resp.status}` };
-      toolCalls.push({ name: "update_notion", input: { page_id: variables.page_id, properties: updateBody.properties }, result });
-      console.log("[notion_ai_agent] Notion status update:", result);
-    }
-    const farewell = "מבין לגמרי, תודה על הזמן ובהצלחה עם האירוע! אם משהו ישתנה, אני כאן";
-    return {
-      response: farewell,
-      toolCalls,
-      updatedHistory: [...agentHistory, { role: "user", content: userMessage }, { role: "assistant", content: farewell }],
-    };
-  }
-
   // Strip the legacy `--- מחירון --- ... ` block from businessInfo entirely.
   // Pricing is now sourced from the FAQ via RAG (`<faq_context>`), not from a static prompt block.
   const businessInfo = (businessContent || "")
@@ -1324,7 +1280,7 @@ async function executeNotionAgent(
 
     const toolGuide = `סדר שימוש בכלים (חובה לעקוב!):\n1. אסוף תאריך + אולם מהלקוח. אם חסר פרט — שאל את הלקוח ואל תמשיך.\n2. calendar_check — קרא מיד עם date ו-venue. המערכת תבדוק זמינות ביומן. אם פנוי — המערכת תשלח ללקוח הודעת "בודק זמינות" עם גלריה, תחפש זמני שיחה, תעדכן נוטיון, ותשלח ללקוח הצעת זמנים. אחרי calendar_check אל תשלח טקסט — המערכת כבר שלחה את ההודעה ללקוח.\n3. אם הלקוח שואל על זמנים אחרים (ערב/בוקר/יום אחר) — בדוק את <availability_context>. אם יש זמן מתאים — הצע אותו וקרא ל-create_meeting כשהלקוח מאשר. אם אין — אמור בכנות ותציע חלופה מהרשימה. אל תחזור על אותן 2 הצעות. כל הפגישות הן שיחות טלפון.\n4. create_meeting — ברגע שהלקוח בחר זמן, קרא מיד. המערכת תעדכן את נוטיון אוטומטית.\nחשוב: כשאתה מוכן להפעיל כלים — קרא לכלי מיד, אל תשלח טקסט בלבד!\n`;
 
-    guardrails = `הנחיות חשובות — עדיפות עליונה:\n${varSection}${statusSection}${missingSection}${toolGuide}אם הלקוח מבקש לדבר עם נציג / שירות לקוחות / איש קשר / בן אדם / אומר שהוא לא רוצה לדבר עם בוט — קרא מיד ל-escalate_to_human ואל תמשיך לנסות למכור או לקבוע פגישות. אחרי הקריאה לכלי, שלח רק הודעת פרידה קצרה: שנציג שירות לקוחות יחזור אליו בהקדם.\n\nכשלקוח אומר שהוא לא מעוניין, מסרב, או מבקש לסגור — חובה לבצע 2 פעולות:\n1. קרא ל-update_notion ועדכן סטטוס ל"לא מעוניין"\n2. שלח הודעת פרידה: "מבין לגמרי, תודה על הזמן ובהצלחה עם האירוע! אם משהו ישתנה, אני כאן"\nזה הכרחי — אל תנסה לשכנע לקוח שאמר לא.\n\n`;
+    guardrails = `הנחיות חשובות — עדיפות עליונה:\n${varSection}${statusSection}${missingSection}${toolGuide}אם הלקוח מבקש לדבר עם נציג / שירות לקוחות / איש קשר / בן אדם / אומר שהוא לא רוצה לדבר עם בוט — קרא מיד ל-escalate_to_human ואל תמשיך לנסות למכור או לקבוע פגישות. אחרי הקריאה לכלי, שלח רק הודעת פרידה קצרה: שנציג שירות לקוחות יחזור אליו בהקדם.\n\nסיווג סירוב — קריטי: "לא מעוניין" מתייחס רק לסירוב מפורש לכל הפנייה.\nדוגמאות לסירוב מפורש: "אני לא מעוניין", "תסגור את הפנייה", "תמחק אותי", "תפסיק לכתוב לי", "לא תודה, לא רלוונטי".\nדוגמאות שאינן סירוב — תשובות הקשריות לשאלה ספציפית, אל תפרש כסירוב: "לא משהו מיוחד", "לא ממש", "לא יודע", "לא בטוח", "עדיין לא החלטנו", "לא חושב". במקרים אלה תמשיך את השיחה בטבעיות ותשאל שאלת המשך מקדמת.\n\nרק כשהלקוח מסרב במפורש לכל הפנייה — חובה לבצע 2 פעולות:\n1. קרא ל-update_notion ועדכן סטטוס ל"לא מעוניין"\n2. שלח הודעת פרידה קצרה וטבעית\nזה הכרחי — אל תנסה לשכנע לקוח שאמר לא במפורש, אבל לעולם אל תפרש "לא" קצר על שאלה שלך כסירוב לכל הפנייה.\n\n`;
   }
 
   // ── Build XML-structured system prompt ──
@@ -1383,7 +1339,7 @@ async function executeNotionAgent(
 שאלה/בקשה → תשובה קצרה + שאלת המשך טבעית שמקדמת את השיחה (התעניין בתאריך, סוג אירוע, מה חשוב להם). אל תסיים ב"נדבר" או "אני כאן" — תמשיך את השיחה כמו איש מכירות אמיתי.
 מחירים/חבילות → צטט בדיוק מתוך faq_context. שמור על מבנה הבולטים והפורמט המקורי: כל בולט בשורה נפרדת (תו מעבר שורה אמיתי \\n בין הבולטים), אל תאחד לפסקה אחת, אל תקצר, אל תמציא, אל תנסח מחדש. שמור על סימוני **bold** של מספרים. בסוף הוסף שאלת המשך קצרה בשורה נפרדת.
 מידע חדש → תודה קצרה + כלי.
-סירוב → הודעת פרידה + update_notion.
+סירוב מפורש (אומר "לא מעוניין", "תסגור", "תמחק", "לא תודה") → הודעת פרידה + update_notion. תשובת "לא" קצרה על שאלה ספציפית שלך ("לא משהו מיוחד", "לא ממש", "לא יודע") = לא סירוב — תמשיך את השיחה ותשאל שאלת המשך.
 בקשת נציג / שירות לקוחות / בן אדם → escalate_to_human + הודעת פרידה.
 
 דוגמה — תשובה על "מה כלול בחבילה הבסיסית?":
@@ -1475,10 +1431,9 @@ Combine multiple fields in one call.`,
       parameters: {
         type: "object",
         properties: {
-          page_id: { type: "string", description: "The Notion page ID" },
           properties: { type: "string", description: "JSON string of Notion properties to update. Example: {\"סטטוס\": {\"status\": {\"name\": \"תהליך מכירה\"}}}" },
         },
-        required: ["page_id", "properties"],
+        required: ["properties"],
       },
     });
   }
@@ -1601,7 +1556,7 @@ Combine multiple fields in one call.`,
   // Tool executor
   const executeTool = async (name: string, args: Record<string, unknown>): Promise<unknown> => {
     if (name === "update_notion") {
-      const pageId = args.page_id as string || variables.page_id;
+      const pageId = variables.page_id;
       // Handle properties as either object or JSON string (xAI/Grok sends string)
       let props: Record<string, unknown>;
       if (typeof args.properties === "string") {
