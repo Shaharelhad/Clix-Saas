@@ -1116,7 +1116,7 @@ function stripLeakedReasoning(text: string): string {
   // Remove markdown-bold lines that look like reasoning headers
   let cleaned = text.replace(/^\*\*.*?\*\*:?.*$/gm, "");
   // Remove lines referencing internal tool names or reasoning patterns
-  cleaned = cleaned.replace(/^.*\b(calendar_check|create_meeting|check_slot|update_notion|book_event_date|find_slots|Thinking Process|Rule Checklist|Action:|Simulate Tool Response|Self-correction|User Input:|Construct User-Facing Message)\b.*$/gm, "");
+  cleaned = cleaned.replace(/^.*\b(calendar_check|create_meeting|reschedule_meeting|check_slot|update_notion|book_event_date|find_slots|Thinking Process|Rule Checklist|Action:|Simulate Tool Response|Self-correction|User Input:|Construct User-Facing Message)\b.*$/gm, "");
   // Remove code blocks
   cleaned = cleaned.replace(/```[\s\S]*?```/g, "");
   // Remove JSON-like patterns on their own line
@@ -1364,13 +1364,24 @@ async function executeNotionAgent(
 
 לקוח: "מחר ב-10 נשמע טוב"
 אתה: (קרא ל-create_meeting, אחרי שהכלי מאשר הצלחה ענה:) "מעולה, קבעתי לך שיחה מחר ב-10:00. מחכה!"
+
+לקוח (אחרי שכבר נקבעה פגישה): "אפשר להזיז את השיחה היום ב-19:00?"
+[הזמן בתוך 3 הימים הקרובים — בדוק את <availability_context>]
+אם 19:00 מופיע ברשימה: (קרא ל-reschedule_meeting עם date=היום ו-time=19:00, אחרי success ענה:) "בוצע, הזזתי את השיחה להיום ב-19:00."
+אם 19:00 לא ברשימה: ענה "היום ב-19:00 כבר תפוס. יש לי פנוי ב-{זמן מהרשימה} — מתאים לך?"
+
+לקוח (אחרי שכבר נקבעה פגישה): "אפשר להזיז ליום ראשון בעוד שבועיים ב-14:00?"
+[הזמן מחוץ לחלון 3 ימים — קרא קודם check_slot]
+אתה: (קרא ל-check_slot עם date=ראשון ו-time=14:00)
+אם available:true: (קרא ל-reschedule_meeting, אחרי success ענה:) "בוצע, הזזתי לראשון ב-14:00."
+אם available:false: "ראשון ב-14:00 כבר תפוס. רוצה שאבדוק זמן אחר?"
 </response_style>`;
 
   const meetingTimeNote = variables.__meeting_date && variables.__meeting_time
     ? ` (${variables.__meeting_date} בשעה ${variables.__meeting_time})`
     : "";
   const postMeetingSection = variables.__meeting_booked === "true"
-    ? `<post_meeting>\nפגישה כבר נקבעה בהצלחה${meetingTimeNote}. אל תזכיר את מועד הפגישה בכל תגובה. ענה על שאלות הלקוח בטבעיות — מחירים, פרטים, שאלות כלליות — בלי לחזור על שעת הפגישה. הזכר את הפגישה רק אם הלקוח שואל ספציפית מתי הפגישה בהודעה הנוכחית — לא בגלל ששאל בהודעה קודמת.\n</post_meeting>\n\n`
+    ? `<post_meeting>\nפגישה כבר נקבעה בהצלחה${meetingTimeNote}. אל תזכיר את מועד הפגישה בכל תגובה. ענה על שאלות הלקוח בטבעיות — מחירים, פרטים, שאלות כלליות — בלי לחזור על שעת הפגישה. הזכר את הפגישה רק אם הלקוח שואל ספציפית מתי הפגישה בהודעה הנוכחית — לא בגלל ששאל בהודעה קודמת.\nאם הלקוח מבקש לשנות / להזיז / לדחות את מועד הפגישה: שאל לאיזה יום ושעה הוא רוצה. לפני שאתה קורא ל-reschedule_meeting ודא שהזמן פנוי — בדיוק כמו ב-create_meeting: אם הזמן ברשימת הזמינות הקיימת (<availability_context>) — קרא מיד ל-reschedule_meeting; אם הזמן מחוץ ל-3 ימים הקרובים — קרא קודם ל-check_slot, ורק אם חוזר available:true קרא ל-reschedule_meeting. אם תפוס — הודע ללקוח והצע זמן חלופי. אל תקרא ל-create_meeting פעם נוספת.\n</post_meeting>\n\n`
     : "";
 
   const pendingBookingSection = (variables.__pending_booking_date && variables.__pending_booking_time && variables.__meeting_booked !== "true")
@@ -1511,6 +1522,19 @@ Combine multiple fields in one call.`,
         properties: {
           date: { type: "string", description: "Meeting date YYYY-MM-DD" },
           time: { type: "string", description: "Meeting time HH:MM" },
+        },
+        required: ["date", "time"],
+      },
+    });
+
+    toolDefs.push({
+      name: "reschedule_meeting",
+      description: "Move an existing scheduled meeting to a new date/time. Use ONLY when the customer explicitly asks to reschedule, change, postpone, or move their meeting (Hebrew: לשנות / להזיז / לדחות / שינוי שעה). BEFORE calling this tool, confirm the new time is free — the same way you do for create_meeting: if the new date is within the 3-day availability list (<availability_context>), pick a time from it; if it's outside that window, call check_slot first and only proceed when it returns available:true. The system updates the Google Calendar event in place and re-syncs Notion. Do NOT call create_meeting after this. If no meeting is currently booked, the tool returns an error — tell the customer there's nothing to reschedule and offer to book a new call. If the response contains \"conflict\": true, the new time is taken — apologize and ask the customer for a different time.",
+      parameters: {
+        type: "object",
+        properties: {
+          date: { type: "string", description: "New meeting date YYYY-MM-DD" },
+          time: { type: "string", description: "New meeting time HH:MM (24h)" },
         },
         required: ["date", "time"],
       },
@@ -2010,6 +2034,113 @@ Combine multiple fields in one call.`,
       };
     }
 
+    if (name === "reschedule_meeting" && createMeeting?.webhookUrl) {
+      if (variables.__meeting_booked !== "true" || !variables.__calendar_event_id) {
+        console.log("[notion_ai_agent] reschedule_meeting blocked — no booked meeting / no event_id");
+        return {
+          success: false,
+          message: "אין פגישה קבועה כרגע. אם הלקוח רוצה לקבוע פגישה חדשה, קרא ל-create_meeting.",
+        };
+      }
+
+      if (args.date && args.time) {
+        const requestedIso = `${args.date}T${args.time}:00${israelOffsetForDate(args.date as string)}`;
+        const requestedMs = Date.parse(requestedIso);
+        if (!Number.isFinite(requestedMs) || requestedMs < Date.now() + 30 * 60 * 1000) {
+          console.log("[notion_ai_agent] reschedule_meeting rejected — time is in the past:", requestedIso);
+          return {
+            success: false,
+            conflict: true,
+            message: "הזמן שביקשת כבר עבר או קרוב מדי לעכשיו. בבקשה הצע ללקוח זמן עתידי (לפחות חצי שעה מעכשיו).",
+          };
+        }
+      }
+
+      const rescheduleUrl = createMeeting.webhookUrl.replace(/create-meeting$/, "reschedule-meeting");
+      const reschedulePayload = {
+        event_id: variables.__calendar_event_id,
+        date: args.date,
+        time: args.time,
+        name: variables.customer_name || "",
+        phone: variables.phone || "",
+      };
+
+      let rescheduleResult: Record<string, unknown> = {};
+      try {
+        const response = await fetch(rescheduleUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(reschedulePayload),
+        });
+        rescheduleResult = await response.json();
+      } catch (e) {
+        console.error("[notion_ai_agent] reschedule_meeting webhook threw:", e);
+        return { success: false, message: "תקלה זמנית בעדכון היומן. נסה שוב בעוד רגע." };
+      }
+
+      if (!rescheduleResult || rescheduleResult.success !== true) {
+        return rescheduleResult || { success: false };
+      }
+
+      if (typeof rescheduleResult.event_id === "string" && rescheduleResult.event_id) {
+        variables.__calendar_event_id = rescheduleResult.event_id;
+      }
+      variables.__meeting_date = (args.date as string) || "";
+      variables.__meeting_time = (args.time as string) || "";
+
+      // Re-sync CRM lead page
+      if (notionApiKey && variables.page_id) {
+        const meetingDateTime = args.date && args.time
+          ? `${args.date}T${args.time}:00${israelOffsetForDate(args.date as string)}`
+          : "";
+        const reschedNotionProps: Record<string, unknown> = {
+          "תאריך פולואפ": { date: { start: nowIsraelISO() } },
+        };
+        if (meetingDateTime) reschedNotionProps["תאריך שיחה"] = { date: { start: meetingDateTime } };
+        if (typeof rescheduleResult.event_id === "string" && rescheduleResult.event_id) {
+          reschedNotionProps["מזהה אירוע יומן"] = { rich_text: [{ text: { content: rescheduleResult.event_id } }] };
+        }
+        try {
+          const notionResp = await fetch(`https://api.notion.com/v1/pages/${variables.page_id}`, {
+            method: "PATCH",
+            headers: notionHeaders,
+            body: JSON.stringify({ properties: reschedNotionProps }),
+          });
+          console.log("[notion_ai_agent] reschedule_meeting CRM sync:", notionResp.ok ? "SUCCESS" : "FAILED");
+          if (!notionResp.ok) {
+            const errText = await notionResp.text();
+            console.error("[notion_ai_agent] reschedule CRM sync error body:", errText.substring(0, 300));
+          }
+        } catch (e) {
+          console.error("[notion_ai_agent] reschedule CRM sync threw:", e);
+        }
+      }
+
+      // Re-sync diary row (if we know which row — old sessions won't have it)
+      if (notionApiKey && variables.__diary_page_id) {
+        const diaryDateTime = args.date && args.time
+          ? `${args.date}T${args.time}:00${israelOffsetForDate(args.date as string)}`
+          : "";
+        const diaryUpdateProps: Record<string, unknown> = {};
+        if (diaryDateTime) diaryUpdateProps["תאריך פגישה"] = { date: { start: diaryDateTime } };
+        if (typeof rescheduleResult.event_id === "string" && rescheduleResult.event_id) {
+          diaryUpdateProps["מזהה אירוע יומן"] = { rich_text: [{ text: { content: rescheduleResult.event_id } }] };
+        }
+        try {
+          const diaryResp = await fetch(`https://api.notion.com/v1/pages/${variables.__diary_page_id}`, {
+            method: "PATCH",
+            headers: notionHeaders,
+            body: JSON.stringify({ properties: diaryUpdateProps }),
+          });
+          console.log("[notion_ai_agent] reschedule_meeting diary sync:", diaryResp.ok ? "SUCCESS" : "FAILED");
+        } catch (e) {
+          console.error("[notion_ai_agent] reschedule diary sync threw:", e);
+        }
+      }
+
+      return { ...rescheduleResult, notion_synced: true };
+    }
+
     if (name === "create_meeting" && createMeeting?.webhookUrl) {
       // Code-level guard: if a meeting was already booked in this session, block the
       // re-call entirely. The LLM sometimes hallucinates a second create_meeting after
@@ -2067,7 +2198,12 @@ Combine multiple fields in one call.`,
       variables.__meeting_booked = "true";
       delete variables.__pending_booking_date;
       delete variables.__pending_booking_time;
-      console.log("[notion_ai_agent] Meeting booked, __meeting_booked set to true");
+      if (typeof meetingResult.event_id === "string" && meetingResult.event_id) {
+        variables.__calendar_event_id = meetingResult.event_id;
+      }
+      variables.__meeting_date = (args.date as string) || "";
+      variables.__meeting_time = (args.time as string) || "";
+      console.log("[notion_ai_agent] Meeting booked, __meeting_booked set to true, event_id:", variables.__calendar_event_id || "(none)");
 
       // Build a fallback confirmation in case the LLM returns empty after booking.
       const timeStr = (args.time as string) || "";
@@ -2097,6 +2233,9 @@ Combine multiple fields in one call.`,
           "סוג פגישה": { select: { name: "טלפון" } },
         };
         if (meetingDateTime) notionProps["תאריך שיחה"] = { date: { start: meetingDateTime } };
+        if (typeof meetingResult.event_id === "string" && meetingResult.event_id) {
+          notionProps["מזהה אירוע יומן"] = { rich_text: [{ text: { content: meetingResult.event_id } }] };
+        }
 
         try {
           const notionResp = await fetch(`https://api.notion.com/v1/pages/${variables.page_id}`, {
@@ -2137,6 +2276,9 @@ Combine multiple fields in one call.`,
           if (variables.page_id) {
             diaryProps["כרטיס לקוח"] = { relation: [{ id: variables.page_id }] };
           }
+          if (typeof meetingResult.event_id === "string" && meetingResult.event_id) {
+            diaryProps["מזהה אירוע יומן"] = { rich_text: [{ text: { content: meetingResult.event_id } }] };
+          }
 
           const diaryResp = await fetch("https://api.notion.com/v1/pages", {
             method: "POST",
@@ -2147,7 +2289,16 @@ Combine multiple fields in one call.`,
             }),
           });
           console.log("[notion_ai_agent] meetings diary row:", diaryResp.ok ? "CREATED" : "FAILED");
-          if (!diaryResp.ok) {
+          if (diaryResp.ok) {
+            try {
+              const diaryData = await diaryResp.json();
+              if (diaryData?.id) {
+                variables.__diary_page_id = diaryData.id;
+              }
+            } catch (parseErr) {
+              console.error("[notion_ai_agent] meetings diary response parse failed:", parseErr);
+            }
+          } else {
             const errText = await diaryResp.text();
             console.error("[notion_ai_agent] meetings diary error:", errText.substring(0, 300));
           }
