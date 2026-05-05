@@ -2907,29 +2907,6 @@ Deno.serve(async (req) => {
     const userMessage = (body.message || "").trim();
     const buttonClickId = ""; // WClixAPI sends button clicks as plain text — matched by label/number
 
-    // ── Custom-agent dispatcher ────────────────────────────────────
-    // One-time wire-up. Customer IDs to route to `custom-agent` live in the
-    // CUSTOM_AGENT_CUSTOMER_IDS secret (comma-separated). Adding a new custom
-    // agent customer = update the secret only, no code change here.
-    const CUSTOM_AGENT_IDS = (Deno.env.get("CUSTOM_AGENT_CUSTOMER_IDS") ?? "")
-      .split(",").map((s) => s.trim()).filter(Boolean);
-
-    if (CUSTOM_AGENT_IDS.includes(customerId)) {
-      try {
-        await fetch(`${supabaseUrl}/functions/v1/custom-agent`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        });
-      } catch (e) {
-        console.error("[flow] custom-agent dispatch failed:", e);
-      }
-      return new Response(
-        JSON.stringify({ ok: true, dispatched: "custom-agent" }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
-
     // Check if this is a gateway instance with its own webhook → forward and return
     if (customerId) {
       const { data: gatewayInstance } = await supabase
