@@ -4586,6 +4586,28 @@ Deno.serve(async (req) => {
       });
     }
 
+    // If chain landed on mor_ai_agent, enter MOR agent conversation
+    if (landedNode?.type === "mor_ai_agent") {
+      const agentHistory = parseAgentHistory(updatedVariables.__mor_agent_history);
+      const agentResult = await executeMorAiAgent(landedNode, userMessage, updatedVariables, agentHistory, profile.id);
+      if (agentResult.response) await sendTextMessage(customerId, phone, agentResult.response, "system");
+      await supabase.from("flow_message_log").insert({
+        workflow_id: workflow.id, session_id: session.id,
+        node_id: landedNode.id, direction: "outbound",
+        message_type: "mor_agent", content: agentResult.response,
+      });
+      updatedVariables.__mor_agent_history = JSON.stringify(agentResult.updatedHistory);
+      await updateSessionDirect(session.id, {
+        current_node_id: nextNodeId,
+        variables: updatedVariables,
+        status: "active",
+        last_message_at: new Date().toISOString(),
+      });
+      return new Response(JSON.stringify({ ok: true, action: "mor_agent", current_node: nextNodeId }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // No next node and nothing executed this turn — either empty flow or end of flow
     if (!nextNodeId && nodesExecuted === 0) {
       const isEmptyFlow = currentNode.type === "start";

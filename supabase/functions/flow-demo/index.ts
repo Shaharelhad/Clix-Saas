@@ -1,9 +1,10 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { getAuthenticatedUserId } from "../_shared/auth.ts";
-import { callLLMEngine, classifyTrigger, validateCollectInput, detectRefusal, translateMessage, translateButtonLabels, formatApiResponse, type TriggerInfo } from "../_shared/llm-engine.ts";
+import { callLLMEngine, classifyTrigger, validateCollectInput, detectRefusal, translateMessage, translateButtonLabels, formatApiResponse, callAgentLLM, type TriggerInfo, type AgentMessage, type AgentToolCall } from "../_shared/llm-engine.ts";
 import { findOperationById, resolveOperation } from "../_shared/integration-catalog.ts";
 import { pickCheapestNonBaseRate, applyBookingLinkLocale, fetchExchangeRate } from "../_shared/cloudbeds.ts";
+import { buildMorAiAgent } from "../_shared/lead-storage-helpers.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -44,6 +45,8 @@ interface FlowNode {
     bodyTemplate?: string;
     responseMapping?: Array<{ jsonPath: string; variableName: string }>;
     errorMessage?: string;
+    // mor_ai_agent
+    systemPrompt?: string;
   };
 }
 
@@ -271,6 +274,61 @@ function evaluateConditionRules(
     const pass = varName ? evalConditionRule(actual, op, cmp) : false;
     return { variable: varName, operator: op, value: cmp, actual, pass };
   });
+}
+
+// ── MOR AI Agent helpers (mirror flow-webhook; pure, local-only) ──
+
+function parseAgentHistory(raw: unknown): AgentMessage[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw as string);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    console.warn("[mor_ai_agent] __mor_agent_history parse failed, resetting");
+    return [];
+  }
+}
+
+function trimAgentHistory(history: AgentMessage[], maxLen: number): AgentMessage[] {
+  if (history.length <= maxLen) return history;
+  let start = history.length - maxLen;
+  while (start < history.length && history[start]?.role === "tool") start++;
+  return history.slice(start);
+}
+
+async function executeMorAiAgent(
+  node: FlowNode,
+  userMessage: string,
+  variables: Record<string, string>,
+  agentHistory: AgentMessage[],
+  userId: string,
+): Promise<{ response: string; toolCalls: AgentToolCall[]; updatedHistory: AgentMessage[] }> {
+  const phone = (variables.phone as string) ?? "";
+  const extraInstructions = (node.data.systemPrompt as string) ?? "";
+
+  const agent = await buildMorAiAgent({ supabase, phone, userId, extraInstructions });
+
+  const result = await callAgentLLM({
+    systemPrompt: agent.systemPrompt,
+    conversationHistory: agentHistory,
+    userMessage,
+    tools: agent.tools,
+    executeTool: agent.executeTool,
+  });
+
+  const rawHistory = result.messages
+    ? [...result.messages, { role: "assistant" as const, content: result.response }]
+    : [
+        ...agentHistory,
+        { role: "user" as const, content: userMessage },
+        { role: "assistant" as const, content: result.response },
+      ];
+
+  return {
+    response: result.response,
+    toolCalls: result.toolCalls,
+    updatedHistory: trimAgentHistory(rawHistory, 30),
+  };
 }
 
 // ── Execute node in demo mode (no WhatsApp, collect responses) ──
@@ -637,6 +695,12 @@ async function executeNodeDemo(
     return { nextNodeId: next?.id || null, waitForInput: false };
   }
 
+  // MOR AI Agent — pause on this node so the top-level handler runs the agent on the next turn.
+  // (executeNodeDemo doesn't have userId in scope; the agent runs in branch B/C instead.)
+  if (node.type === "mor_ai_agent") {
+    return { nextNodeId: node.id, waitForInput: true };
+  }
+
   return { nextNodeId: null, waitForInput: false };
 }
 
@@ -880,6 +944,27 @@ Deno.serve(async (req) => {
       return llmFallbackResponse(currentNode.id);
     }
 
+    // MOR AI Agent — agentic conversation with lead-CRM tools.
+    // Mirrors flow-webhook line 4125 (real-WhatsApp path) but returns JSON instead of sending via WClixAPI.
+    if (currentNode.type === "mor_ai_agent") {
+      const history = parseAgentHistory(variables.__mor_agent_history);
+      const r = await executeMorAiAgent(currentNode, message, variables, history, user_id);
+      variables.__mor_agent_history = JSON.stringify(r.updatedHistory);
+      responses.push({ type: "text", content: r.response });
+      await supabase.from("demo_conversations").insert({
+        user_id, conversation_id: convId,
+        user_message: message, bot_response: r.response,
+      });
+      return new Response(
+        JSON.stringify({
+          responses,
+          conversation_id: convId,
+          session_state: { current_node_id: currentNode.id, variables, status: "active" },
+        }),
+        { headers: { ...cors, "Content-Type": "application/json" } },
+      );
+    }
+
     // Open Bot node — free AI conversation (bypass strict mode)
     if (currentNode.type === "open_bot") {
       // Menu-intent keyword check — navigate back to the parent menu
@@ -950,7 +1035,7 @@ Deno.serve(async (req) => {
                 if (!jumpNodeId) break;
                 continue;
               }
-              const result = await executeNode(node, variables, flow, responses);
+              const result = await executeNodeDemo(node, variables, flow, responses);
               if (result.waitForInput) { jumpNodeId = result.nextNodeId; break; }
               jumpNodeId = result.nextNodeId;
               if (!jumpNodeId) break;
@@ -1022,7 +1107,7 @@ Deno.serve(async (req) => {
         nextNodeId = nextNode?.id || null;
       } else {
         // Re-send the current buttons node (with proper translation)
-        await executeNode(currentNode, variables, flow, responses);
+        await executeNodeDemo(currentNode, variables, flow, responses);
         return new Response(
           JSON.stringify({ response: responses, conversation_id: convId, session_state: { current_node_id: currentNodeId, variables, status: "active" } }),
           { headers: { ...cors, "Content-Type": "application/json" } }
@@ -1206,6 +1291,16 @@ Deno.serve(async (req) => {
 
       // Open Bot node — stay on this node, LLM will handle it
       if (node.type === "open_bot") {
+        nextNodeId = node.id;
+        break;
+      }
+
+      // MOR AI Agent — run the agent on this turn, stay on the node, await next user input
+      if (node.type === "mor_ai_agent") {
+        const history = parseAgentHistory(variables.__mor_agent_history);
+        const r = await executeMorAiAgent(node, message, variables, history, user_id);
+        variables.__mor_agent_history = JSON.stringify(r.updatedHistory);
+        responses.push({ type: "text", content: r.response });
         nextNodeId = node.id;
         break;
       }
