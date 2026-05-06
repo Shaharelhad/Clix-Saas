@@ -2,6 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { callLLMEngine, classifyTrigger, classifyIntent, callAgentLLM, validateCollectInput, detectRefusal, translateMessage, translateButtonLabels, formatApiResponse, type TriggerInfo, type LLMResult, type AgentToolDefinition, type AgentMessage, type AgentToolCall } from "../_shared/llm-engine.ts";
 import { embedText } from "../_shared/embeddings.ts";
 import { resolveOperation } from "../_shared/integration-catalog.ts";
+import { pickCheapestNonBaseRate, applyBookingLinkLocale, fetchExchangeRate } from "../_shared/cloudbeds.ts";
 import { normalizePhone as normalizePhoneHelper, getNotionHeadersForNode, lookupOrCreateNotionLead, formatEventDateForTitle } from "../_shared/notion-lead-helpers.ts";
 import { nowIsraelISO, israelOffsetForDate } from "../_shared/israel-time.ts";
 import { buildMorAiAgent } from "../_shared/lead-storage-helpers.ts";
@@ -919,13 +920,25 @@ async function executeNode(
 
       // constructUrl mode: skip API call, return resolved template as URL
       if (resolved.constructUrl) {
-        const constructedUrl = resolveVariables(resolved.endpoint, variables);
+        let constructedUrl = resolveVariables(resolved.endpoint, variables);
         if (!constructedUrl || constructedUrl.startsWith("?") || constructedUrl.includes("{{")) {
           variables.error = "Booking URL not configured. Add it in integration settings.";
           await logMessage("constructUrl failed: missing bookingUrl in config", "api_call_error");
           let next = findNextNode(flow, node.id, "error");
           if (!next) next = findNextNode(flow, node.id);
           return { nextNodeId: next?.id || null, waitForInput: false };
+        }
+        // Cloudbeds getBookingLink: apply per-node language/currency to the URL
+        // (swap /en/ → /he/, append currency=ils, etc.) so each path of the
+        // flow can hand the customer a localized reservation page.
+        if (
+          integration.integration_type === "cloudbeds"
+          && node.data.operationId === "getBookingLink"
+        ) {
+          constructedUrl = applyBookingLinkLocale(constructedUrl, {
+            outputLanguage: node.data.outputLanguage,
+            outputCurrency: node.data.outputCurrency,
+          });
         }
         for (const mapping of resolved.responseMapping) {
           variables[mapping.variableName] = constructedUrl;
@@ -999,17 +1012,37 @@ async function executeNode(
           : "Sorry, no available rooms were found for the selected dates. Please try different dates.";
       }
 
+      // Cloudbeds: getAvailableRoomTypes returns the Base Rate alongside any
+      // applicable Rate Plans inside propertyRooms. The Booking Engine UI
+      // hides the Base Rate when Rate Plans are configured, so quoting it
+      // creates a mismatch (Cloudbeds support ticket #3338025). Override
+      // unit/price/room_type_id with the cheapest non-Base entry when one
+      // exists; if all entries are Base, keep the responseMapping defaults.
+      let cloudbedsRoom: Record<string, unknown> | null = null;
+      if (integration.integration_type === "cloudbeds" && hasData) {
+        const propertyRooms = (json.data?.[0]?.propertyRooms ?? []) as Record<string, unknown>[];
+        const picked = pickCheapestNonBaseRate(propertyRooms);
+        if (picked) {
+          if (picked.roomTypeName != null) variables.unit = String(picked.roomTypeName);
+          if (picked.roomRate != null) variables.price = String(picked.roomRate);
+          if (picked.roomTypeID != null) variables.room_type_id = String(picked.roomTypeID);
+          cloudbedsRoom = picked as Record<string, unknown>;
+        } else {
+          cloudbedsRoom = (propertyRooms[0] ?? null) as Record<string, unknown> | null;
+        }
+      }
+
       // Compute extra adult charge and total price from Cloudbeds adultsExtraCharge object
       if (integration.integration_type === "cloudbeds" && hasData) {
-        const room = json.data?.[0]?.propertyRooms?.[0];
-        const adultsExtra = room?.adultsExtraCharge;
+        const room = cloudbedsRoom;
+        const adultsExtra = room?.adultsExtraCharge as Record<string, string | number> | undefined;
         // Resolve adults count from inputValues (e.g. "{{total_guest}}") or common variable names
         const adultsInput = (node.data.inputValues as Record<string, string>)?.adults || "";
         const adultsVarMatch = adultsInput.match(/\{\{(\w+)\}\}/);
         const adultsCount = adultsVarMatch ? (variables[adultsVarMatch[1]] || "1") : (variables.adults || variables.number_of_guests || variables.total_guest || "1");
         let extraCharge = 0;
         if (adultsExtra && typeof adultsExtra === "object") {
-          extraCharge = parseFloat(adultsExtra[adultsCount]) || 0;
+          extraCharge = parseFloat(String(adultsExtra[adultsCount] ?? "0")) || 0;
         }
         variables.extra_adult_charge = String(extraCharge);
         const basePrice = parseFloat(variables.price) || 0;
@@ -1030,7 +1063,9 @@ async function executeNode(
         }
       }
 
-      // Convert price, total_price, and extra_adult_charge to ILS if requested
+      // Convert price, total_price, and extra_adult_charge to ILS if requested.
+      // Uses openexchangerates.org (Cloudbeds' own provider) to match the
+      // booking engine's quote within fractions of a percent.
       if (integration.integration_type === "cloudbeds"
           && node.data.outputCurrency === "ILS"
           && variables.price
@@ -1039,9 +1074,7 @@ async function executeNode(
         if (!isNaN(priceNum) && variables.currency !== "₪") {
           const fromCode = variables.currency === "$" ? "USD" : variables.currency === "€" ? "EUR" : "USD";
           try {
-            const rateRes = await fetch(`https://open.er-api.com/v6/latest/${fromCode}`);
-            const rateData = await rateRes.json();
-            const ilsRate = rateData.rates?.ILS;
+            const ilsRate = await fetchExchangeRate(fromCode as "USD" | "EUR", "ILS");
             if (ilsRate) {
               variables.price = String(Math.round(priceNum * ilsRate));
               const extraNum = parseFloat(variables.extra_adult_charge) || 0;

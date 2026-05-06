@@ -1188,8 +1188,8 @@ function ApiCallEditor({ data, update }: { data: FlowNodeData; update: (patch: P
                 </div>
               )}
 
-              {/* Currency toggle for Cloudbeds room availability */}
-              {operationDef.id === "getAvailableRoomTypes" && (
+              {/* Currency toggle for Cloudbeds room availability and booking link */}
+              {(operationDef.id === "getAvailableRoomTypes" || operationDef.id === "getBookingLink") && (
                 <Field label={t("outputCurrency")} hint={t("outputCurrencyHint")}>
                   <div className="flex gap-2">
                     <button
@@ -1214,8 +1214,8 @@ function ApiCallEditor({ data, update }: { data: FlowNodeData; update: (patch: P
                 </Field>
               )}
 
-              {/* Language toggle for Cloudbeds room availability */}
-              {operationDef.id === "getAvailableRoomTypes" && (
+              {/* Language toggle for Cloudbeds room availability and booking link */}
+              {(operationDef.id === "getAvailableRoomTypes" || operationDef.id === "getBookingLink") && (
                 <Field label={t("outputLanguage")} hint={t("outputLanguageHint")}>
                   <div className="flex gap-2">
                     <button
