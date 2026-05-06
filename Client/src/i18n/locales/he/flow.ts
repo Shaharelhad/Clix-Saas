@@ -230,6 +230,11 @@ const flow = {
   // Notion AI Agent node
   nodeNotionAiAgent: "סוכן AI נוטיון",
   nodeNotionAiAgentDesc: "סוכן AI עם כלי נוטיון ויומן",
+  nodeMorAiAgent: "סוכן AI של מור",
+  nodeMorAiAgentDesc: "סוכן AI עם כלי ניהול לידים (שמירה, סטטוס, סימון תשלום)",
+  morAgentSystemPromptLabel: "הנחיית מערכת",
+  morAgentSystemPromptHint: "הוראות לסוכן ה-AI — תאר פרסונה, התנהגות, ומתי להפעיל save_lead / update_lead_status / mark_paid.",
+  morAgentSystemPromptPlaceholder: "אתה ליאורה, העוזרת של מור. ברך את המשתמשים בחום. כשהם מציגים את עצמם, הפעל save_lead. כשהם מראים עניין, הפעל update_lead_status עם status='engaging'. כשהם מאשרים תשלום ('שילמתי'), הפעל mark_paid.",
   notionAgentIntegration: "אינטגרציית נוטיון",
   notionAgentIntegrationHint: "בחר את אינטגרציית הנוטיון שלך",
   notionAgentNoIntegration: "לא נמצאה אינטגרציית נוטיון. הוסף אחת בפאנל האינטגרציות.",

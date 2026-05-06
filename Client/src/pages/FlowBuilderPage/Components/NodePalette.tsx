@@ -12,6 +12,7 @@ import {
   Route,
   Bot,
   GitBranch,
+  Sparkles,
 } from "lucide-react";
 import { NODE_COLORS, type FlowNodeType } from "@/types/flow";
 
@@ -27,6 +28,7 @@ const PALETTE_ITEMS: { type: FlowNodeType; icon: typeof MessageSquareText; label
   { type: "condition", icon: GitBranch, labelKey: "nodeCondition", descKey: "nodeConditionDesc" },
   { type: "ai_router", icon: Route, labelKey: "nodeAiRouter", descKey: "nodeAiRouterDesc" },
   { type: "notion_ai_agent", icon: Bot, labelKey: "nodeNotionAiAgent", descKey: "nodeNotionAiAgentDesc" },
+  { type: "mor_ai_agent", icon: Sparkles, labelKey: "nodeMorAiAgent", descKey: "nodeMorAiAgentDesc" },
 ];
 
 interface NodePaletteProps {

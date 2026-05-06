@@ -14,6 +14,7 @@ export type FlowNodeType =
   | "language"
   | "ai_router"
   | "notion_ai_agent"
+  | "mor_ai_agent"
   | "condition";
 
 export interface ButtonItem {
@@ -125,6 +126,10 @@ export interface FlowNodeData extends Record<string, unknown> {
     findSlots?: { enabled: boolean; webhookUrl: string };
     createMeeting?: { enabled: boolean; webhookUrl: string };
   };
+  // mor_ai_agent — read by flow-webhook's executeMorAiAgent / _shared/lead-storage-helpers.ts.
+  // The 3 lead-CRM tools (save_lead / update_lead_status / mark_paid) are always-on in v1;
+  // no toggles exposed in the UI.
+  systemPrompt?: string;
 }
 
 // XYFlow typed node / edge
@@ -192,6 +197,7 @@ export const NODE_COLORS: Record<FlowNodeType, string> = {
   language: "#2563eb",
   ai_router: "#f97316",
   notion_ai_agent: "#10b981",
+  mor_ai_agent: "#a855f7",
   condition: "#eab308",
 };
 
@@ -232,5 +238,9 @@ export const NODE_DEFAULTS: Record<FlowNodeType, Partial<FlowNodeData>> = {
       findSlots: { enabled: false, webhookUrl: "" },
       createMeeting: { enabled: false, webhookUrl: "" },
     },
+  },
+  mor_ai_agent: {
+    type: "mor_ai_agent",
+    systemPrompt: "",
   },
 };
