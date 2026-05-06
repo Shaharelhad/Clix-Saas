@@ -119,6 +119,32 @@ export async function markLeadPaid(
   }
 }
 
+/** Best-effort stamp of last_inbound_at. No-op if row doesn't exist. Swallows errors. */
+export async function stampInbound(supabase: SupabaseLike, phone: string): Promise<void> {
+  if (!phone || phone.trim().length === 0) return;
+  try {
+    await supabase
+      .from("mor_leads")
+      .update({ last_inbound_at: new Date().toISOString() })
+      .eq("phone", phone);
+  } catch (e) {
+    console.warn("[mor_ai_agent] stampInbound failed:", e instanceof Error ? e.message : String(e));
+  }
+}
+
+/** Best-effort stamp of last_mor_reply_at. No-op if row doesn't exist. Swallows errors. */
+export async function stampReply(supabase: SupabaseLike, phone: string): Promise<void> {
+  if (!phone || phone.trim().length === 0) return;
+  try {
+    await supabase
+      .from("mor_leads")
+      .update({ last_mor_reply_at: new Date().toISOString() })
+      .eq("phone", phone);
+  } catch (e) {
+    console.warn("[mor_ai_agent] stampReply failed:", e instanceof Error ? e.message : String(e));
+  }
+}
+
 // ── Layer 2: tool schemas (LLM-facing) ──────────────────────────
 
 const LEAD_TOOL_SCHEMAS: AgentToolDefinition[] = [
