@@ -3,6 +3,7 @@ import { getCorsHeaders } from "../_shared/cors.ts";
 import { getAuthenticatedUserId } from "../_shared/auth.ts";
 import { callLLMEngine, classifyTrigger, validateCollectInput, detectRefusal, translateMessage, translateButtonLabels, formatApiResponse, type TriggerInfo } from "../_shared/llm-engine.ts";
 import { findOperationById, resolveOperation } from "../_shared/integration-catalog.ts";
+import { pickCheapestNonBaseRate, applyBookingLinkLocale, fetchExchangeRate } from "../_shared/cloudbeds.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -440,11 +441,22 @@ async function executeNodeDemo(
 
       // constructUrl mode: skip API call, return resolved template as URL
       if (resolved.constructUrl) {
-        const constructedUrl = resolveVariables(resolved.endpoint, variables);
+        let constructedUrl = resolveVariables(resolved.endpoint, variables);
         if (!constructedUrl || constructedUrl.startsWith("?") || constructedUrl.includes("{{")) {
           variables.error = "Booking URL not configured. Add it in integration settings.";
           const next = findNextNode(flow, node.id, "error");
           return { nextNodeId: next?.id || null, waitForInput: false };
+        }
+        // Cloudbeds getBookingLink: apply per-node language/currency to the URL.
+        // See flow-webhook for full rationale.
+        if (
+          integration.integration_type === "cloudbeds"
+          && node.data.operationId === "getBookingLink"
+        ) {
+          constructedUrl = applyBookingLinkLocale(constructedUrl, {
+            outputLanguage: node.data.outputLanguage,
+            outputCurrency: node.data.outputCurrency,
+          });
         }
         for (const mapping of resolved.responseMapping) {
           variables[mapping.variableName] = constructedUrl;
@@ -517,7 +529,55 @@ async function executeNodeDemo(
           : "Sorry, no available rooms were found for the selected dates. Please try different dates.";
       }
 
-      // Convert price to ILS if requested
+      // Cloudbeds: filter out Base Rate entry from propertyRooms and quote
+      // the cheapest applicable Rate Plan instead. See flow-webhook for the
+      // full rationale (Cloudbeds support ticket #3338025).
+      let cloudbedsRoom: Record<string, unknown> | null = null;
+      if (integration.integration_type === "cloudbeds" && hasData) {
+        const propertyRooms = (json.data?.[0]?.propertyRooms ?? []) as Record<string, unknown>[];
+        const picked = pickCheapestNonBaseRate(propertyRooms);
+        if (picked) {
+          if (picked.roomTypeName != null) variables.unit = String(picked.roomTypeName);
+          if (picked.roomRate != null) variables.price = String(picked.roomRate);
+          if (picked.roomTypeID != null) variables.room_type_id = String(picked.roomTypeID);
+          cloudbedsRoom = picked as Record<string, unknown>;
+        } else {
+          cloudbedsRoom = (propertyRooms[0] ?? null) as Record<string, unknown> | null;
+        }
+      }
+
+      // Compute extra adult charge, total price, and num_nights (mirrors flow-webhook
+      // so the dashboard preview output matches what production WhatsApp produces).
+      if (integration.integration_type === "cloudbeds" && hasData) {
+        const adultsExtra = cloudbedsRoom?.adultsExtraCharge as Record<string, string | number> | undefined;
+        const adultsInput = (node.data.inputValues as Record<string, string>)?.adults || "";
+        const adultsVarMatch = adultsInput.match(/\{\{(\w+)\}\}/);
+        const adultsCount = adultsVarMatch ? (variables[adultsVarMatch[1]] || "1") : (variables.adults || variables.number_of_guests || variables.total_guest || "1");
+        let extraCharge = 0;
+        if (adultsExtra && typeof adultsExtra === "object") {
+          extraCharge = parseFloat(String(adultsExtra[adultsCount] ?? "0")) || 0;
+        }
+        variables.extra_adult_charge = String(extraCharge);
+        const basePrice = parseFloat(variables.price) || 0;
+        variables.total_price = String(basePrice + extraCharge);
+
+        const startInput = (node.data.inputValues as Record<string, string>)?.startDate || "";
+        const endInput = (node.data.inputValues as Record<string, string>)?.endDate || "";
+        const startVar = startInput.match(/\{\{(\w+)\}\}/)?.[1];
+        const endVar = endInput.match(/\{\{(\w+)\}\}/)?.[1];
+        const startVal = startVar ? variables[startVar] : startInput;
+        const endVal = endVar ? variables[endVar] : endInput;
+        if (startVal && endVal) {
+          const startD = new Date(startVal);
+          const endD = new Date(endVal);
+          const nights = Math.round((endD.getTime() - startD.getTime()) / (1000 * 60 * 60 * 24));
+          if (nights > 0) variables.num_nights = String(nights);
+        }
+      }
+
+      // Convert price, extra_adult_charge, and total_price to ILS if requested.
+      // Uses openexchangerates.org (Cloudbeds' own provider) so the bot's
+      // ILS quote matches the booking engine within fractions of a percent.
       if (integration.integration_type === "cloudbeds"
           && node.data.outputCurrency === "ILS"
           && variables.price
@@ -526,11 +586,17 @@ async function executeNodeDemo(
         if (!isNaN(priceNum) && variables.currency !== "₪") {
           const fromCode = variables.currency === "$" ? "USD" : variables.currency === "€" ? "EUR" : "USD";
           try {
-            const rateRes = await fetch(`https://open.er-api.com/v6/latest/${fromCode}`);
-            const rateData = await rateRes.json();
-            const ilsRate = rateData.rates?.ILS;
+            const ilsRate = await fetchExchangeRate(fromCode as "USD" | "EUR", "ILS");
             if (ilsRate) {
               variables.price = String(Math.round(priceNum * ilsRate));
+              const extraNum = parseFloat(variables.extra_adult_charge) || 0;
+              if (extraNum > 0) {
+                variables.extra_adult_charge = String(Math.round(extraNum * ilsRate));
+              }
+              const totalNum = parseFloat(variables.total_price) || 0;
+              if (totalNum > 0) {
+                variables.total_price = String(Math.round(totalNum * ilsRate));
+              }
               variables.currency = "₪";
             }
           } catch { /* keep original if conversion fails */ }
