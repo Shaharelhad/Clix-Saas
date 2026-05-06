@@ -5,7 +5,7 @@ import { resolveOperation } from "../_shared/integration-catalog.ts";
 import { pickCheapestNonBaseRate, applyBookingLinkLocale, fetchExchangeRate } from "../_shared/cloudbeds.ts";
 import { normalizePhone as normalizePhoneHelper, getNotionHeadersForNode, lookupOrCreateNotionLead, formatEventDateForTitle } from "../_shared/notion-lead-helpers.ts";
 import { nowIsraelISO, israelOffsetForDate } from "../_shared/israel-time.ts";
-import { buildMorAiAgent } from "../_shared/lead-storage-helpers.ts";
+import { buildMorAiAgent, stampInbound, stampReply } from "../_shared/lead-storage-helpers.ts";
 
 // Eliron-only lead-capture scoping. All new behavior below is gated on this customerId.
 const ELIRON_CUSTOMER_ID = "260222c1-9b83-4206-bb90-7445907fb582";
@@ -2474,6 +2474,8 @@ async function executeMorAiAgent(
 
   const agent = await buildMorAiAgent({ supabase, phone, userId, extraInstructions });
 
+  await stampInbound(supabase, phone);
+
   const result = await callAgentLLM({
     systemPrompt: agent.systemPrompt,
     conversationHistory: agentHistory,
@@ -2481,6 +2483,8 @@ async function executeMorAiAgent(
     tools: agent.tools,
     executeTool: agent.executeTool,
   });
+
+  if (result.response) await stampReply(supabase, phone);
 
   // Build full history with the LLM's text reply appended (mirrors executeNotionAgent's pattern)
   const rawHistory = result.messages
