@@ -25,6 +25,7 @@ import ApiCallNode from "./nodes/ApiCallNode";
 import LanguageNode from "./nodes/LanguageNode";
 import AiRouterNode from "./nodes/AiRouterNode";
 import NotionAiAgentNode from "./nodes/NotionAiAgentNode";
+import MorAiAgentNode from "./nodes/MorAiAgentNode";
 import ConditionNode from "./nodes/ConditionNode";
 
 const nodeTypes: NodeTypes = {
@@ -39,6 +40,7 @@ const nodeTypes: NodeTypes = {
   language: LanguageNode,
   ai_router: AiRouterNode,
   notion_ai_agent: NotionAiAgentNode,
+  mor_ai_agent: MorAiAgentNode,
   condition: ConditionNode,
 };
 

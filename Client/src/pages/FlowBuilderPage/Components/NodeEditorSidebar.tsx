@@ -445,6 +445,25 @@ export default function NodeEditorSidebar({ node, onUpdate, onClose, isLocked, s
           <NotionAiAgentEditor data={data} update={update} />
         )}
 
+        {/* MOR AI Agent — minimal v1: just a system-prompt textarea.
+            All 3 lead-CRM tools (save_lead / update_lead_status / mark_paid)
+            are always-on in the backend. No toggles in v1. */}
+        {data.type === "mor_ai_agent" && (
+          <Field
+            label={t("morAgentSystemPromptLabel")}
+            hint={t("morAgentSystemPromptHint")}
+          >
+            <textarea
+              value={data.systemPrompt || ""}
+              onChange={(e) => update({ systemPrompt: e.target.value })}
+              className="field-input"
+              rows={8}
+              dir="rtl"
+              placeholder={t("morAgentSystemPromptPlaceholder")}
+            />
+          </Field>
+        )}
+
       </fieldset>
       </div>
 
