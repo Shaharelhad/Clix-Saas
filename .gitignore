@@ -25,5 +25,6 @@ dist-ssr
 *.sw?
 .claude/tool-integration-plan.md
 .claude/eliron/
+.claude/eshel/
 .claude/scheduled_tasks.lock
 mor/
