@@ -2449,6 +2449,21 @@ Combine multiple fields in one call.`,
 
   delete variables.__first_turn;
 
+  // Clear היסטוריית שיחה now that the agent has read and responded based on it.
+  // The n8n follow-up crons write into this column so the bot can pick up cron-sent
+  // messages it never saw in __agent_history; leaving it populated after consumption
+  // makes every subsequent turn re-replay the same follow-up as fresh context.
+  // Fire-and-forget — a failed clear is non-fatal (next turn just re-reads the same value).
+  if (notionConvHistory && notionApiKey && variables.page_id) {
+    fetch(`https://api.notion.com/v1/pages/${variables.page_id}`, {
+      method: "PATCH",
+      headers: notionHeaders,
+      body: JSON.stringify({ properties: { "היסטוריית שיחה": { rich_text: [] } } }),
+    })
+      .then((r) => console.log("[notion_ai_agent] Cleared היסטוריית שיחה:", r.ok ? "OK" : "FAIL " + r.status))
+      .catch((e) => console.error("[notion_ai_agent] Clear היסטוריית שיחה error:", e));
+  }
+
   return {
     response: result.response,
     toolCalls: result.toolCalls,
