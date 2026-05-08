@@ -26,5 +26,6 @@ dist-ssr
 .claude/tool-integration-plan.md
 .claude/eliron/
 .claude/eshel/
+.claude/miyo/
 .claude/scheduled_tasks.lock
 mor/
