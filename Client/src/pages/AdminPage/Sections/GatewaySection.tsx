@@ -59,6 +59,7 @@ export default function GatewaySection() {
     type: "disconnect" | "delete";
     instanceId: string;
   } | null>(null);
+  const [qrCode, setQrCode] = useState<string | null>(null);
 
   // Create form state
   const [newId, setNewId] = useState("");
@@ -72,11 +73,18 @@ export default function GatewaySection() {
 
   // QR polling ref
   const qrPollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Feedback toast timer — cleared on unmount and on each new message
+  const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const showFeedback = (msg: string) => {
+  const showFeedback = useCallback((msg: string) => {
     setFeedback(msg);
-    setTimeout(() => setFeedback(null), 2500);
-  };
+    if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
+    feedbackTimerRef.current = setTimeout(() => setFeedback(null), 2500);
+  }, []);
+
+  useEffect(() => () => {
+    if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
+  }, []);
 
   /* ── queries ─────────────────────────────────────────── */
 
@@ -101,12 +109,15 @@ export default function GatewaySection() {
 
   const selected = instances.find((i) => i.id === selectedId);
 
-  // Sync webhookInput when selection changes
+  // Sync webhookInput when the selected instance changes or its webhook
+  // is updated server-side. Depend on primitives, NOT on `selected`'s
+  // object identity — React Query refetches recreate the array every
+  // poll and would erase whatever the admin is currently typing.
   useEffect(() => {
     if (selected) {
       setWebhookInput(selected.webhook_url || "");
     }
-  }, [selected]);
+  }, [selected?.id, selected?.webhook_url]);
 
   /* ── QR polling ──────────────────────────────────────── */
 
@@ -117,6 +128,11 @@ export default function GatewaySection() {
         instance_id: instanceId,
       });
       if (data) {
+        // Clear any stale QR image once the server confirms connection;
+        // otherwise an old QR lingers in state and renders again if the
+        // user disconnects from their phone and status flips back.
+        const status = (data as { status?: string }).status;
+        if (status === "connected") setQrCode(null);
         queryClient.invalidateQueries({
           queryKey: ["admin", "gateway-instances"],
         });
@@ -159,8 +175,6 @@ export default function GatewaySection() {
   }, [selected?.instance_id, selected?.status, pollStatus]);
 
   /* ── mutations ───────────────────────────────────────── */
-
-  const [qrCode, setQrCode] = useState<string | null>(null);
 
   const createMutation = useMutation({
     mutationFn: async () => {
@@ -271,12 +285,12 @@ export default function GatewaySection() {
   });
 
   const sendTestMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (args: { instanceId: string; to: string; message: string }) => {
       const { error } = await callGatewayAdmin({
         action: "send_test",
-        instance_id: selected!.instance_id,
-        to: testPhone.trim(),
-        message: testMessage.trim(),
+        instance_id: args.instanceId,
+        to: args.to,
+        message: args.message,
       });
       if (error) throw new Error(error);
     },
@@ -341,8 +355,11 @@ export default function GatewaySection() {
         {feedback}
       </div>
 
-      {/* Create modal overlay — always mounted, visibility toggled */}
+      {/* Create modal overlay — always mounted, visibility toggled.
+          `inert` keeps focus + screen-reader navigation out when hidden;
+          `pointer-events-none` alone only blocks the mouse. */}
       <div
+        inert={!showCreate}
         className={cn(
           "fixed inset-0 z-50 flex items-center justify-center transition-all duration-200",
           showCreate
@@ -439,6 +456,7 @@ export default function GatewaySection() {
 
       {/* Confirm modal — always mounted, visibility toggled */}
       <div
+        inert={!confirmAction}
         className={cn(
           "fixed inset-0 z-50 flex items-center justify-center transition-all duration-200",
           confirmAction
@@ -701,8 +719,16 @@ export default function GatewaySection() {
                         />
                         <button
                           type="button"
-                          onClick={() => sendTestMutation.mutate()}
+                          onClick={() => {
+                            if (!selected) return;
+                            sendTestMutation.mutate({
+                              instanceId: selected.instance_id,
+                              to: testPhone.trim(),
+                              message: testMessage.trim(),
+                            });
+                          }}
                           disabled={
+                            !selected ||
                             !testPhone.trim() ||
                             !testMessage.trim() ||
                             sendTestMutation.isPending

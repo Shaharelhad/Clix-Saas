@@ -5,7 +5,7 @@ import { resolveOperation } from "../_shared/integration-catalog.ts";
 import { pickCheapestNonBaseRate, applyBookingLinkLocale, fetchExchangeRate } from "../_shared/cloudbeds.ts";
 import { normalizePhone as normalizePhoneHelper, getNotionHeadersForNode, lookupOrCreateNotionLead, formatEventDateForTitle } from "../_shared/notion-lead-helpers.ts";
 import { nowIsraelISO, israelOffsetForDate } from "../_shared/israel-time.ts";
-import { buildMorAiAgent } from "../_shared/lead-storage-helpers.ts";
+import { buildMorAiAgent, stampInbound, stampReply } from "../_shared/lead-storage-helpers.ts";
 
 // Eliron-only lead-capture scoping. All new behavior below is gated on this customerId.
 const ELIRON_CUSTOMER_ID = "260222c1-9b83-4206-bb90-7445907fb582";
@@ -1292,7 +1292,7 @@ async function executeNotionAgent(
   } else if (status === "ניהול לקוח/אירוע") {
     guardrails = `הנחיות חשובות — עדיפות עליונה:\nהלקוח הזה כבר לקוח קיים (סטטוס: ניהול לקוח/אירוע). ענה על שאלות בנימוס ובקיצור.\n\n`;
   } else if (status === "קרוב לסגירה") {
-    guardrails = `הנחיות חשובות — עדיפות עליונה:\nהלקוח הזה בסטטוס "קרוב לסגירה" — כבר היה שיחה איתו ומחכה להחלטה על סגירת העסקה. תאריך האירוע ואולם כבר נאספו קודם.\n\nכל אחד מהבאים נחשב אישור סגירת עסקה — חובה לבצע מיד:\n• "כן אנחנו רוצים" / "רוצים לסגור" / "סגור" / "בואו נתקדם" / "רוצים להתקדם"\n• שליחת כתובת מייל (גם כשזה לבד — בשלב הזה זה סימן שהלקוח מוכן לסגור)\n• שליחת שמות מלאים של בני הזוג\n• כל שילוב של השניים\n\nפעולה חובה:\n1. קרא ל-update_notion ושנה סטטוס ל"ממתין להסכם"\n2. שלח הודעה קצרה כמו: "מעולה! אני מכין את ההסכם ושולח לחתימה בהקדם" או "אחלה, אלירון ישלח לכם את הקישור להסכם לחתימה בהקדם"\n\nאסור בתכלית האיסור לבקש מהלקוח פרטים נוספים בשלב הזה! את שאר הפרטים הלקוח ימלא דרך טופס ההסכם שאלירון ישלח. העבר סטטוס מיד.\nהמערכת תתריע לאלירון אוטומטית לשלוח את ההסכם.\n\nשימו לב: אם בהיסטוריית השיחה שלחנו הודעת פולואפ שמבקשת "לסגור" או "להתקדם לסגירה", אז "כן" / "רוצים" / "סגור" / "נסגור" מהלקוח זה אישור סגירת עסקה — לא סגירת פרטי פגישה. העבר סטטוס מיד ל"ממתין להסכם".\n\nאם הלקוח שואל שאלות כלליות או מהסס — ענה בחביבות, אל תלחץ. זה סטטוס רגיש. אבל מייל/שמות זה אישור ברור, לא היסוס.\n\n`;
+    guardrails = `הנחיות חשובות — עדיפות עליונה:\nהלקוח הזה בסטטוס "קרוב לסגירה" — כבר היה שיחה איתו ומחכה להחלטה על סגירת העסקה.\n\nכל אחד מהבאים נחשב אישור סגירת עסקה — חובה לבצע מיד:\n• "כן אנחנו רוצים" / "רוצים לסגור" / "סגור" / "בואו נתקדם" / "רוצים להתקדם"\n• שליחת כתובת מייל (גם כשזה לבד — בשלב הזה זה סימן שהלקוח מוכן לסגור)\n• שליחת שמות מלאים של בני הזוג\n• שליחת מקום האירוע (אולם/לוקיישן)\n• שליחת תאריך האירוע\n• כל שילוב של השניים או יותר\n\nפעולה חובה:\n1. קרא ל-update_notion ושנה סטטוס ל"ממתין להסכם" בלבד. אל תשמור מחדש מקום או תאריך — הם כבר בנוטיון; אנחנו רק מאשרים שהלקוח אישר.\n2. שלח הודעה קצרה כמו: "מעולה! אני מכין את ההסכם ושולח לחתימה בהקדם" או "אחלה, אלירון ישלח לכם את הקישור להסכם לחתימה בהקדם"\n\nאסור בתכלית האיסור לבקש מהלקוח פרטים נוספים בשלב הזה! את שאר הפרטים הלקוח ימלא דרך טופס ההסכם שאלירון ישלח. העבר סטטוס מיד.\nהמערכת תתריע לאלירון אוטומטית לשלוח את ההסכם.\n\nשימו לב: אם בהיסטוריית השיחה שלחנו הודעת פולואפ שמבקשת "לסגור" או "להתקדם לסגירה", או ביקשנו "מייל / שמות / מקום / תאריך", אז כל אחד מאלה מהלקוח זה אישור סגירת עסקה — לא סגירת פרטי פגישה. העבר סטטוס מיד ל"ממתין להסכם".\n\nאם הלקוח שואל שאלות כלליות או מהסס — ענה בחביבות, אל תלחץ. זה סטטוס רגיש. אבל מייל / שמות / מקום / תאריך זה אישור ברור, לא היסוס.\n\n`;
   } else {
     // Active statuses — inject filled vars + not-interested detection
     const varSection = filledVars.length > 0
@@ -2449,6 +2449,21 @@ Combine multiple fields in one call.`,
 
   delete variables.__first_turn;
 
+  // Clear היסטוריית שיחה now that the agent has read and responded based on it.
+  // The n8n follow-up crons write into this column so the bot can pick up cron-sent
+  // messages it never saw in __agent_history; leaving it populated after consumption
+  // makes every subsequent turn re-replay the same follow-up as fresh context.
+  // Fire-and-forget — a failed clear is non-fatal (next turn just re-reads the same value).
+  if (notionConvHistory && notionApiKey && variables.page_id) {
+    fetch(`https://api.notion.com/v1/pages/${variables.page_id}`, {
+      method: "PATCH",
+      headers: notionHeaders,
+      body: JSON.stringify({ properties: { "היסטוריית שיחה": { rich_text: [] } } }),
+    })
+      .then((r) => console.log("[notion_ai_agent] Cleared היסטוריית שיחה:", r.ok ? "OK" : "FAIL " + r.status))
+      .catch((e) => console.error("[notion_ai_agent] Clear היסטוריית שיחה error:", e));
+  }
+
   return {
     response: result.response,
     toolCalls: result.toolCalls,
@@ -2474,6 +2489,8 @@ async function executeMorAiAgent(
 
   const agent = await buildMorAiAgent({ supabase, phone, userId, extraInstructions });
 
+  await stampInbound(supabase, phone);
+
   const result = await callAgentLLM({
     systemPrompt: agent.systemPrompt,
     conversationHistory: agentHistory,
@@ -2481,6 +2498,8 @@ async function executeMorAiAgent(
     tools: agent.tools,
     executeTool: agent.executeTool,
   });
+
+  if (result.response) await stampReply(supabase, phone);
 
   // Build full history with the LLM's text reply appended (mirrors executeNotionAgent's pattern)
   const rawHistory = result.messages
@@ -4582,6 +4601,28 @@ Deno.serve(async (req) => {
         last_message_at: new Date().toISOString(),
       });
       return new Response(JSON.stringify({ ok: true, action: "notion_agent", current_node: nextNodeId }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // If chain landed on mor_ai_agent, enter MOR agent conversation
+    if (landedNode?.type === "mor_ai_agent") {
+      const agentHistory = parseAgentHistory(updatedVariables.__mor_agent_history);
+      const agentResult = await executeMorAiAgent(landedNode, userMessage, updatedVariables, agentHistory, profile.id);
+      if (agentResult.response) await sendTextMessage(customerId, phone, agentResult.response, "system");
+      await supabase.from("flow_message_log").insert({
+        workflow_id: workflow.id, session_id: session.id,
+        node_id: landedNode.id, direction: "outbound",
+        message_type: "mor_agent", content: agentResult.response,
+      });
+      updatedVariables.__mor_agent_history = JSON.stringify(agentResult.updatedHistory);
+      await updateSessionDirect(session.id, {
+        current_node_id: nextNodeId,
+        variables: updatedVariables,
+        status: "active",
+        last_message_at: new Date().toISOString(),
+      });
+      return new Response(JSON.stringify({ ok: true, action: "mor_agent", current_node: nextNodeId }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
