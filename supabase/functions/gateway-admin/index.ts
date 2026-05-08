@@ -9,15 +9,87 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 const WA_GATEWAY_BASE = "https://cwagateway-production.up.railway.app";
 const WA_GATEWAY_API_KEY = Deno.env.get("WA_GATEWAY_API_KEY")!;
 
-/** Verify the caller is an admin */
-async function requireAdmin(userId: string): Promise<void> {
+/**
+ * Validates a webhook URL before it is persisted or fetched.
+ * Returns the canonical URL string, or null if the input is empty (which
+ * means "clear the webhook"). Throws on any unsafe input.
+ *
+ * flow-webhook fetches whatever URL is stored here on every WhatsApp
+ * message, so we must reject anything that could exfiltrate data
+ * (private/internal hosts) or evade the http(s) protocol.
+ */
+function validateWebhookUrl(raw: unknown): string | null {
+  if (raw === null || raw === undefined || raw === "") return null;
+  if (typeof raw !== "string" || raw.length > 2048) {
+    throw new Error("webhook_url must be a string under 2048 chars");
+  }
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    throw new Error("webhook_url is not a valid URL");
+  }
+  if (url.protocol !== "https:") {
+    throw new Error("webhook_url must use https://");
+  }
+  const host = url.hostname.toLowerCase();
+  if (
+    host === "localhost" ||
+    host === "0.0.0.0" ||
+    host.endsWith(".local") ||
+    host.startsWith("127.") ||
+    host.startsWith("10.") ||
+    host.startsWith("192.168.") ||
+    host === "169.254.169.254" ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(host) ||
+    /^169\.254\./.test(host) ||
+    host === "::1" ||
+    host.startsWith("fe80:") ||
+    host.startsWith("fc") ||
+    host.startsWith("fd")
+  ) {
+    throw new Error("webhook_url cannot point to a private or internal host");
+  }
+  return url.toString();
+}
+
+/**
+ * Verify the caller is an admin and return their tenant context.
+ * tenantId is null for platform admins without a tenant assignment
+ * (legacy behavior); list/mutations stay unfiltered for them.
+ */
+async function requireAdmin(userId: string): Promise<{ tenantId: string | null }> {
   const { data } = await supabase
     .from("profiles")
-    .select("role")
+    .select("role, tenant_id")
     .eq("id", userId)
     .single();
   if (data?.role !== "admin") {
     throw new Error("Forbidden: admin role required");
+  }
+  return { tenantId: (data as { tenant_id?: string | null })?.tenant_id ?? null };
+}
+
+/**
+ * Verify the gateway instance belongs to the caller's tenant before
+ * mutating it. Platform admins (no tenant) are unrestricted. Pre-migration
+ * instances (no tenant_id) are treated as legacy and allowed for any admin.
+ */
+async function assertInstanceOwnership(
+  instanceId: string,
+  adminTenantId: string | null,
+): Promise<void> {
+  if (adminTenantId === null) return;
+  const { data, error } = await supabase
+    .from("gateway_instances")
+    .select("tenant_id")
+    .eq("instance_id", instanceId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) throw new Error("Instance not found");
+  const instanceTenantId = (data as { tenant_id?: string | null }).tenant_id;
+  if (instanceTenantId && instanceTenantId !== adminTenantId) {
+    throw new Error("Forbidden: instance belongs to another tenant");
   }
 }
 
@@ -31,16 +103,20 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json();
     const userId = await getAuthenticatedUserId(req, body);
-    await requireAdmin(userId);
+    const { tenantId: adminTenantId } = await requireAdmin(userId);
 
     const { action } = body;
 
     // ── LIST ─────────────────────────────────────────────────
     if (action === "list") {
-      const { data, error } = await supabase
+      let query = supabase
         .from("gateway_instances")
         .select("*")
         .order("created_at", { ascending: false });
+      if (adminTenantId !== null) {
+        query = query.eq("tenant_id", adminTenantId);
+      }
+      const { data, error } = await query;
       if (error) throw error;
       return json(cors, { instances: data ?? [] });
     }
@@ -68,16 +144,27 @@ Deno.serve(async (req) => {
         return json(cors, { error: "instance_id must be lowercase alphanumeric with hyphens" }, 400);
       }
 
+      let safeWebhookUrl: string | null;
+      try {
+        safeWebhookUrl = validateWebhookUrl(webhook_url);
+      } catch (e) {
+        return json(cors, { error: e instanceof Error ? e.message : "invalid webhook_url" }, 400);
+      }
+
       // Insert into DB (no session start — user generates QR manually)
+      const insertRow: Record<string, unknown> = {
+        instance_id,
+        label: label || instance_id,
+        webhook_url: safeWebhookUrl,
+        created_by: userId,
+        status: "not_found",
+      };
+      if (adminTenantId !== null) {
+        insertRow.tenant_id = adminTenantId;
+      }
       const { error: insertErr } = await supabase
         .from("gateway_instances")
-        .insert({
-          instance_id,
-          label: label || instance_id,
-          webhook_url: webhook_url || null,
-          created_by: userId,
-          status: "not_found",
-        });
+        .insert(insertRow);
       if (insertErr) {
         if (insertErr.code === "23505") {
           return json(cors, { error: "instance_id already exists" }, 409);
@@ -92,6 +179,7 @@ Deno.serve(async (req) => {
     if (action === "start") {
       const { instance_id } = body;
       if (!instance_id) return json(cors, { error: "instance_id required" }, 400);
+      await assertInstanceOwnership(instance_id, adminTenantId);
 
       const startRes = await fetch(
         `${WA_GATEWAY_BASE}/api/session/start/${instance_id}`,
@@ -115,6 +203,7 @@ Deno.serve(async (req) => {
     if (action === "status") {
       const { instance_id } = body;
       if (!instance_id) return json(cors, { error: "instance_id required" }, 400);
+      await assertInstanceOwnership(instance_id, adminTenantId);
 
       const statusRes = await fetch(
         `${WA_GATEWAY_BASE}/api/session/status/${instance_id}`,
@@ -142,6 +231,7 @@ Deno.serve(async (req) => {
     if (action === "disconnect") {
       const { instance_id } = body;
       if (!instance_id) return json(cors, { error: "instance_id required" }, 400);
+      await assertInstanceOwnership(instance_id, adminTenantId);
 
       const delRes = await fetch(
         `${WA_GATEWAY_BASE}/api/session/${instance_id}`,
@@ -164,6 +254,7 @@ Deno.serve(async (req) => {
     if (action === "delete") {
       const { instance_id } = body;
       if (!instance_id) return json(cors, { error: "instance_id required" }, 400);
+      await assertInstanceOwnership(instance_id, adminTenantId);
 
       // Disconnect first (ignore errors)
       try {
@@ -189,10 +280,18 @@ Deno.serve(async (req) => {
     if (action === "set_webhook") {
       const { instance_id, webhook_url } = body;
       if (!instance_id) return json(cors, { error: "instance_id required" }, 400);
+      await assertInstanceOwnership(instance_id, adminTenantId);
+
+      let safeWebhookUrl: string | null;
+      try {
+        safeWebhookUrl = validateWebhookUrl(webhook_url);
+      } catch (e) {
+        return json(cors, { error: e instanceof Error ? e.message : "invalid webhook_url" }, 400);
+      }
 
       const { error } = await supabase
         .from("gateway_instances")
-        .update({ webhook_url: webhook_url || null, updated_at: new Date().toISOString() })
+        .update({ webhook_url: safeWebhookUrl, updated_at: new Date().toISOString() })
         .eq("instance_id", instance_id);
       if (error) throw error;
 
@@ -205,6 +304,7 @@ Deno.serve(async (req) => {
       if (!instance_id || !to || !message) {
         return json(cors, { error: "instance_id, to, and message required" }, 400);
       }
+      await assertInstanceOwnership(instance_id, adminTenantId);
 
       const sendRes = await fetch(
         `${WA_GATEWAY_BASE}/api/session/send/${instance_id}`,
@@ -227,6 +327,7 @@ Deno.serve(async (req) => {
       if (!instance_id || !to || !msgBody || !buttons?.length) {
         return json(cors, { error: "instance_id, to, body, and buttons required" }, 400);
       }
+      await assertInstanceOwnership(instance_id, adminTenantId);
 
       const sendRes = await fetch(
         `${WA_GATEWAY_BASE}/api/session/send-buttons/${instance_id}`,

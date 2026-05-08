@@ -13,7 +13,7 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json();
-    const user_id = await getAuthenticatedUserId(req, body);
+    const user_id = await getAuthenticatedUserId(req, body, { allowServiceRole: true });
     const { urls, form_fields, full_name } = body;
 
     if (!urls || urls.length === 0) {
