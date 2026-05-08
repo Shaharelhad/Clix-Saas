@@ -6,7 +6,7 @@ const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-const WA_GATEWAY_BASE = "https://cwagateway-production.up.railway.app";
+const WA_GATEWAY_BASE = "https://wa.clixwapp.online";
 const WA_GATEWAY_API_KEY = Deno.env.get("WA_GATEWAY_API_KEY")!;
 
 /**
