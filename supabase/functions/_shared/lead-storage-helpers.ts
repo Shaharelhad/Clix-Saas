@@ -12,6 +12,7 @@
  */
 import type { AgentToolDefinition } from "./llm-engine.ts";
 import { nowIsraelISO } from "./israel-time.ts";
+import { sendImageMessage } from "./wa-messaging.ts";
 
 // Loose type alias to avoid importing the full Supabase generic chain.
 // The real client is created in flow-webhook with Database types; we
@@ -145,6 +146,67 @@ export async function stampReply(supabase: SupabaseLike, phone: string): Promise
   }
 }
 
+/** Cert filename keyword mapping. Filenames must contain these substrings (case-insensitive). */
+const CERT_FILENAME_KEYWORDS: Record<string, string> = {
+  se: "se",
+  transpersonal: "transpersonal",
+  subconscious: "subconscious",
+  meditation: "meditation",
+};
+
+type CertFilter = keyof typeof CERT_FILENAME_KEYWORDS | "all";
+
+/**
+ * Send Mor's certification images from bot-media/mor-certs/ to the customer.
+ * If `which` is "all" (default), sends every file in the folder.
+ * Otherwise filters files whose name contains the matching keyword.
+ */
+async function sendCertifications(
+  supabase: SupabaseLike,
+  { customerId, phone, which = "all" }: { customerId: string; phone: string; which?: CertFilter },
+): Promise<Result<{ sent: number; which: CertFilter }>> {
+  if (!phone || !customerId) {
+    return { ok: false, error: "phone and customerId required" };
+  }
+  try {
+    const { data: files, error } = await supabase.storage
+      .from("bot-media")
+      .list("mor-certs", { sortBy: { column: "name", order: "asc" } });
+    if (error) return { ok: false, error: error.message ?? String(error) };
+    if (!files || files.length === 0) {
+      return { ok: false, error: "No certifications uploaded yet" };
+    }
+
+    const keyword = which !== "all" ? CERT_FILENAME_KEYWORDS[which] : null;
+    const targetFiles = keyword
+      ? files.filter((f) => f?.name && f.name.toLowerCase().includes(keyword))
+      : files;
+
+    if (keyword && targetFiles.length === 0) {
+      return { ok: false, error: `No cert file matching '${which}' found in mor-certs/` };
+    }
+
+    let sent = 0;
+    for (const file of targetFiles) {
+      if (!file?.name || file.name.startsWith(".")) continue;
+      const { data: pub } = supabase.storage
+        .from("bot-media")
+        .getPublicUrl(`mor-certs/${file.name}`);
+      if (!pub?.publicUrl) continue;
+      try {
+        await sendImageMessage(customerId, phone, pub.publicUrl, "");
+        sent++;
+      } catch (e) {
+        console.warn("[mor_ai_agent] cert send failed:", file.name, e instanceof Error ? e.message : String(e));
+      }
+      await new Promise((r) => setTimeout(r, 500));
+    }
+    return { ok: true, data: { sent, which } };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 // ── Layer 2: tool schemas (LLM-facing) ──────────────────────────
 
 const LEAD_TOOL_SCHEMAS: AgentToolDefinition[] = [
@@ -191,6 +253,34 @@ const LEAD_TOOL_SCHEMAS: AgentToolDefinition[] = [
     parameters: {
       type: "object",
       properties: {},
+      required: [],
+    },
+  },
+  {
+    name: "send_certifications",
+    description:
+      "Send Mor's certification images to the customer as WhatsApp media. " +
+      "Call this when the customer asks about תעודות / הסמכות / 'איפה למדת' / 'מי את כמטפלת' / 'יש לה תעודות'. " +
+      "Before calling this tool, produce a short warm text reply (1 sentence) introducing Mor's background. " +
+      "Pass `which` to send a SPECIFIC cert only — pick the one matching the customer's question: " +
+      "'se' (Gina Ross SE 2020), 'transpersonal' (Reidman 2018 incl. psychophysical healing), " +
+      "'subconscious' (Arian Lev 2014), 'meditation' (Reidman 2013). " +
+      "Omit `which` (or pass 'all') only when the question is generic ('do you have certifications?'). " +
+      "Do NOT send a Drive link or any URL in the text — this tool sends the actual cert image(s).",
+    parameters: {
+      type: "object",
+      properties: {
+        which: {
+          type: "string",
+          enum: ["se", "transpersonal", "subconscious", "meditation", "all"],
+          description:
+            "Specific cert to send. 'se' = Somatic Experiencing / Gina Ross. " +
+            "'transpersonal' = Transpersonal Psychotherapy + Psychophysical Healing (Reidman 2018). " +
+            "'subconscious' = Subconscious work (Arian Lev 2014). " +
+            "'meditation' = Meditation + guided imagery (Reidman 2013). " +
+            "'all' = send all 4 (use only for generic certification questions).",
+        },
+      },
       required: [],
     },
   },
@@ -262,11 +352,17 @@ function composeSystemPrompt(basePrompt: string, extraInstructions: string): str
     timeOfDayContext(nowIsraelISO()),
     "",
     "<tool_guidance>",
-    "You have 3 lead-CRM tools available:",
+    "You have 4 tools available:",
     "  - save_lead: when the user introduces themselves or shares their name.",
     "  - update_lead_status: when conversation context implies a lifecycle change.",
     "      Valid statuses: " + LEAD_STATUS_VALUES.join(", "),
     "  - mark_paid: when the user confirms payment ('שילמתי', 'העברתי', etc.).",
+    "  - send_certifications({which?}): when the user asks about Mor's תעודות / הסמכות / 'איפה למדת'.",
+    "      Produce a short warm 1-sentence text reply first, then call this tool.",
+    "      Pass `which` to send ONE specific cert (matches the question):",
+    "        'se' = Gina Ross SE | 'transpersonal' = Reidman 2018 | 'subconscious' = Arian Lev 2014 | 'meditation' = Reidman 2013",
+    "      Omit `which` (or pass 'all') only for generic 'do you have certifications?' questions.",
+    "      Do NOT send a Drive link in the reply — the tool delivers the cert image(s).",
     "Phone numbers are auto-injected — never pass phone yourself.",
     "Call tools silently — never narrate the call to the user. After a tool returns,",
     "continue the conversation naturally without mentioning the database.",
@@ -319,6 +415,11 @@ export async function buildMorAiAgent(params: {
           });
         case "mark_paid":
           return await markLeadPaid(supabase, { phone });
+        case "send_certifications": {
+          const w = typeof args.which === "string" ? args.which : "all";
+          const which = (Object.keys(CERT_FILENAME_KEYWORDS).includes(w) || w === "all" ? w : "all") as CertFilter;
+          return await sendCertifications(supabase, { customerId: userId, phone, which });
+        }
         default:
           return { ok: false, error: `unknown tool: ${name}` };
       }
