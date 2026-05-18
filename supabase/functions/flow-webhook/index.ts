@@ -2383,7 +2383,7 @@ Combine multiple fields in one call.`,
     tools: toolDefs,
     executeTool,
     model: isEliron ? "openai/gpt-5-mini" : undefined,
-    reasoning: isEliron ? { effort: "minimal" } : undefined,
+    reasoning: isEliron ? { effort: "medium" } : undefined,
   });
 
   // Safety net: if check_slot confirmed a slot on the previous turn and the LLM
