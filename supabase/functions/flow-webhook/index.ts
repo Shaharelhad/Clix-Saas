@@ -354,7 +354,8 @@ async function callOpenLLM(
   customerId: string,
   phone: string,
   workflowRecord?: string,
-  languagePreference?: string
+  languagePreference?: string,
+  delayEnabled?: boolean
 ): Promise<void> {
   // When Inngest is enabled, dispatch to Inngest instead of processing inline
   if (USE_INNGEST) {
@@ -417,6 +418,7 @@ async function callOpenLLM(
   );
 
   // Send response via WClixAPI
+  if (delayEnabled) await humanDelay(7, 15);
   await sendTextMessage(customerId, phone, result.response);
 
   // Log outbound message
@@ -3216,7 +3218,7 @@ Deno.serve(async (req) => {
           message_type: "text",
           content: userMessage,
         });
-        await callOpenLLM(profile.id, userMessage, llmSession.id, workflow.id, customerId, phone, workflowRecord);
+        await callOpenLLM(profile.id, userMessage, llmSession.id, workflow.id, customerId, phone, workflowRecord, undefined, flow.settings?.messageDelayEnabled);
       }
 
       return new Response(JSON.stringify({ ok: true, action: "llm_response_paused" }), {
@@ -3421,7 +3423,7 @@ Deno.serve(async (req) => {
               message_type: "text",
               content: userMessage,
             });
-            await callOpenLLM(profile.id, userMessage, existingSession.id, workflow.id, customerId, phone, workflowRecord);
+            await callOpenLLM(profile.id, userMessage, existingSession.id, workflow.id, customerId, phone, workflowRecord, undefined, settings.messageDelayEnabled);
           }
           return new Response(JSON.stringify({ ok: true, action: "llm_response" }), {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -3437,7 +3439,7 @@ Deno.serve(async (req) => {
             message_type: "text",
             content: userMessage,
           });
-          await callOpenLLM(profile.id, userMessage, newSession.id, workflow.id, customerId, phone, workflowRecord);
+          await callOpenLLM(profile.id, userMessage, newSession.id, workflow.id, customerId, phone, workflowRecord, undefined, settings.messageDelayEnabled);
         }
         return new Response(JSON.stringify({ ok: true, action: "llm_response" }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -3546,7 +3548,7 @@ Deno.serve(async (req) => {
         .from("subscriber_sessions")
         .update({ status: "active", last_message_at: new Date().toISOString() })
         .eq("id", session!.id);
-      await callOpenLLM(profile.id, userMessage, session!.id, workflow.id, customerId, phone, workflowRecord);
+      await callOpenLLM(profile.id, userMessage, session!.id, workflow.id, customerId, phone, workflowRecord, undefined, settings.messageDelayEnabled);
       return new Response(JSON.stringify({ ok: true, action: "llm_response" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -3713,7 +3715,7 @@ Deno.serve(async (req) => {
                 last_message_at: new Date().toISOString(),
               });
               if (jumpNodeId && findNodeById(flow, jumpNodeId)?.type === "open_bot") {
-                await callOpenLLM(profile.id, userMessage, session.id, workflow.id, customerId, phone, workflowRecord, langPref);
+                await callOpenLLM(profile.id, userMessage, session.id, workflow.id, customerId, phone, workflowRecord, langPref, settings.messageDelayEnabled);
               }
               if (jumpNodeId && findNodeById(flow, jumpNodeId)?.type === "notion_ai_agent") {
                 const jumpedNode = findNodeById(flow, jumpNodeId)!;
@@ -3943,7 +3945,7 @@ Deno.serve(async (req) => {
 
         // If trigger restart landed on open_bot, enter free AI conversation
         if (restartLandedNode?.type === "open_bot") {
-          await callOpenLLM(profile.id, userMessage, session.id, workflow.id, customerId, phone, workflowRecord, langPref);
+          await callOpenLLM(profile.id, userMessage, session.id, workflow.id, customerId, phone, workflowRecord, langPref, settings.messageDelayEnabled);
         }
 
         // If trigger restart landed on notion_ai_agent, enter agent conversation
@@ -4050,7 +4052,7 @@ Deno.serve(async (req) => {
               last_message_at: new Date().toISOString(),
             });
             if (jumpNodeId && findNodeById(flow, jumpNodeId)?.type === "open_bot") {
-              await callOpenLLM(profile.id, userMessage, session.id, workflow.id, customerId, phone, workflowRecord, langPref);
+              await callOpenLLM(profile.id, userMessage, session.id, workflow.id, customerId, phone, workflowRecord, langPref, settings.messageDelayEnabled);
             }
             if (jumpNodeId && findNodeById(flow, jumpNodeId)?.type === "notion_ai_agent") {
               const jumpedNode = findNodeById(flow, jumpNodeId)!;
@@ -4082,7 +4084,7 @@ Deno.serve(async (req) => {
 
     // Legacy ai_agent node — use LLM fallback
     if (currentNode.type === "ai_agent") {
-      await callOpenLLM(profile.id, userMessage, session.id, workflow.id, customerId, phone, workflowRecord, langPref);
+      await callOpenLLM(profile.id, userMessage, session.id, workflow.id, customerId, phone, workflowRecord, langPref, settings.messageDelayEnabled);
       await updateSessionDirect(session.id, {
         current_node_id: currentNode.id,
         status: "active",
@@ -4120,7 +4122,7 @@ Deno.serve(async (req) => {
       }
 
       // No menu request or no linked parent — continue with LLM
-      await callOpenLLM(profile.id, userMessage, session.id, workflow.id, customerId, phone, workflowRecord, langPref);
+      await callOpenLLM(profile.id, userMessage, session.id, workflow.id, customerId, phone, workflowRecord, langPref, settings.messageDelayEnabled);
       await updateSessionDirect(session.id, {
         current_node_id: currentNode.id,
         status: "active",
@@ -4278,7 +4280,7 @@ Deno.serve(async (req) => {
               direction: "outbound", message_type: "text", content: nudge,
             });
           } else {
-            await callOpenLLM(profile.id, userMessage, session.id, workflow.id, customerId, phone, workflowRecord, langPref);
+            await callOpenLLM(profile.id, userMessage, session.id, workflow.id, customerId, phone, workflowRecord, langPref, settings.messageDelayEnabled);
           }
           await supabase
             .from("subscriber_sessions")
@@ -4347,7 +4349,7 @@ Deno.serve(async (req) => {
                 direction: "outbound", message_type: "text", content: nudge,
               });
             } else {
-              await callOpenLLM(profile.id, userMessage, session.id, workflow.id, customerId, phone, workflowRecord, langPref);
+              await callOpenLLM(profile.id, userMessage, session.id, workflow.id, customerId, phone, workflowRecord, langPref, settings.messageDelayEnabled);
             }
             await supabase
               .from("subscriber_sessions")
@@ -4419,7 +4421,7 @@ Deno.serve(async (req) => {
                 direction: "outbound", message_type: "text", content: nudge,
               });
             } else {
-              await callOpenLLM(profile.id, userMessage, session.id, workflow.id, customerId, phone, workflowRecord, langPref);
+              await callOpenLLM(profile.id, userMessage, session.id, workflow.id, customerId, phone, workflowRecord, langPref, settings.messageDelayEnabled);
             }
             await supabase
               .from("subscriber_sessions")
@@ -4443,7 +4445,7 @@ Deno.serve(async (req) => {
               direction: "outbound", message_type: "text", content: nudge,
             });
           } else {
-            await callOpenLLM(profile.id, userMessage, session.id, workflow.id, customerId, phone, workflowRecord, langPref);
+            await callOpenLLM(profile.id, userMessage, session.id, workflow.id, customerId, phone, workflowRecord, langPref, settings.messageDelayEnabled);
           }
           await supabase
             .from("subscriber_sessions")
@@ -4488,7 +4490,7 @@ Deno.serve(async (req) => {
               direction: "outbound", message_type: "text", content: nudge,
             });
           } else {
-            await callOpenLLM(profile.id, userMessage, session.id, workflow.id, customerId, phone, workflowRecord, langPref);
+            await callOpenLLM(profile.id, userMessage, session.id, workflow.id, customerId, phone, workflowRecord, langPref, settings.messageDelayEnabled);
           }
           await supabase
             .from("subscriber_sessions")
@@ -4596,7 +4598,7 @@ Deno.serve(async (req) => {
         status: "active",
         last_message_at: new Date().toISOString(),
       });
-      await callOpenLLM(profile.id, userMessage, session.id, workflow.id, customerId, phone, workflowRecord, langPref);
+      await callOpenLLM(profile.id, userMessage, session.id, workflow.id, customerId, phone, workflowRecord, langPref, settings.messageDelayEnabled);
       return new Response(
         JSON.stringify({ ok: true, action: "open_bot_llm", current_node: nextNodeId }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -4678,7 +4680,7 @@ Deno.serve(async (req) => {
           await supabase.from("subscriber_sessions").update({ cooldown_until: pauseUntil }).eq("id", session.id);
           console.log("[flow] Post-flow pause set for", phone, "until", pauseUntil);
         }
-        await callOpenLLM(profile.id, userMessage, session.id, workflow.id, customerId, phone, workflowRecord, langPref);
+        await callOpenLLM(profile.id, userMessage, session.id, workflow.id, customerId, phone, workflowRecord, langPref, settings.messageDelayEnabled);
         return new Response(
           JSON.stringify({ ok: true, action: "llm_fallback", current_node: null }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
