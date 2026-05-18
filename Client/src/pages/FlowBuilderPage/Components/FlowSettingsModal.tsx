@@ -243,41 +243,6 @@ export default function FlowSettingsModal({ settings, onUpdate, onClose }: FlowS
               checked={settings.messageDelayEnabled}
               onChange={(v) => onUpdate({ messageDelayEnabled: v })}
             />
-
-            {settings.messageDelayEnabled && (
-              <div className="mt-3 ms-6 space-y-3">
-                <MinutesPresetInput
-                  label={t("settingsMessageDelayMin")}
-                  value={settings.messageDelayMin}
-                  presets={[
-                    { value: 2, label: "2s" },
-                    { value: 3, label: "3s" },
-                    { value: 5, label: "5s" },
-                  ]}
-                  min={1}
-                  max={30}
-                  onChange={(v) => {
-                    const clamped = Math.min(v, settings.messageDelayMax - 1);
-                    onUpdate({ messageDelayMin: Math.max(1, clamped) });
-                  }}
-                />
-                <MinutesPresetInput
-                  label={t("settingsMessageDelayMax")}
-                  value={settings.messageDelayMax}
-                  presets={[
-                    { value: 4, label: "4s" },
-                    { value: 5, label: "5s" },
-                    { value: 7, label: "7s" },
-                  ]}
-                  min={2}
-                  max={30}
-                  onChange={(v) => {
-                    const clamped = Math.max(v, settings.messageDelayMin + 1);
-                    onUpdate({ messageDelayMax: Math.min(30, clamped) });
-                  }}
-                />
-              </div>
-            )}
           </div>
 
           {/* Reset Keyword */}

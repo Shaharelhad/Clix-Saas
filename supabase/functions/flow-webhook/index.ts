@@ -213,8 +213,6 @@ function getFlowSettings(flow: FlowJSON) {
     postFlowPauseMinutes: flow.settings?.postFlowPauseMinutes ?? 1440,
     resetKeyword: flow.settings?.resetKeyword ?? "",
     messageDelayEnabled: flow.settings?.messageDelayEnabled ?? false,
-    messageDelayMin: flow.settings?.messageDelayMin ?? 3,
-    messageDelayMax: flow.settings?.messageDelayMax ?? 5,
   };
 }
 
@@ -3687,7 +3685,7 @@ Deno.serve(async (req) => {
               let prevSent = false;
               while (jumpNodeId && maxSteps > 0) {
                 if (settings.messageDelayEnabled && prevSent) {
-                  await humanDelay(settings.messageDelayMin, settings.messageDelayMax);
+                  await humanDelay(7, 15);
                 }
                 maxSteps--;
                 const node = findNodeById(flow, jumpNodeId);
@@ -3900,7 +3898,7 @@ Deno.serve(async (req) => {
         let prevSent = false;
         while (nextNodeId && maxSteps > 0) {
           if (settings.messageDelayEnabled && prevSent) {
-            await humanDelay(settings.messageDelayMin, settings.messageDelayMax);
+            await humanDelay(7, 15);
           }
           maxSteps--;
           const node = findNodeById(flow, nextNodeId);
@@ -4024,7 +4022,7 @@ Deno.serve(async (req) => {
             let prevSent = false;
             while (jumpNodeId && maxSteps > 0) {
               if (settings.messageDelayEnabled && prevSent) {
-                await humanDelay(settings.messageDelayMin, settings.messageDelayMax);
+                await humanDelay(7, 15);
               }
               maxSteps--;
               const node = findNodeById(flow, jumpNodeId);
@@ -4518,7 +4516,7 @@ Deno.serve(async (req) => {
     let prevNodeSentMessage = false;
     while (nextNodeId && maxSteps > 0) {
       if (settings.messageDelayEnabled && prevNodeSentMessage) {
-        await humanDelay(settings.messageDelayMin, settings.messageDelayMax);
+        await humanDelay(7, 15);
       }
       maxSteps--;
       const node = findNodeById(flow, nextNodeId);

@@ -155,8 +155,6 @@ export interface FlowSettings {
   postFlowPauseMinutes: number;
   resetKeyword: string;
   messageDelayEnabled: boolean;
-  messageDelayMin: number;
-  messageDelayMax: number;
 }
 
 export const DEFAULT_FLOW_SETTINGS: FlowSettings = {
@@ -177,8 +175,6 @@ export const DEFAULT_FLOW_SETTINGS: FlowSettings = {
   postFlowPauseMinutes: 1440,
   resetKeyword: "",
   messageDelayEnabled: false,
-  messageDelayMin: 3,
-  messageDelayMax: 5,
 };
 
 export interface FlowJSON {
