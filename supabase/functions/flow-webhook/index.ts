@@ -176,6 +176,7 @@ interface FlowEdge {
 interface FlowSettings {
   ignoreGroupChats?: boolean;
   cooldownEnabled?: boolean;
+  cooldownMode?: string;
   cooldownMinutes?: number;
   deduplicateMessages?: boolean;
   autoFollowUpEnabled?: boolean;
@@ -199,6 +200,7 @@ function getFlowSettings(flow: FlowJSON) {
   return {
     ignoreGroupChats: flow.settings?.ignoreGroupChats ?? true,
     cooldownEnabled: flow.settings?.cooldownEnabled ?? true,
+    cooldownMode: flow.settings?.cooldownMode ?? "temporary",
     cooldownMinutes: flow.settings?.cooldownMinutes ?? 60,
     deduplicateMessages: flow.settings?.deduplicateMessages ?? true,
     autoFollowUpEnabled: flow.settings?.autoFollowUpEnabled ?? false,
@@ -2653,20 +2655,26 @@ Deno.serve(async (req) => {
           if (wf) {
             const flowSettings = getFlowSettings(wf.flow_json as FlowJSON);
             if (flowSettings.cooldownEnabled) {
-              const proposed = new Date(Date.now() + flowSettings.cooldownMinutes * 60 * 1000);
+              let cooldownUntil: string;
 
-              // Never shrink an existing cooldown (e.g., a 24h post-flow pause) — only extend
-              const { data: existingSess } = await supabase
-                .from("subscriber_sessions")
-                .select("cooldown_until")
-                .eq("workflow_id", outProfile.active_flow_id)
-                .eq("phone", outPhone)
-                .limit(1)
-                .maybeSingle();
+              if (flowSettings.cooldownMode === "permanent") {
+                cooldownUntil = "2099-12-31T23:59:59Z";
+              } else {
+                const proposed = new Date(Date.now() + flowSettings.cooldownMinutes * 60 * 1000);
 
-              const existing = existingSess?.cooldown_until ? new Date(existingSess.cooldown_until) : null;
-              const cooldownUntilDate = existing && existing > proposed ? existing : proposed;
-              const cooldownUntil = cooldownUntilDate.toISOString();
+                // Never shrink an existing cooldown (e.g., a 24h post-flow pause) — only extend
+                const { data: existingSess } = await supabase
+                  .from("subscriber_sessions")
+                  .select("cooldown_until")
+                  .eq("workflow_id", outProfile.active_flow_id)
+                  .eq("phone", outPhone)
+                  .limit(1)
+                  .maybeSingle();
+
+                const existing = existingSess?.cooldown_until ? new Date(existingSess.cooldown_until) : null;
+                const cooldownUntilDate = existing && existing > proposed ? existing : proposed;
+                cooldownUntil = cooldownUntilDate.toISOString();
+              }
 
               await supabase
                 .from("subscriber_sessions")
@@ -2674,7 +2682,7 @@ Deno.serve(async (req) => {
                 .eq("workflow_id", outProfile.active_flow_id)
                 .eq("phone", outPhone);
 
-              console.log("[flow] Cooldown set for", outPhone, "until", cooldownUntil, existing && existing > proposed ? "(kept existing longer pause)" : "");
+              console.log("[flow] Cooldown set for", outPhone, "until", cooldownUntil, flowSettings.cooldownMode === "permanent" ? "(permanent)" : "");
             }
           }
         }
