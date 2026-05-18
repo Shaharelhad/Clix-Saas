@@ -3684,7 +3684,11 @@ Deno.serve(async (req) => {
               console.log("[flow] Completed session — global menu match:", menuMatch.label, "→", targetNode.id);
               let jumpNodeId: string | null = targetNode.id;
               let maxSteps = 20;
+              let prevSent = false;
               while (jumpNodeId && maxSteps > 0) {
+                if (settings.messageDelayEnabled && prevSent) {
+                  await humanDelay(settings.messageDelayMin, settings.messageDelayMax);
+                }
                 maxSteps--;
                 const node = findNodeById(flow, jumpNodeId);
                 if (!node) break;
@@ -3697,6 +3701,8 @@ Deno.serve(async (req) => {
                   continue;
                 }
                 const result = await executeNode(node, customerId, phone, variables, flow, session.id, workflow.id);
+                const _sendTypes = ["text", "image", "buttons", "collect_input", "language", "api_call"];
+                prevSent = _sendTypes.includes(node.type) && !result.waitForInput;
                 if (result.waitForInput) { jumpNodeId = result.nextNodeId; break; }
                 jumpNodeId = result.nextNodeId;
                 if (!jumpNodeId) break;
@@ -3891,7 +3897,11 @@ Deno.serve(async (req) => {
 
         // Execute chain from the new trigger
         let maxSteps = 20;
+        let prevSent = false;
         while (nextNodeId && maxSteps > 0) {
+          if (settings.messageDelayEnabled && prevSent) {
+            await humanDelay(settings.messageDelayMin, settings.messageDelayMax);
+          }
           maxSteps--;
           const node = findNodeById(flow, nextNodeId);
           if (!node) break;
@@ -3913,6 +3923,8 @@ Deno.serve(async (req) => {
             continue;
           }
           const result = await executeNode(node, customerId, phone, updatedVariables, flow, session.id, workflow.id);
+          const sendingTypes = ["text", "image", "buttons", "collect_input", "language", "api_call"];
+          prevSent = sendingTypes.includes(node.type) && !result.waitForInput;
           if (result.waitForInput) {
             nextNodeId = result.nextNodeId;
             break;
@@ -4009,7 +4021,11 @@ Deno.serve(async (req) => {
             console.log("[flow] Global menu match:", menuMatch.label, "→", targetNode.id);
             let jumpNodeId: string | null = targetNode.id;
             let maxSteps = 20;
+            let prevSent = false;
             while (jumpNodeId && maxSteps > 0) {
+              if (settings.messageDelayEnabled && prevSent) {
+                await humanDelay(settings.messageDelayMin, settings.messageDelayMax);
+              }
               maxSteps--;
               const node = findNodeById(flow, jumpNodeId);
               if (!node) break;
@@ -4022,6 +4038,8 @@ Deno.serve(async (req) => {
                 continue;
               }
               const result = await executeNode(node, customerId, phone, updatedVariables, flow, session.id, workflow.id);
+              const _sendTypes = ["text", "image", "buttons", "collect_input", "language", "api_call"];
+              prevSent = _sendTypes.includes(node.type) && !result.waitForInput;
               if (result.waitForInput) { jumpNodeId = result.nextNodeId; break; }
               jumpNodeId = result.nextNodeId;
               if (!jumpNodeId) break;
