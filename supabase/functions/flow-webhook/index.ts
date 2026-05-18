@@ -212,7 +212,15 @@ function getFlowSettings(flow: FlowJSON) {
     postFlowPauseEnabled: flow.settings?.postFlowPauseEnabled ?? false,
     postFlowPauseMinutes: flow.settings?.postFlowPauseMinutes ?? 1440,
     resetKeyword: flow.settings?.resetKeyword ?? "",
+    messageDelayEnabled: flow.settings?.messageDelayEnabled ?? false,
+    messageDelayMin: flow.settings?.messageDelayMin ?? 3,
+    messageDelayMax: flow.settings?.messageDelayMax ?? 5,
   };
+}
+
+function humanDelay(minSec: number, maxSec: number): Promise<void> {
+  const ms = (minSec + Math.random() * (maxSec - minSec)) * 1000;
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 // ── Flow Navigation Engine ──────────────────────────────────
@@ -4489,7 +4497,11 @@ Deno.serve(async (req) => {
     console.log("[flow] Starting chain execution, nextNodeId:", nextNodeId);
     let nodesExecuted = 0;
     let maxSteps = 20; // Safety limit
+    let prevNodeSentMessage = false;
     while (nextNodeId && maxSteps > 0) {
+      if (settings.messageDelayEnabled && prevNodeSentMessage) {
+        await humanDelay(settings.messageDelayMin, settings.messageDelayMax);
+      }
       maxSteps--;
       const node = findNodeById(flow, nextNodeId);
       if (!node) { console.log("[flow] Chain: node not found:", nextNodeId); break; }
@@ -4525,6 +4537,8 @@ Deno.serve(async (req) => {
         workflow.id
       );
       nodesExecuted++;
+      const sendingTypes = ["text", "image", "buttons", "collect_input", "language", "api_call"];
+      prevNodeSentMessage = sendingTypes.includes(node.type) && !result.waitForInput;
 
       if (result.waitForInput) {
         nextNodeId = result.nextNodeId;
