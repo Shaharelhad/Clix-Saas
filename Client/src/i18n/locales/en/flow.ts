@@ -140,8 +140,6 @@ const flow = {
   settingsPostFlowPausePreset1440: "24 hours",
   settingsMessageDelay: "Message Delay (Anti-Ban)",
   settingsMessageDelayHint: "Adds a random delay between consecutive messages to avoid WhatsApp account bans",
-  settingsMessageDelayMin: "Minimum delay (seconds)",
-  settingsMessageDelayMax: "Maximum delay (seconds)",
   settingsResetKeyword: "Reset keyword",
   settingsResetKeywordHint: 'When the customer sends this exact word, the bot wakes up and the workflow restarts. Leave empty to disable (e.g., "אפס").',
   settingsResetKeywordPlaceholder: "אפס",

@@ -140,8 +140,6 @@ const flow = {
   settingsPostFlowPausePreset1440: "24 שעות",
   settingsMessageDelay: "השהיית הודעות (נגד חסימה)",
   settingsMessageDelayHint: "מוסיף השהייה אקראית בין הודעות רצופות כדי למנוע חסימת חשבון בוואטסאפ",
-  settingsMessageDelayMin: "השהייה מינימלית (שניות)",
-  settingsMessageDelayMax: "השהייה מקסימלית (שניות)",
   settingsResetKeyword: "מילת איפוס",
   settingsResetKeywordHint: 'כשהלקוח שולח את המילה הזו, הבוט מתעורר והתהליך מתחיל מחדש. השאר ריק כדי לכבות את התכונה (למשל: "אפס").',
   settingsResetKeywordPlaceholder: "אפס",

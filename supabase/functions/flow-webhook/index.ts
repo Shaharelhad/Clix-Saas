@@ -213,8 +213,6 @@ function getFlowSettings(flow: FlowJSON) {
     postFlowPauseMinutes: flow.settings?.postFlowPauseMinutes ?? 1440,
     resetKeyword: flow.settings?.resetKeyword ?? "",
     messageDelayEnabled: flow.settings?.messageDelayEnabled ?? false,
-    messageDelayMin: flow.settings?.messageDelayMin ?? 3,
-    messageDelayMax: flow.settings?.messageDelayMax ?? 5,
   };
 }
 
@@ -3684,10 +3682,10 @@ Deno.serve(async (req) => {
               console.log("[flow] Completed session — global menu match:", menuMatch.label, "→", targetNode.id);
               let jumpNodeId: string | null = targetNode.id;
               let maxSteps = 20;
-              let prevSent = false;
+              let prevSent = settings.messageDelayEnabled;
               while (jumpNodeId && maxSteps > 0) {
                 if (settings.messageDelayEnabled && prevSent) {
-                  await humanDelay(settings.messageDelayMin, settings.messageDelayMax);
+                  await humanDelay(7, 15);
                 }
                 maxSteps--;
                 const node = findNodeById(flow, jumpNodeId);
@@ -3897,10 +3895,10 @@ Deno.serve(async (req) => {
 
         // Execute chain from the new trigger
         let maxSteps = 20;
-        let prevSent = false;
+        let prevSent = settings.messageDelayEnabled;
         while (nextNodeId && maxSteps > 0) {
           if (settings.messageDelayEnabled && prevSent) {
-            await humanDelay(settings.messageDelayMin, settings.messageDelayMax);
+            await humanDelay(7, 15);
           }
           maxSteps--;
           const node = findNodeById(flow, nextNodeId);
@@ -4021,10 +4019,10 @@ Deno.serve(async (req) => {
             console.log("[flow] Global menu match:", menuMatch.label, "→", targetNode.id);
             let jumpNodeId: string | null = targetNode.id;
             let maxSteps = 20;
-            let prevSent = false;
+            let prevSent = settings.messageDelayEnabled;
             while (jumpNodeId && maxSteps > 0) {
               if (settings.messageDelayEnabled && prevSent) {
-                await humanDelay(settings.messageDelayMin, settings.messageDelayMax);
+                await humanDelay(7, 15);
               }
               maxSteps--;
               const node = findNodeById(flow, jumpNodeId);
@@ -4515,10 +4513,10 @@ Deno.serve(async (req) => {
     console.log("[flow] Starting chain execution, nextNodeId:", nextNodeId);
     let nodesExecuted = 0;
     let maxSteps = 20; // Safety limit
-    let prevNodeSentMessage = false;
+    let prevNodeSentMessage = settings.messageDelayEnabled;
     while (nextNodeId && maxSteps > 0) {
       if (settings.messageDelayEnabled && prevNodeSentMessage) {
-        await humanDelay(settings.messageDelayMin, settings.messageDelayMax);
+        await humanDelay(7, 15);
       }
       maxSteps--;
       const node = findNodeById(flow, nextNodeId);
