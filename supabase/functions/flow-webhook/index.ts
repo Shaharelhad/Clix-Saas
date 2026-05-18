@@ -2372,12 +2372,18 @@ Combine multiple fields in one call.`,
   });
 
   // Call the agent LLM
+  // Eliron's Notion AI agent runs on GPT-5-mini with minimal reasoning effort
+  // for low-latency Hebrew tool-calling. Other tenants on notion_ai_agent fall
+  // through to the default model in callAgentLLM.
+  const isEliron = customerId === ELIRON_CUSTOMER_ID;
   const result = await callAgentLLM({
     systemPrompt,
     conversationHistory: compressedAgentHistory,
     userMessage,
     tools: toolDefs,
     executeTool,
+    model: isEliron ? "openai/gpt-5-mini" : undefined,
+    reasoning: isEliron ? { effort: "minimal" } : undefined,
   });
 
   // Safety net: if check_slot confirmed a slot on the previous turn and the LLM
