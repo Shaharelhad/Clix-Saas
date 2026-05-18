@@ -896,7 +896,7 @@ export async function callAgentLLM(params: {
           Authorization: `Bearer ${openrouterKey}`,
         },
         body: JSON.stringify({
-          model: "x-ai/grok-4.1-fast",
+          model: "google/gemini-3-flash-preview",
           messages: messages.map((m) => {
             // Strip undefined fields for clean API payload
             const msg: Record<string, unknown> = { role: m.role };
