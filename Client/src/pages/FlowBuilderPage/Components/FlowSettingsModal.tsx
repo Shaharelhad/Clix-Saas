@@ -56,19 +56,44 @@ export default function FlowSettingsModal({ settings, onUpdate, onClose }: FlowS
             />
 
             {settings.cooldownEnabled && (
-              <div className="mt-3 ms-6">
-                <MinutesPresetInput
-                  label={t("settingsCooldownMinutes")}
-                  value={settings.cooldownMinutes}
-                  presets={[
-                    { value: 30, label: t("settingsCooldownPreset30") },
-                    { value: 60, label: t("settingsCooldownPreset60") },
-                    { value: 120, label: t("settingsCooldownPreset120") },
-                  ]}
-                  min={5}
-                  max={1440}
-                  onChange={(v) => onUpdate({ cooldownMinutes: v })}
-                />
+              <div className="mt-3 ms-6 space-y-3">
+                {/* Cooldown Mode Toggle */}
+                <div>
+                  <label className="text-[10px] font-semibold text-[#2D2A26] block mb-1.5">
+                    {t("settingsCooldownMode")}
+                  </label>
+                  <div className="flex items-center gap-2">
+                    {(["temporary", "permanent"] as const).map((mode) => (
+                      <button
+                        type="button"
+                        key={mode}
+                        onClick={() => onUpdate({ cooldownMode: mode })}
+                        className={`flex-1 px-2.5 py-1.5 rounded text-[10px] font-medium border cursor-pointer transition-colors ${
+                          settings.cooldownMode === mode
+                            ? "bg-[var(--brand-primary-light)] text-white border-[var(--brand-primary-light)]"
+                            : "bg-white text-[#7A7267] border-[#EDE6DD] hover:border-[var(--brand-primary-light)]/50"
+                        }`}
+                      >
+                        {t(mode === "temporary" ? "settingsCooldownModeTemporary" : "settingsCooldownModePermanent")}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {settings.cooldownMode !== "permanent" && (
+                  <MinutesPresetInput
+                    label={t("settingsCooldownMinutes")}
+                    value={settings.cooldownMinutes}
+                    presets={[
+                      { value: 30, label: t("settingsCooldownPreset30") },
+                      { value: 60, label: t("settingsCooldownPreset60") },
+                      { value: 120, label: t("settingsCooldownPreset120") },
+                    ]}
+                    min={5}
+                    max={1440}
+                    onChange={(v) => onUpdate({ cooldownMinutes: v })}
+                  />
+                )}
               </div>
             )}
           </div>

@@ -140,6 +140,7 @@ export type FlowEdge = Edge;
 export interface FlowSettings {
   ignoreGroupChats: boolean;
   cooldownEnabled: boolean;
+  cooldownMode: "temporary" | "permanent";
   cooldownMinutes: number;
   deduplicateMessages: boolean;
   autoFollowUpEnabled: boolean;
@@ -160,6 +161,7 @@ export interface FlowSettings {
 export const DEFAULT_FLOW_SETTINGS: FlowSettings = {
   ignoreGroupChats: true,
   cooldownEnabled: true,
+  cooldownMode: "temporary",
   cooldownMinutes: 60,
   deduplicateMessages: true,
   autoFollowUpEnabled: false,

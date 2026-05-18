@@ -853,13 +853,15 @@ export async function callAgentLLM(params: {
   tools: AgentToolDefinition[];
   executeTool: (name: string, args: Record<string, unknown>) => Promise<unknown>;
   maxRounds?: number;
+  model?: string;
+  reasoning?: { effort: "minimal" | "low" | "medium" | "high" };
 }): Promise<AgentLLMResult> {
   const openrouterKey = Deno.env.get("OPENROUTER_API_KEY");
   if (!openrouterKey) {
     return { response: "AI service unavailable.", toolCalls: [] };
   }
 
-  const { systemPrompt, conversationHistory, userMessage, tools, executeTool, maxRounds = 10 } = params;
+  const { systemPrompt, conversationHistory, userMessage, tools, executeTool, maxRounds = 10, model, reasoning } = params;
 
   // Build messages array
   const messages: AgentMessage[] = [
@@ -896,7 +898,7 @@ export async function callAgentLLM(params: {
           Authorization: `Bearer ${openrouterKey}`,
         },
         body: JSON.stringify({
-          model: "google/gemini-3-flash-preview",
+          model: model || "google/gemini-3-flash-preview",
           messages: messages.map((m) => {
             // Strip undefined fields for clean API payload
             const msg: Record<string, unknown> = { role: m.role };
@@ -909,6 +911,7 @@ export async function callAgentLLM(params: {
           tools: openaiTools.length > 0 ? openaiTools : undefined,
           max_tokens: 2048,
           temperature: 0.4,
+          ...(reasoning ? { reasoning } : {}),
         }),
       });
 
