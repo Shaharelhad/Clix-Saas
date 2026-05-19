@@ -186,6 +186,7 @@ interface FlowSettings {
   sessionResetMinutes?: number;
   strictMode?: boolean;
   postFlowPauseEnabled?: boolean;
+  postFlowPauseMode?: string;
   postFlowPauseMinutes?: number;
   resetKeyword?: string;
 }
@@ -212,6 +213,7 @@ function getFlowSettings(flow: FlowJSON) {
     flowLanguage: flow.settings?.flowLanguage ?? "he",
     autoTranslate: flow.settings?.autoTranslate ?? false,
     postFlowPauseEnabled: flow.settings?.postFlowPauseEnabled ?? false,
+    postFlowPauseMode: flow.settings?.postFlowPauseMode ?? "temporary",
     postFlowPauseMinutes: flow.settings?.postFlowPauseMinutes ?? 1440,
     resetKeyword: flow.settings?.resetKeyword ?? "",
     messageDelayEnabled: flow.settings?.messageDelayEnabled ?? false,
@@ -4690,9 +4692,12 @@ Deno.serve(async (req) => {
           last_message_at: new Date().toISOString(),
         });
         if (settings.postFlowPauseEnabled) {
-          const pauseUntil = new Date(Date.now() + settings.postFlowPauseMinutes * 60_000).toISOString();
+          const isPermanent = settings.postFlowPauseMode === "permanent";
+          const pauseUntil = isPermanent
+            ? "2099-12-31T23:59:59Z"
+            : new Date(Date.now() + settings.postFlowPauseMinutes * 60_000).toISOString();
           await supabase.from("subscriber_sessions").update({ cooldown_until: pauseUntil }).eq("id", session.id);
-          console.log("[flow] Post-flow pause set for", phone, "until", pauseUntil);
+          console.log("[flow] Post-flow pause set for", phone, "until", pauseUntil, isPermanent ? "(permanent)" : "");
         }
         await callOpenLLM(profile.id, userMessage, session.id, workflow.id, customerId, phone, workflowRecord, langPref, settings.messageDelayEnabled);
         return new Response(
@@ -4714,9 +4719,12 @@ Deno.serve(async (req) => {
           last_message_at: new Date().toISOString(),
         });
         if (settings.postFlowPauseEnabled) {
-          const pauseUntil = new Date(Date.now() + settings.postFlowPauseMinutes * 60_000).toISOString();
+          const isPermanent = settings.postFlowPauseMode === "permanent";
+          const pauseUntil = isPermanent
+            ? "2099-12-31T23:59:59Z"
+            : new Date(Date.now() + settings.postFlowPauseMinutes * 60_000).toISOString();
           await supabase.from("subscriber_sessions").update({ cooldown_until: pauseUntil }).eq("id", session.id);
-          console.log("[flow] Post-flow pause set for", phone, "until", pauseUntil);
+          console.log("[flow] Post-flow pause set for", phone, "until", pauseUntil, isPermanent ? "(permanent)" : "");
         }
         return new Response(
           JSON.stringify({ ok: true, action: "strict_empty_nudge" }),
@@ -4737,12 +4745,15 @@ Deno.serve(async (req) => {
 
     // ── Post-flow pause: silence the bot for a configured duration after workflow completion ──
     if (!nextNodeId && settings.postFlowPauseEnabled) {
-      const pauseUntil = new Date(Date.now() + settings.postFlowPauseMinutes * 60_000).toISOString();
+      const isPermanent = settings.postFlowPauseMode === "permanent";
+      const pauseUntil = isPermanent
+        ? "2099-12-31T23:59:59Z"
+        : new Date(Date.now() + settings.postFlowPauseMinutes * 60_000).toISOString();
       await supabase
         .from("subscriber_sessions")
         .update({ cooldown_until: pauseUntil })
         .eq("id", session.id);
-      console.log("[flow] Post-flow pause set for", phone, "until", pauseUntil);
+      console.log("[flow] Post-flow pause set for", phone, "until", pauseUntil, isPermanent ? "(permanent)" : "");
     }
 
     // Schedule follow-up if the waiting node has a follow_up node connected

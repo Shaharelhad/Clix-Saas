@@ -153,6 +153,7 @@ export interface FlowSettings {
   strictMode: boolean;
   flowLanguage: string;
   postFlowPauseEnabled: boolean;
+  postFlowPauseMode: "temporary" | "permanent";
   postFlowPauseMinutes: number;
   resetKeyword: string;
   messageDelayEnabled: boolean;
@@ -174,6 +175,7 @@ export const DEFAULT_FLOW_SETTINGS: FlowSettings = {
   strictMode: false,
   flowLanguage: "he",
   postFlowPauseEnabled: false,
+  postFlowPauseMode: "temporary",
   postFlowPauseMinutes: 1440,
   resetKeyword: "",
   messageDelayEnabled: false,

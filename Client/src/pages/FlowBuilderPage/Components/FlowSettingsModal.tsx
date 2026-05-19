@@ -243,19 +243,43 @@ export default function FlowSettingsModal({ settings, onUpdate, onClose }: FlowS
             />
 
             {settings.postFlowPauseEnabled && (
-              <div className="mt-3 ms-6">
-                <MinutesPresetInput
-                  label={t("settingsPostFlowPauseMinutes")}
-                  value={settings.postFlowPauseMinutes}
-                  presets={[
-                    { value: 60, label: t("settingsPostFlowPausePreset60") },
-                    { value: 360, label: t("settingsPostFlowPausePreset360") },
-                    { value: 1440, label: t("settingsPostFlowPausePreset1440") },
-                  ]}
-                  min={60}
-                  max={10080}
-                  onChange={(v) => onUpdate({ postFlowPauseMinutes: v })}
-                />
+              <div className="mt-3 ms-6 space-y-3">
+                <div>
+                  <label className="text-[10px] font-semibold text-[#2D2A26] block mb-1.5">
+                    {t("settingsPostFlowPauseMode")}
+                  </label>
+                  <div className="flex items-center gap-2">
+                    {(["temporary", "permanent"] as const).map((mode) => (
+                      <button
+                        type="button"
+                        key={mode}
+                        onClick={() => onUpdate({ postFlowPauseMode: mode })}
+                        className={`flex-1 px-2.5 py-1.5 rounded text-[10px] font-medium border cursor-pointer transition-colors ${
+                          settings.postFlowPauseMode === mode
+                            ? "bg-[var(--brand-primary-light)] text-white border-[var(--brand-primary-light)]"
+                            : "bg-white text-[#7A7267] border-[#EDE6DD] hover:border-[var(--brand-primary-light)]/50"
+                        }`}
+                      >
+                        {t(mode === "temporary" ? "settingsPostFlowPauseModeTemporary" : "settingsPostFlowPauseModePermanent")}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {settings.postFlowPauseMode !== "permanent" && (
+                  <MinutesPresetInput
+                    label={t("settingsPostFlowPauseMinutes")}
+                    value={settings.postFlowPauseMinutes}
+                    presets={[
+                      { value: 60, label: t("settingsPostFlowPausePreset60") },
+                      { value: 360, label: t("settingsPostFlowPausePreset360") },
+                      { value: 1440, label: t("settingsPostFlowPausePreset1440") },
+                    ]}
+                    min={60}
+                    max={10080}
+                    onChange={(v) => onUpdate({ postFlowPauseMinutes: v })}
+                  />
+                )}
               </div>
             )}
           </div>
