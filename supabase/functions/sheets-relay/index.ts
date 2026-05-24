@@ -131,19 +131,30 @@ async function ensureTab(token: string): Promise<void> {
   tabEnsured = true;
 }
 
-// limorbot's root menu has no answerVariable (the broad category — brain injury / cancer /
-// trauma — isn't saved as q1/q2/q3 directly). Infer the category yes/no columns
-// (LCBNT/LCRC/LERT) from which sub-recognition question was answered: those sub-questions
-// are only asked if the customer picked that category in the root menu. Mutates `row` in place.
-function inferCategoryFlags(row: string[]): void {
+// Translate limorbot's root-menu choice (sent as `category` in the body when the
+// root-menu api_call fires) directly into the LCBNT/LCRC/LERT yes/no columns.
+// Also infers from sub-recognition columns as a fallback for older sessions
+// whose root-menu push didn't fire (and for "אחר" handled below). Mutates `row` in place.
+function inferCategoryFlags(row: string[], category?: string): void {
   const get = (col: string) => row[COLUMNS.indexOf(col)] || "";
   const set = (col: string) => {
     const i = COLUMNS.indexOf(col);
     if (!row[i]) row[i] = "כן";
   };
-  if (get("U_TXR_LRBBI") || get("U_TXR_LRMBAS") || get("U_TXR_LRD")) set("U_TXR_LCBNT"); // brain
-  if (get("U_TXR_LRBLC")) set("U_TXR_LCRC"); // cancer
-  if (get("U_TXR_LRMB") || get("U_TXR_LRBLT")) set("U_TXR_LERT"); // trauma
+
+  // Direct: root-menu click captured as `category` variable
+  switch ((category || "").trim()) {
+    case "פגיעה מוחית": set("U_TXR_LCBNT"); break; // brain injury
+    case "השלכות מחלת הסרטן": set("U_TXR_LCRC"); break; // cancer
+    case "תגובה לטראומה": set("U_TXR_LERT"); break; // trauma
+    // "אחר" (other) intentionally leaves all three empty — customer has none of the three.
+  }
+
+  // Fallback: infer from sub-recognition vars (handles cases where the root-menu push
+  // didn't fire, e.g. very old sessions or branches where category came through stale).
+  if (get("U_TXR_LRBBI") || get("U_TXR_LRMBAS") || get("U_TXR_LRD")) set("U_TXR_LCBNT");
+  if (get("U_TXR_LRBLC")) set("U_TXR_LCRC");
+  if (get("U_TXR_LRMB") || get("U_TXR_LRBLT")) set("U_TXR_LERT");
 }
 
 async function upsertRow(
@@ -185,7 +196,7 @@ async function upsertRow(
       return String(incoming);
     });
 
-    inferCategoryFlags(merged);
+    inferCategoryFlags(merged, data.category as string | undefined);
 
     const updRes = await fetch(
       `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${TAB_NAME}!A${targetRow}:${lastCol}${targetRow}?valueInputOption=USER_ENTERED`,
@@ -205,7 +216,7 @@ async function upsertRow(
     const v = data[col];
     return v === undefined || v === null ? "" : String(v);
   });
-  inferCategoryFlags(newRow);
+  inferCategoryFlags(newRow, data.category as string | undefined);
   const appendRes = await fetch(
     `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${TAB_NAME}!A:${lastCol}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`,
     {
