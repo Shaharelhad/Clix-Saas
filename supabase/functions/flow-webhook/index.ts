@@ -16,7 +16,7 @@ const LIMOR_CUSTOMER_ID = "4b0e1f37-d55b-41d1-8a33-4f4e6b70781f";
 // Gateway must independently be configured to emit `hasChatHistory` for these IDs.
 const CUTOFF_ENABLED_CUSTOMERS = new Set<string>([
   ELIRON_CUSTOMER_ID,
-  LIMOR_CUSTOMER_ID,
+  // LIMOR_CUSTOMER_ID,  // temporarily disabled for coworker testing — re-enable when done
 ]);
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
