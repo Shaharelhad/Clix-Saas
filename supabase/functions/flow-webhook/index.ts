@@ -11,6 +11,13 @@ import { buildMorAiAgent, stampInbound, stampReply } from "../_shared/lead-stora
 const ELIRON_CUSTOMER_ID = "260222c1-9b83-4206-bb90-7445907fb582";
 const ELIRON_REFERRAL_PHONE = "972509001007";
 const ELIRON_MEETINGS_DB = "3438a0876878811786c9f5c04c9c579c";
+const LIMOR_CUSTOMER_ID = "4b0e1f37-d55b-41d1-8a33-4f4e6b70781f";
+// Customers opted into the gateway's pre-cutoff-chat silence gate.
+// Gateway must independently be configured to emit `hasChatHistory` for these IDs.
+const CUTOFF_ENABLED_CUSTOMERS = new Set<string>([
+  ELIRON_CUSTOMER_ID,
+  // LIMOR_CUSTOMER_ID,  // temporarily disabled for coworker testing — re-enable when done
+]);
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -2999,11 +3006,12 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Eliron-only silence gate — scoped strictly to his customerId so other tenants are unaffected.
+    // Opt-in silence gate for customers whose gateway is configured with a chat-history cutoff.
+    // Scoped strictly to allowlisted customerIds so other tenants are unaffected.
     // Strict `!== false` so missing/null field (gateway cold-start) also silences (fail-safe).
-    if (body.customerId === ELIRON_CUSTOMER_ID && body.chatType === "private") {
+    if (CUTOFF_ENABLED_CUSTOMERS.has(body.customerId) && body.chatType === "private") {
       if (body.hasChatHistory !== false) {
-        console.log("[flow] [skip:pre-cutoff-chat]", body.from);
+        console.log("[flow] [skip:pre-cutoff-chat]", body.customerId, body.from);
         return new Response(JSON.stringify({ ok: true, skipped: "pre_cutoff_chat" }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
