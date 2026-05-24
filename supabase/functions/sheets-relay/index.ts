@@ -131,6 +131,21 @@ async function ensureTab(token: string): Promise<void> {
   tabEnsured = true;
 }
 
+// limorbot's root menu has no answerVariable (the broad category — brain injury / cancer /
+// trauma — isn't saved as q1/q2/q3 directly). Infer the category yes/no columns
+// (LCBNT/LCRC/LERT) from which sub-recognition question was answered: those sub-questions
+// are only asked if the customer picked that category in the root menu. Mutates `row` in place.
+function inferCategoryFlags(row: string[]): void {
+  const get = (col: string) => row[COLUMNS.indexOf(col)] || "";
+  const set = (col: string) => {
+    const i = COLUMNS.indexOf(col);
+    if (!row[i]) row[i] = "כן";
+  };
+  if (get("U_TXR_LRBBI") || get("U_TXR_LRMBAS") || get("U_TXR_LRD")) set("U_TXR_LCBNT"); // brain
+  if (get("U_TXR_LRBLC")) set("U_TXR_LCRC"); // cancer
+  if (get("U_TXR_LRMB") || get("U_TXR_LRBLT")) set("U_TXR_LERT"); // trauma
+}
+
 async function upsertRow(
   token: string,
   data: Record<string, unknown>,
@@ -170,6 +185,8 @@ async function upsertRow(
       return String(incoming);
     });
 
+    inferCategoryFlags(merged);
+
     const updRes = await fetch(
       `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${TAB_NAME}!A${targetRow}:${lastCol}${targetRow}?valueInputOption=USER_ENTERED`,
       {
@@ -188,6 +205,7 @@ async function upsertRow(
     const v = data[col];
     return v === undefined || v === null ? "" : String(v);
   });
+  inferCategoryFlags(newRow);
   const appendRes = await fetch(
     `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${TAB_NAME}!A:${lastCol}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`,
     {
