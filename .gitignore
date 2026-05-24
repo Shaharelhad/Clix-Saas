@@ -27,6 +27,8 @@ dist-ssr
 .claude/eliron/
 .claude/eshel/
 .claude/miyo/
+.claude/Alex/
+.claude/CAPI/
 .claude/scheduled_tasks.lock
 mor/
 temp-context/
