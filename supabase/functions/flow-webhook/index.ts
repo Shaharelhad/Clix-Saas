@@ -441,7 +441,7 @@ async function callOpenLLM(
   );
 
   // Send response via WClixAPI
-  if (delayEnabled) await humanDelay(7, 15);
+  if (delayEnabled) await humanDelay(4, 8);
   await sendTextMessage(customerId, phone, result.response);
 
   // Log outbound message
@@ -3904,7 +3904,7 @@ Deno.serve(async (req) => {
               let prevSent = settings.messageDelayEnabled;
               while (jumpNodeId && maxSteps > 0) {
                 if (settings.messageDelayEnabled && prevSent) {
-                  await humanDelay(7, 15);
+                  await humanDelay(4, 8);
                 }
                 maxSteps--;
                 const node = findNodeById(flow, jumpNodeId);
@@ -4117,7 +4117,7 @@ Deno.serve(async (req) => {
         let prevSent = settings.messageDelayEnabled;
         while (nextNodeId && maxSteps > 0) {
           if (settings.messageDelayEnabled && prevSent) {
-            await humanDelay(7, 15);
+            await humanDelay(4, 8);
           }
           maxSteps--;
           const node = findNodeById(flow, nextNodeId);
@@ -4241,7 +4241,7 @@ Deno.serve(async (req) => {
             let prevSent = settings.messageDelayEnabled;
             while (jumpNodeId && maxSteps > 0) {
               if (settings.messageDelayEnabled && prevSent) {
-                await humanDelay(7, 15);
+                await humanDelay(4, 8);
               }
               maxSteps--;
               const node = findNodeById(flow, jumpNodeId);
@@ -4778,7 +4778,7 @@ Deno.serve(async (req) => {
     let prevNodeSentMessage = settings.messageDelayEnabled;
     while (nextNodeId && maxSteps > 0) {
       if (settings.messageDelayEnabled && prevNodeSentMessage) {
-        await humanDelay(7, 15);
+        await humanDelay(4, 8);
       }
       maxSteps--;
       const node = findNodeById(flow, nextNodeId);
