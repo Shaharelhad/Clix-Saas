@@ -75,6 +75,82 @@ export async function sendButtonsMessage(
   return sendTextMessage(customerId, to, fullMessage);
 }
 
+export interface ListRow {
+  rowId: string;
+  title: string;
+  description?: string;
+}
+
+export interface ListSection {
+  title?: string;
+  rows: ListRow[];
+}
+
+// Send a WhatsApp interactive list (sectioned bottom-sheet picker). Gateway
+// enforces WhatsApp's hard limits: max 10 sections, max 10 rows per section.
+// On any failure (gateway down, validation error, network), falls back to
+// a numbered text list — the bot keeps working, just without the native UI.
+export async function sendListMessage(
+  customerId: string,
+  to: string,
+  body: string,
+  buttonText: string,
+  sections: ListSection[],
+  header?: string,
+  footer?: string,
+) {
+  const url = `${WA_GATEWAY_BASE}/api/session/send-list/${customerId}`;
+
+  // Clamp to WhatsApp limits (10 sections × 10 rows). Truncate row titles
+  // to 24 chars (WhatsApp display limit) — the original title is preserved
+  // in the next-node lookup since we re-match against the source data.
+  const cappedSections = sections.slice(0, 10).map((s) => ({
+    title: s.title || "",
+    rows: s.rows.slice(0, 10).map((r) => ({
+      rowId: r.rowId,
+      title: r.title.substring(0, 24),
+      ...(r.description ? { description: r.description.substring(0, 72) } : {}),
+    })),
+  }));
+
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": getApiKey(),
+      },
+      body: JSON.stringify({
+        to,
+        body,
+        buttonText: buttonText.substring(0, 20),
+        sections: cappedSections,
+        ...(header ? { header } : {}),
+        ...(footer ? { footer } : {}),
+      }),
+    });
+    if (res.ok) return res.json();
+  } catch { /* interactive list failed, fall through to text fallback */ }
+
+  // Fallback: numbered text list grouped by section.
+  const parts: string[] = [];
+  if (header) parts.push(header);
+  parts.push(body);
+  if (footer) parts.push(footer);
+  let counter = 0;
+  const sectionBlocks = cappedSections.map((s) => {
+    const sectionLines: string[] = [];
+    if (s.title) sectionLines.push(`*${s.title}*`);
+    for (const r of s.rows) {
+      counter += 1;
+      sectionLines.push(`${counter}. ${r.title}${r.description ? ` — ${r.description}` : ""}`);
+    }
+    return sectionLines.join("\n");
+  });
+  const fullMessage = `${parts.join("\n\n")}\n\n${sectionBlocks.join("\n\n")}`;
+  return sendTextMessage(customerId, to, fullMessage);
+}
+
 export async function sendImageMessage(
   customerId: string,
   to: string,

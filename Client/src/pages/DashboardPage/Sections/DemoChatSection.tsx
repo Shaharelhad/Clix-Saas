@@ -128,7 +128,16 @@ export default function DemoChatSection({ resetKey = 0, workflowId }: DemoChatSe
       if (result.error) throw new Error(result.error);
 
       const data = result.data as {
-        responses?: { type: string; content: string; imageUrl?: string; buttons?: { id: string; label: string }[]; header?: string; footer?: string }[];
+        responses?: {
+          type: string;
+          content: string;
+          imageUrl?: string;
+          buttons?: { id: string; label: string }[];
+          header?: string;
+          footer?: string;
+          buttonText?: string;
+          sections?: { title?: string; rows: { rowId: string; title: string; description?: string }[] }[];
+        }[];
         response?: string;
         conversation_id?: string;
         session_state?: Record<string, unknown>;
@@ -141,12 +150,14 @@ export default function DemoChatSection({ resetKey = 0, workflowId }: DemoChatSe
         const botMessages: ChatMessage[] = data.responses.map((r, i) => ({
           id: `bot-${Date.now()}-${i}`,
           role: "bot" as const,
-          text: r.content || "...",
+          text: r.content || "",
           time: nowStamp(),
           ...(r.imageUrl ? { imageUrl: r.imageUrl } : {}),
           ...(r.buttons?.length ? { buttons: r.buttons } : {}),
           ...(r.header ? { header: r.header } : {}),
           ...(r.footer ? { footer: r.footer } : {}),
+          ...(r.buttonText ? { buttonText: r.buttonText } : {}),
+          ...(r.sections?.length ? { sections: r.sections } : {}),
         }));
         setMessages((prev) => [...prev, ...botMessages]);
       } else if (data?.response) {
@@ -176,7 +187,10 @@ export default function DemoChatSection({ resetKey = 0, workflowId }: DemoChatSe
     if (isSending) return;
 
     setMessages((prev) => {
-      const lastBtnMsg = [...prev].reverse().find((m) => m.buttons?.some((b) => b.label === label));
+      const lastBtnMsg = [...prev].reverse().find((m) =>
+        m.buttons?.some((b) => b.label === label) ||
+        m.sections?.some((s) => s.rows.some((r) => r.title === label))
+      );
       if (lastBtnMsg) setClickedMessageIds((s) => new Set(s).add(lastBtnMsg.id));
       return [
         ...prev,
@@ -198,7 +212,16 @@ export default function DemoChatSection({ resetKey = 0, workflowId }: DemoChatSe
       if (result.error) throw new Error(result.error);
 
       const data = result.data as {
-        responses?: { type: string; content: string; imageUrl?: string; buttons?: { id: string; label: string }[]; header?: string; footer?: string }[];
+        responses?: {
+          type: string;
+          content: string;
+          imageUrl?: string;
+          buttons?: { id: string; label: string }[];
+          header?: string;
+          footer?: string;
+          buttonText?: string;
+          sections?: { title?: string; rows: { rowId: string; title: string; description?: string }[] }[];
+        }[];
         response?: string;
         conversation_id?: string;
         session_state?: Record<string, unknown>;
@@ -211,12 +234,14 @@ export default function DemoChatSection({ resetKey = 0, workflowId }: DemoChatSe
         const botMessages: ChatMessage[] = data.responses.map((r, i) => ({
           id: `bot-${Date.now()}-${i}`,
           role: "bot" as const,
-          text: r.content || "...",
+          text: r.content || "",
           time: nowStamp(),
           ...(r.imageUrl ? { imageUrl: r.imageUrl } : {}),
           ...(r.buttons?.length ? { buttons: r.buttons } : {}),
           ...(r.header ? { header: r.header } : {}),
           ...(r.footer ? { footer: r.footer } : {}),
+          ...(r.buttonText ? { buttonText: r.buttonText } : {}),
+          ...(r.sections?.length ? { sections: r.sections } : {}),
         }));
         setMessages((prev) => [...prev, ...botMessages]);
       } else if (data?.response) {

@@ -27,6 +27,7 @@ import AiRouterNode from "./nodes/AiRouterNode";
 import NotionAiAgentNode from "./nodes/NotionAiAgentNode";
 import MorAiAgentNode from "./nodes/MorAiAgentNode";
 import ConditionNode from "./nodes/ConditionNode";
+import ListNode from "./nodes/ListNode";
 
 const nodeTypes: NodeTypes = {
   start: StartNode,
@@ -42,6 +43,7 @@ const nodeTypes: NodeTypes = {
   notion_ai_agent: NotionAiAgentNode,
   mor_ai_agent: MorAiAgentNode,
   condition: ConditionNode,
+  list: ListNode,
 };
 
 const edgeTypes: EdgeTypes = {
