@@ -27,14 +27,41 @@ const COLUMNS = [
   "U_TXR_LRehab", "U_TXR_LNBranch",
   "updated_at",
 ];
+// Exact question text from each source node's data.message in flow_json.
+// Branch-specific recognition questions get a (category) suffix because three
+// of them reuse the same NII question text across brain/cancer/trauma branches
+// and two reuse the same MoD question — without the suffix the column-by-column
+// view is ambiguous.
 const HEADERS = [
-  "שם מלא", "מספר טלפון", "אימייל", "כתובת מגורים", "תעודת זהות", "גיל",
-  "פגיעה מוחית?", "השלכות מחלת הסרטן?", "תגובה לטראומה?",
-  "ביטוח לאומי (מוח)", "משרד הביטחון (מוח)", "רווחה (מוח)",
-  "ביטוח לאומי (סרטן)",
-  "משרד הביטחון (טראומה)", "ביטוח לאומי (טראומה)",
-  "שיקום תעסוקתי?", "סניף לקבלת שירות",
+  "מה שמך המלא?",
+  "מספר טלפון",
+  "מה כתובת המייל שלך ?",
+  "מה כתובת המגורים שלך?",
+  "אנא ציין מספר תעודת זהות , אם אינך מעוניין עבור לשאלה הבאה",
+  "מה גילך?",
+  "פגיעה מוחית",
+  "השלכות מחלת הסרטן",
+  "תגובה לטראומה",
+  "האם הוכרת בתהליך הכרה על ידי המוסד לביטוח לאומי? (פגיעה מוחית)",
+  "האם הוכרת בתהליך הכרה על ידי אגף השיקום במשרד הביטחון? (פגיעה מוחית)",
+  "האם הוכרת על ידי מנהל מוגבלויות/מחלקת הרווחה? (פגיעה מוחית)",
+  "האם הוכרת בתהליך הכרה על ידי המוסד לביטוח לאומי? (השלכות מחלת הסרטן)",
+  "האם הוכרת בתהליך הכרה על ידי אגף השיקום במשרד הביטחון? (תגובה לטראומה)",
+  "האם הוכרת בתהליך הכרה על ידי המוסד לביטוח לאומי? (תגובה לטראומה)",
+  "האם את/ה זקוק/ה לסיוע בשיקום תעסוקתי?",
+  "באיזה מהסניפים תהיה/יי מעוניין/ת לקבל שירות",
   "עודכן ב",
+];
+
+// 10 yes/no columns: 3 category flags + 6 branch-recognition sub-questions + rehab.
+// After the row is built, any of these that are empty get defaulted to "לא" so
+// the sheet has no empty cells in yes/no columns (per client request).
+const YES_NO_COLS = [
+  "U_TXR_LCBNT", "U_TXR_LCRC", "U_TXR_LERT",
+  "U_TXR_LRBBI", "U_TXR_LRMBAS", "U_TXR_LRD",
+  "U_TXR_LRBLC",
+  "U_TXR_LRMB", "U_TXR_LRBLT",
+  "U_TXR_LRehab",
 ];
 
 let cachedToken: { token: string; expiresAt: number } | null = null;
@@ -150,29 +177,46 @@ async function ensureTab(token: string): Promise<void> {
 }
 
 // Translate limorbot's root-menu choice (sent as `category` in the body when the
-// root-menu api_call fires) directly into the LCBNT/LCRC/LERT yes/no columns.
-// Also infers from sub-recognition columns as a fallback for older sessions
-// whose root-menu push didn't fire (and for "אחר" handled below). Mutates `row` in place.
+// root-menu api_call fires) into the LCBNT/LCRC/LERT yes/no columns. The PICKED
+// category becomes "כן"; the other two become "לא". "אחר" (other) sets all three
+// to "לא". When `category` is unset the lead hasn't categorized yet — leave empty.
+// Mutates `row` in place.
 function inferCategoryFlags(row: string[], category?: string): void {
   const get = (col: string) => row[COLUMNS.indexOf(col)] || "";
-  const set = (col: string) => {
+  const setVal = (col: string, v: string) => {
     const i = COLUMNS.indexOf(col);
-    if (!row[i]) row[i] = "כן";
+    if (!row[i]) row[i] = v;
   };
+  const cat = (category || "").trim();
 
-  // Direct: root-menu click captured as `category` variable
-  switch ((category || "").trim()) {
-    case "פגיעה מוחית": set("U_TXR_LCBNT"); break; // brain injury
-    case "השלכות מחלת הסרטן": set("U_TXR_LCRC"); break; // cancer
-    case "תגובה לטראומה": set("U_TXR_LERT"); break; // trauma
-    // "אחר" (other) intentionally leaves all three empty — customer has none of the three.
+  // Without `category` we still infer from sub-recognition vars (older sessions,
+  // branches where the root-menu push didn't fire). One non-empty sub-recognition
+  // implies the corresponding category flag.
+  let inferred: "brain" | "cancer" | "trauma" | "" = "";
+  if (get("U_TXR_LRBBI") || get("U_TXR_LRMBAS") || get("U_TXR_LRD")) inferred = "brain";
+  else if (get("U_TXR_LRBLC")) inferred = "cancer";
+  else if (get("U_TXR_LRMB") || get("U_TXR_LRBLT")) inferred = "trauma";
+
+  const resolved = cat || (inferred === "brain" ? "פגיעה מוחית"
+    : inferred === "cancer" ? "השלכות מחלת הסרטן"
+    : inferred === "trauma" ? "תגובה לטראומה"
+    : "");
+  if (!resolved) return; // lead hasn't categorized — leave all three empty
+
+  // Fan-out: picked one gets "כן", the other two get "לא". "אחר" → all "לא".
+  setVal("U_TXR_LCBNT", resolved === "פגיעה מוחית" ? "כן" : "לא");
+  setVal("U_TXR_LCRC", resolved === "השלכות מחלת הסרטן" ? "כן" : "לא");
+  setVal("U_TXR_LERT", resolved === "תגובה לטראומה" ? "כן" : "לא");
+}
+
+// Default any empty yes/no column to "לא". Runs after inferCategoryFlags so the
+// category flags are already filled (כן/לא) where applicable. Free-text columns
+// (name, phone, email, home, ID, age, branch) and `updated_at` are untouched.
+function defaultEmptyToNo(row: string[]): void {
+  for (const col of YES_NO_COLS) {
+    const i = COLUMNS.indexOf(col);
+    if (!row[i]) row[i] = "לא";
   }
-
-  // Fallback: infer from sub-recognition vars (handles cases where the root-menu push
-  // didn't fire, e.g. very old sessions or branches where category came through stale).
-  if (get("U_TXR_LRBBI") || get("U_TXR_LRMBAS") || get("U_TXR_LRD")) set("U_TXR_LCBNT");
-  if (get("U_TXR_LRBLC")) set("U_TXR_LCRC");
-  if (get("U_TXR_LRMB") || get("U_TXR_LRBLT")) set("U_TXR_LERT");
 }
 
 async function upsertRow(
@@ -215,6 +259,7 @@ async function upsertRow(
     });
 
     inferCategoryFlags(merged, data.category as string | undefined);
+    defaultEmptyToNo(merged);
 
     const updRes = await fetch(
       `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${TAB_NAME}!A${targetRow}:${lastCol}${targetRow}?valueInputOption=USER_ENTERED`,
@@ -235,6 +280,7 @@ async function upsertRow(
     return v === undefined || v === null ? "" : String(v);
   });
   inferCategoryFlags(newRow, data.category as string | undefined);
+  defaultEmptyToNo(newRow);
   const appendRes = await fetch(
     `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${TAB_NAME}!A:${lastCol}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`,
     {
