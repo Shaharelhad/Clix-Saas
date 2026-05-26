@@ -13,6 +13,8 @@ export interface ChatMessage {
   buttons?: { id: string; label: string }[];
   header?: string;
   footer?: string;
+  buttonText?: string;
+  sections?: { title?: string; rows: { rowId: string; title: string; description?: string }[] }[];
 }
 
 interface ChatPanelProps {
@@ -141,6 +143,49 @@ function ChatBubble({
                 {btn.label}
               </button>
             ))}
+          </div>
+        )}
+        {/* List sections — tappable rows grouped by section, mirrors WhatsApp's
+            bottom-sheet behavior. Row click sends the row's title as the user
+            message (matched by matchRow on the backend). */}
+        {msg.sections && msg.sections.length > 0 && (
+          <div className="mt-3 -mx-1">
+            {msg.buttonText && (
+              <p className="text-[10px] uppercase tracking-wider opacity-60 mb-1.5 px-1">
+                ▾ {msg.buttonText}
+              </p>
+            )}
+            <div className="flex flex-col gap-2">
+              {msg.sections.map((section, sIdx) => (
+                <div key={`section-${sIdx}`} className="flex flex-col gap-1">
+                  {section.title && (
+                    <p className="text-[10px] font-bold uppercase tracking-wider opacity-70 px-1 mt-1">
+                      {section.title}
+                    </p>
+                  )}
+                  {section.rows.map((row) => (
+                    <button
+                      type="button"
+                      key={row.rowId}
+                      onClick={() => onButtonClick?.(row.title)}
+                      disabled={buttonsDisabled}
+                      className={`text-start px-3 py-2 rounded-lg border transition-all w-full ${
+                        buttonsDisabled
+                          ? "bg-white/90 border-slate-200 text-slate-500 opacity-55 cursor-default"
+                          : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300 active:scale-[0.99] cursor-pointer"
+                      }`}
+                    >
+                      <span className="text-xs font-medium block leading-tight">{row.title}</span>
+                      {row.description && (
+                        <span className="text-[10px] text-slate-500 block leading-tight mt-0.5">
+                          {row.description}
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              ))}
+            </div>
           </div>
         )}
         {/* Edit variant: timestamp lives inside the card (matches inspiration's

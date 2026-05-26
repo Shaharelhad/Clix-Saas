@@ -393,6 +393,116 @@ export default function NodeEditorSidebar({ node, onUpdate, onClose, isLocked, s
           </>
         )}
 
+        {/* List node */}
+        {data.type === "list" && (() => {
+          const listSource = data.listSource ?? "from_variable";
+          return (
+            <>
+              <Field label={t("listSource")} hint={undefined}>
+                <select
+                  value={listSource}
+                  onChange={(e) => update({ listSource: e.target.value as "from_variable" | "calendar_months" | "calendar_days" })}
+                  className="field-input"
+                  dir="ltr"
+                >
+                  <option value="from_variable">{t("listSourceFromVariable")}</option>
+                  <option value="calendar_months">{t("listSourceCalendarMonths")}</option>
+                  <option value="calendar_days">{t("listSourceCalendarDays")}</option>
+                </select>
+              </Field>
+              <Field label={t("listHeader")} hint={t("listHeaderHint")}>
+                <input
+                  type="text"
+                  value={data.listHeader ?? ""}
+                  onChange={(e) => update({ listHeader: e.target.value })}
+                  className="field-input"
+                  dir="rtl"
+                />
+              </Field>
+              <Field label={t("listBody")} hint={t("listBodyHint")}>
+                <textarea
+                  value={data.listBody ?? ""}
+                  onChange={(e) => update({ listBody: e.target.value })}
+                  className="field-input min-h-[80px] resize-y"
+                  dir="rtl"
+                />
+              </Field>
+              <Field label={t("listFooter")} hint={t("listFooterHint")}>
+                <input
+                  type="text"
+                  value={data.listFooter ?? ""}
+                  onChange={(e) => update({ listFooter: e.target.value })}
+                  className="field-input"
+                  dir="rtl"
+                />
+              </Field>
+              <Field label={t("listButtonText")} hint={t("listButtonTextHint")}>
+                <input
+                  type="text"
+                  value={data.listButtonText ?? ""}
+                  onChange={(e) => update({ listButtonText: e.target.value })}
+                  className="field-input"
+                  dir="rtl"
+                />
+              </Field>
+              {listSource === "from_variable" && (
+                <Field label={t("listDataVariable")} hint={t("listDataVariableHint")}>
+                  <input
+                    type="text"
+                    value={data.listDataVariable ?? ""}
+                    onChange={(e) => update({ listDataVariable: e.target.value })}
+                    className="field-input"
+                    dir="ltr"
+                    placeholder="availability_dates"
+                  />
+                </Field>
+              )}
+              {listSource === "calendar_months" && (
+                <p className="text-[11px] text-[#7A7267] bg-[#FFF5F0]/50 border border-[#EDE6DD]/60 rounded-md px-2 py-1.5">
+                  {t("calendarMonthsHint")}
+                </p>
+              )}
+              {listSource === "calendar_days" && (
+                <>
+                  <Field label={t("listMonthVariable")} hint={t("listMonthVariableHint")}>
+                    <input
+                      type="text"
+                      value={data.listMonthVariable ?? ""}
+                      onChange={(e) => update({ listMonthVariable: e.target.value })}
+                      className="field-input"
+                      dir="ltr"
+                      placeholder="picked_month"
+                    />
+                  </Field>
+                  <p className="text-[11px] text-[#7A7267] bg-[#FFF5F0]/50 border border-[#EDE6DD]/60 rounded-md px-2 py-1.5">
+                    {t("calendarDaysHint")}
+                  </p>
+                </>
+              )}
+              <Field label={t("listRowIdVariable")} hint={t("listRowIdVariableHint")}>
+                <input
+                  type="text"
+                  value={data.listRowIdVariable ?? ""}
+                  onChange={(e) => update({ listRowIdVariable: e.target.value })}
+                  className="field-input"
+                  dir="ltr"
+                  placeholder={listSource === "calendar_months" ? "picked_month" : "picked_date"}
+                />
+              </Field>
+              <Field label={t("listTitleVariable")} hint={t("listTitleVariableHint")}>
+                <input
+                  type="text"
+                  value={data.listTitleVariable ?? ""}
+                  onChange={(e) => update({ listTitleVariable: e.target.value })}
+                  className="field-input"
+                  dir="ltr"
+                  placeholder={listSource === "calendar_months" ? "picked_month_label" : "picked_date_label"}
+                />
+              </Field>
+            </>
+          );
+        })()}
+
         {/* Delay minutes */}
         {data.type === "delay" && (
           <Field label={t("delayMinutes")} hint={t("delayMinutesHint")}>

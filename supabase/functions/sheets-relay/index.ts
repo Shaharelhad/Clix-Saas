@@ -13,10 +13,28 @@ import { corsHeaders } from "../_shared/cors.ts";
 
 const SHEET_ID = "1V66aD_JBhp0kkWdEv5sqb00AJt0Iy9f9Vw2hhRoY8Gs";
 const TAB_NAME = "Leads";
+// COLUMNS are the JSON-key contract with workflow api_call bodyTemplates —
+// renaming any of them breaks the sheet_push nodes in flow_json. Order is
+// not part of the contract (the function reads `data[col]` by key), but
+// changing the order means existing sheet rows must be migrated to match.
+// HEADERS is the parallel display row written to row 1.
 const COLUMNS = [
   "U_TXR_LName", "U_TXR_Lcell", "U_TXR_Lmail", "U_TXR_Laddress", "U_TXR_Id", "U_TXR_Lage",
-  "U_TXR_LRD", "U_TXR_LRBLC", "U_TXR_LRMB", "U_TXR_LRBLT", "U_TXR_LERT", "U_TXR_LCBNT",
-  "U_TXR_LCRC", "U_TXR_LRBBI", "U_TXR_LRMBAS", "U_TXR_LNBranch", "updated_at",
+  "U_TXR_LCBNT", "U_TXR_LCRC", "U_TXR_LERT",
+  "U_TXR_LRBBI", "U_TXR_LRMBAS", "U_TXR_LRD",
+  "U_TXR_LRBLC",
+  "U_TXR_LRMB", "U_TXR_LRBLT",
+  "U_TXR_LRehab", "U_TXR_LNBranch",
+  "updated_at",
+];
+const HEADERS = [
+  "שם מלא", "מספר טלפון", "אימייל", "כתובת מגורים", "תעודת זהות", "גיל",
+  "פגיעה מוחית?", "השלכות מחלת הסרטן?", "תגובה לטראומה?",
+  "ביטוח לאומי (מוח)", "משרד הביטחון (מוח)", "רווחה (מוח)",
+  "ביטוח לאומי (סרטן)",
+  "משרד הביטחון (טראומה)", "ביטוח לאומי (טראומה)",
+  "שיקום תעסוקתי?", "סניף לקבלת שירות",
+  "עודכן ב",
 ];
 
 let cachedToken: { token: string; expiresAt: number } | null = null;
@@ -124,7 +142,7 @@ async function ensureTab(token: string): Promise<void> {
     {
       method: "PUT",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ values: [COLUMNS] }),
+      body: JSON.stringify({ values: [HEADERS] }),
     },
   );
   if (!headerRes.ok) throw new Error(`write header: ${headerRes.status} ${await headerRes.text()}`);

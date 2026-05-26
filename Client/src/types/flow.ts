@@ -15,7 +15,8 @@ export type FlowNodeType =
   | "ai_router"
   | "notion_ai_agent"
   | "mor_ai_agent"
-  | "condition";
+  | "condition"
+  | "list";
 
 export interface ButtonItem {
   id: string;
@@ -130,6 +131,25 @@ export interface FlowNodeData extends Record<string, unknown> {
   // The 3 lead-CRM tools (save_lead / update_lead_status / mark_paid) are always-on in v1;
   // no toggles exposed in the UI.
   systemPrompt?: string;
+  // list — WhatsApp list message. On reply, the tapped row's rowId + title
+  // are written into the two named session variables.
+  //
+  // listSource modes:
+  //   - "from_variable" (default) — sections+rows come from listDataVariable
+  //     (typically populated by a preceding api_call node).
+  //   - "calendar_months" — auto-generated month picker (current month through
+  //     Dec of next year). Ignores listDataVariable.
+  //   - "calendar_days" — auto-generated day picker for the month stored in
+  //     listMonthVariable (rowId of a previous calendar_months pick).
+  listBody?: string;
+  listButtonText?: string;
+  listHeader?: string;
+  listFooter?: string;
+  listDataVariable?: string;
+  listRowIdVariable?: string;
+  listTitleVariable?: string;
+  listSource?: "from_variable" | "calendar_months" | "calendar_days";
+  listMonthVariable?: string;
 }
 
 // XYFlow typed node / edge
@@ -205,6 +225,7 @@ export const NODE_COLORS: Record<FlowNodeType, string> = {
   notion_ai_agent: "#10b981",
   mor_ai_agent: "#a855f7",
   condition: "#eab308",
+  list: "#f59e0b",
 };
 
 // Default labels for each node type
@@ -248,5 +269,12 @@ export const NODE_DEFAULTS: Record<FlowNodeType, Partial<FlowNodeData>> = {
   mor_ai_agent: {
     type: "mor_ai_agent",
     systemPrompt: "",
+  },
+  list: {
+    type: "list",
+    listBody: "",
+    listButtonText: "",
+    listDataVariable: "",
+    listRowIdVariable: "",
   },
 };
