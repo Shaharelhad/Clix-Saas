@@ -115,10 +115,17 @@ export default function WhatsAppConnectModal({
   const pollStatus = useCallback(async () => {
     if (!userId) return;
     const result = await callWClixAPIConnect({ user_id: userId, action: "status" });
-    if (result.data && (result.data as { status: string }).status === "connected") {
+    if (!result.data) return;
+    const data = result.data as { status?: string; qr?: string };
+    if (data.status === "connected") {
       setIsPolling(false);
       setConnectStatus("success");
       onConnected?.();
+    } else if (data.qr) {
+      // WhatsApp rotates the QR every ~20s; keep the displayed code fresh so
+      // it stays scannable for the whole polling window instead of going
+      // stale (and looking "stuck") after the first rotation.
+      setQrCode(data.qr);
     }
   }, [userId, onConnected]);
 
@@ -128,12 +135,15 @@ export default function WhatsAppConnectModal({
     return () => clearInterval(interval);
   }, [isPolling, pollStatus]);
 
-  // Auto-stop polling after 2 minutes
+  // Auto-stop polling after 2 minutes. Reset to "idle" as well — otherwise
+  // connectStatus stays "qr" while qrCode is null, which hides BOTH the QR
+  // and the "Get QR code" button, dead-ending the user on a blank modal.
   useEffect(() => {
     if (!isPolling) return;
     const timeout = setTimeout(() => {
       setIsPolling(false);
       setQrCode(null);
+      setConnectStatus("idle");
     }, 120000);
     return () => clearTimeout(timeout);
   }, [isPolling]);

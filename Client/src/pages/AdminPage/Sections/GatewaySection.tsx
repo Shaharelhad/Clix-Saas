@@ -23,6 +23,7 @@ const STATUS_COLORS: Record<string, string> = {
   connected: "bg-emerald-100 text-emerald-700",
   connecting: "bg-amber-100 text-amber-700",
   qr_generated: "bg-blue-100 text-blue-700",
+  waiting_for_qr: "bg-blue-100 text-blue-700",
   not_found: "bg-gray-100 text-gray-500",
 };
 
@@ -30,6 +31,7 @@ const STATUS_KEYS: Record<string, string> = {
   connected: "gatewayStatusConnected",
   connecting: "gatewayStatusConnecting",
   qr_generated: "gatewayStatusQr",
+  waiting_for_qr: "gatewayStatusQr",
   not_found: "gatewayStatusNotFound",
 };
 
@@ -128,11 +130,15 @@ export default function GatewaySection() {
         instance_id: instanceId,
       });
       if (data) {
-        // Clear any stale QR image once the server confirms connection;
-        // otherwise an old QR lingers in state and renders again if the
-        // user disconnects from their phone and status flips back.
-        const status = (data as { status?: string }).status;
-        if (status === "connected") setQrCode(null);
+        // The gateway's /status endpoint reports `waiting_for_qr` together
+        // with a freshly-rotated QR while it waits for the scan (WhatsApp
+        // rotates the code every ~20s). Keep the displayed QR in sync, and
+        // clear it only once the session is actually connected — otherwise an
+        // old QR lingers in state and renders again if the user disconnects
+        // from their phone and status flips back.
+        const next = data as { status?: string; qr?: string };
+        if (next.status === "connected") setQrCode(null);
+        else if (next.qr) setQrCode(next.qr);
         queryClient.invalidateQueries({
           queryKey: ["admin", "gateway-instances"],
         });
@@ -154,7 +160,11 @@ export default function GatewaySection() {
     pollStatus(selected.instance_id);
 
     let interval: number | undefined;
-    if (selected.status === "qr_generated" || selected.status === "connecting") {
+    if (
+      selected.status === "qr_generated" ||
+      selected.status === "waiting_for_qr" ||
+      selected.status === "connecting"
+    ) {
       interval = 3000;
     } else if (selected.status === "connected") {
       interval = 30000;
@@ -589,10 +599,11 @@ export default function GatewaySection() {
 
               {/* Detail body */}
               <div className="flex-1 overflow-y-auto px-5 py-4 space-y-6">
-                {/* QR Code area */}
-                {(selected.status === "qr_generated" ||
-                  selected.status === "connecting" ||
-                  selected.status === "not_found") && (
+                {/* QR Code area — shown for ANY non-connected status
+                    (qr_generated, waiting_for_qr, connecting, not_found,
+                    disconnected, logged_out, …) so the "Generate QR" button is
+                    always reachable until the session is actually connected. */}
+                {selected.status !== "connected" && (
                   <div className="space-y-3">
                     {qrCode ? (
                       <div className="flex flex-col items-center gap-3">
