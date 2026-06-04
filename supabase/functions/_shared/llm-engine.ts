@@ -285,10 +285,10 @@ export async function callLLMEngine(
     return { response: "איך אפשר לעזור?", model: "none" };
   }
 
-  const primaryModel = config?.model || "google/gemini-2.5-pro-preview";
-  const fallbackModel = primaryModel === "google/gemini-2.5-pro-preview"
-    ? "google/gemini-2.5-flash-preview"
-    : "google/gemini-2.5-pro-preview";
+  const primaryModel = config?.model || "google/gemini-2.5-flash";
+  const fallbackModel = primaryModel === "google/gemini-2.5-flash"
+    ? "google/gemini-2.5-pro-preview"
+    : "google/gemini-2.5-flash";
   const temperature = config?.temperature ?? 0.4;
   const maxTokens = config?.maxTokens ?? 2048;
 
