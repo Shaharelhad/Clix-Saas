@@ -583,7 +583,19 @@ async function sendButtonsMessage(
       }),
     });
     if (res.ok) return res.json();
-  } catch { /* interactive buttons failed, fall through to text fallback */ }
+    // Non-200 from gateway — capture status + body so we can see why buttons failed
+    let body = "";
+    try { body = await res.text(); } catch { /* body unreadable */ }
+    console.error(
+      `[sendButtonsMessage] gateway returned ${res.status} for customer ${customerId} — falling back to text. body: ${body.substring(0, 500)}`,
+    );
+  } catch (err) {
+    // Network/exception — capture so the silent failure becomes visible
+    console.error(
+      `[sendButtonsMessage] fetch threw for customer ${customerId} — falling back to text:`,
+      err instanceof Error ? err.message : String(err),
+    );
+  }
 
   // Fallback: send as numbered text list if interactive buttons are not available
   const parts: string[] = [];
