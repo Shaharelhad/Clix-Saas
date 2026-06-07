@@ -176,6 +176,17 @@ const flow = {
   settingsResetKeywordPlaceholder: "אפס",
   settingsDone: "סגור",
 
+  // Bot model selector
+  settingsLlmModel: "מודל הבוט",
+  settingsLlmModelHint: "איזה מודל בינה מלאכותית מפעיל את תשובות הבוט. השאר על ברירת המחדל אלא אם יש סיבה לשנות.",
+  settingsLlmModelDefault: "ברירת מחדל (Gemini 2.5 Pro)",
+  modelGroupGemini: "Google Gemini",
+  modelGroupGpt: "OpenAI GPT",
+  modelGroupReasoning: "OpenAI reasoning (איטי יותר)",
+  modelGroupClaude: "Anthropic Claude",
+  modelGroupGrok: "xAI Grok",
+  modelGroupDeepseek: "DeepSeek",
+
   // Auto-save & lock
   autoSaved: "נשמר אוטומטית",
   lockedBanner: "בטל פרסום התהליך כדי לערוך",

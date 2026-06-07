@@ -160,6 +160,7 @@ export interface FlowSettings {
   sessionResetMinutes: number;
   strictMode: boolean;
   flowLanguage: string;
+  llmModel?: string;
   postFlowPauseEnabled: boolean;
   postFlowPauseMode: "temporary" | "permanent";
   postFlowPauseMinutes: number;
@@ -182,12 +183,102 @@ export const DEFAULT_FLOW_SETTINGS: FlowSettings = {
   sessionResetMinutes: 1440,
   strictMode: false,
   flowLanguage: "he",
+  llmModel: "",
   postFlowPauseEnabled: false,
   postFlowPauseMode: "temporary",
   postFlowPauseMinutes: 1440,
   resetKeyword: "",
   messageDelayEnabled: false,
 };
+
+// ── Per-bot LLM model selector ─────────────────────────────
+// OpenRouter slugs validated live against /api/v1/models on 2026-06-07.
+// Re-validate before deploy (catalog slugs change over time).
+export interface LLMModelOption {
+  value: string;
+  label: string;
+}
+export interface LLMModelGroup {
+  labelKey: string;
+  models: LLMModelOption[];
+}
+
+export const LLM_MODEL_GROUPS: LLMModelGroup[] = [
+  {
+    labelKey: "modelGroupGemini",
+    models: [
+      { value: "google/gemini-3.5-flash", label: "Gemini 3.5 Flash" },
+      { value: "google/gemini-3.1-pro-preview", label: "Gemini 3.1 Pro (preview)" },
+      { value: "google/gemini-3.1-flash-lite", label: "Gemini 3.1 Flash Lite" },
+      { value: "google/gemini-3-flash-preview", label: "Gemini 3 Flash (preview)" },
+      { value: "google/gemini-2.5-pro", label: "Gemini 2.5 Pro" },
+      { value: "google/gemini-2.5-flash", label: "Gemini 2.5 Flash" },
+      { value: "google/gemini-2.5-flash-lite", label: "Gemini 2.5 Flash Lite" },
+    ],
+  },
+  {
+    labelKey: "modelGroupGpt",
+    models: [
+      { value: "openai/gpt-5.5", label: "GPT-5.5" },
+      { value: "openai/gpt-5.4", label: "GPT-5.4" },
+      { value: "openai/gpt-5.4-mini", label: "GPT-5.4 Mini" },
+      { value: "openai/gpt-5.4-nano", label: "GPT-5.4 Nano" },
+      { value: "openai/gpt-5.3-chat", label: "GPT-5.3 Chat" },
+      { value: "openai/gpt-5.2", label: "GPT-5.2" },
+      { value: "openai/gpt-5.2-chat", label: "GPT-5.2 Chat" },
+      { value: "openai/gpt-5.1", label: "GPT-5.1" },
+      { value: "openai/gpt-5.1-chat", label: "GPT-5.1 Chat" },
+      { value: "openai/gpt-5", label: "GPT-5" },
+      { value: "openai/gpt-5-chat", label: "GPT-5 Chat" },
+      { value: "openai/gpt-5-mini", label: "GPT-5 Mini" },
+      { value: "openai/gpt-5-nano", label: "GPT-5 Nano" },
+      { value: "openai/gpt-4.1", label: "GPT-4.1" },
+      { value: "openai/gpt-4.1-mini", label: "GPT-4.1 Mini" },
+      { value: "openai/gpt-4.1-nano", label: "GPT-4.1 Nano" },
+      { value: "openai/gpt-4o", label: "GPT-4o" },
+      { value: "openai/gpt-4o-mini", label: "GPT-4o Mini" },
+    ],
+  },
+  {
+    labelKey: "modelGroupReasoning",
+    models: [
+      { value: "openai/o4-mini", label: "o4-mini (slower)" },
+      { value: "openai/o3", label: "o3 (slower)" },
+    ],
+  },
+  {
+    labelKey: "modelGroupClaude",
+    models: [
+      { value: "anthropic/claude-opus-4.8", label: "Claude Opus 4.8" },
+      { value: "anthropic/claude-opus-4.7", label: "Claude Opus 4.7" },
+      { value: "anthropic/claude-opus-4.6", label: "Claude Opus 4.6" },
+      { value: "anthropic/claude-opus-4.5", label: "Claude Opus 4.5" },
+      { value: "anthropic/claude-sonnet-4.6", label: "Claude Sonnet 4.6" },
+      { value: "anthropic/claude-sonnet-4.5", label: "Claude Sonnet 4.5" },
+      { value: "anthropic/claude-sonnet-4", label: "Claude Sonnet 4" },
+      { value: "anthropic/claude-haiku-4.5", label: "Claude Haiku 4.5" },
+      { value: "anthropic/claude-3.5-haiku", label: "Claude 3.5 Haiku" },
+      { value: "anthropic/claude-3-haiku", label: "Claude 3 Haiku" },
+    ],
+  },
+  {
+    labelKey: "modelGroupGrok",
+    models: [
+      { value: "x-ai/grok-4.3", label: "Grok 4.3" },
+      { value: "x-ai/grok-4.20", label: "Grok 4.20" },
+    ],
+  },
+  {
+    labelKey: "modelGroupDeepseek",
+    models: [
+      { value: "deepseek/deepseek-v4-pro", label: "DeepSeek V4 Pro" },
+      { value: "deepseek/deepseek-v4-flash", label: "DeepSeek V4 Flash" },
+      { value: "deepseek/deepseek-v3.2", label: "DeepSeek V3.2" },
+      { value: "deepseek/deepseek-chat-v3.1", label: "DeepSeek V3.1" },
+      { value: "deepseek/deepseek-chat", label: "DeepSeek Chat" },
+    ],
+  },
+];
 
 export interface FlowJSON {
   nodes: FlowNode[];

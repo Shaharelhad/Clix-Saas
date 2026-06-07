@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { X } from "lucide-react";
-import type { FlowSettings } from "@/types/flow";
+import { type FlowSettings, LLM_MODEL_GROUPS } from "@/types/flow";
 
 interface FlowSettingsModalProps {
   settings: FlowSettings;
@@ -28,6 +28,30 @@ export default function FlowSettingsModal({ settings, onUpdate, onClose }: FlowS
 
         {/* Settings */}
         <div className="p-5 space-y-5">
+          {/* Bot Model */}
+          <div className="rounded-lg bg-[#FFF5F0]/60 border border-[var(--brand-primary-light)]/20 p-3">
+            <label className="block">
+              <span className="text-xs font-semibold text-[#2D2A26] block">{t("settingsLlmModel")}</span>
+              <span className="text-[10px] text-[#A39B90] block mt-0.5 mb-2">{t("settingsLlmModelHint")}</span>
+              <select
+                value={settings.llmModel ?? ""}
+                onChange={(e) => onUpdate({ llmModel: e.target.value })}
+                className="field-input w-full"
+              >
+                <option value="">{t("settingsLlmModelDefault")}</option>
+                {LLM_MODEL_GROUPS.map((g) => (
+                  <optgroup key={g.labelKey} label={t(g.labelKey)}>
+                    {g.models.map((m) => (
+                      <option key={m.value} value={m.value}>
+                        {m.label}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+            </label>
+          </div>
+
           {/* Strict Mode */}
           <div className="rounded-lg bg-[#FFF5F0]/60 border border-[var(--brand-primary-light)]/20 p-3">
             <SettingRow

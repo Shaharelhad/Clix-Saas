@@ -69,6 +69,7 @@ interface FlowSettings {
   autoFollowUpEnabled?: boolean;
   autoFollowUpDelayMinutes?: number;
   autoFollowUpMaxCount?: number;
+  llmModel?: string;
 }
 
 interface FlowJSON {
@@ -283,12 +284,17 @@ async function callLLMForAgent(
   }
 
   const triggerContext = buildTriggerContext(flow);
+  // Per-bot model: node-level model wins, else flow_json.settings.llmModel, else engine default.
+  const effectiveConfig: LLMConfig = {
+    ...(agentConfig ?? {}),
+    model: agentConfig?.model || flow.settings?.llmModel || undefined,
+  };
   const result = await callLLMEngine(
     supabase,
     userId,
     userMessage,
     conversationHistory,
-    agentConfig,
+    effectiveConfig,
     triggerContext,
     false, // production = not draft
   );

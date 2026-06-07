@@ -631,8 +631,8 @@ if (error) { console.error("RPC failed:", error.message); return; }
 
 **Shared LLM Engine** (`supabase/functions/_shared/llm-engine.ts`):
 - Single source of truth for all LLM calls (eliminates duplication across edge functions)
-- **Primary**: OpenRouter — Grok 4 Fast (`x-ai/grok-4-fast`)
-- **Fallback**: OpenRouter — Grok 4.1 Fast (`x-ai/grok-4.1-fast`)
+- **Primary (system default)**: OpenRouter — `google/gemini-2.5-pro` (changed 2026-06-07; was `gemini-2.5-flash`). Fallback resolves to `gemini-2.5-flash` for the default case.
+- **Per-bot override**: `workflows.flow_json.settings.llmModel` (set via the "Bot model" dropdown in Flow Settings) is passed to `callLLMEngine` as `config.model` on the main-reply paths — flow-webhook `callOpenLLM` (self-fetch by workflowId), inngest `callLLMForAgent` (merged config), flow-demo `callLLMFallback`. Empty = system default. Catalog of selectable slugs: `LLM_MODEL_GROUPS` in `Client/src/types/flow.ts`. Note: `ruppinai@gmail.com` is pinned to `gemini-2.5-flash`.
 - For structured outputs (prompt generation, bot editing): Claude only
 - AI Agent nodes can override: model, temperature, max tokens, knowledge sources
 

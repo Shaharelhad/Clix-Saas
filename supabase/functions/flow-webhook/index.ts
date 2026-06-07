@@ -124,6 +124,7 @@ interface FlowSettings {
   postFlowPauseMode?: string;
   postFlowPauseMinutes?: number;
   resetKeyword?: string;
+  llmModel?: string;
 }
 
 interface FlowJSON {
@@ -152,6 +153,7 @@ function getFlowSettings(flow: FlowJSON) {
     postFlowPauseMinutes: flow.settings?.postFlowPauseMinutes ?? 1440,
     resetKeyword: flow.settings?.resetKeyword ?? "",
     messageDelayEnabled: flow.settings?.messageDelayEnabled ?? false,
+    llmModel: flow.settings?.llmModel ?? undefined,
   };
 }
 
@@ -309,6 +311,17 @@ async function callOpenLLM(
     return;
   }
 
+  // Per-bot model override (flow_json.settings.llmModel). Self-fetched here (the
+  // handler's flow isn't passed into this fn) and placed AFTER the USE_INNGEST
+  // early-return, so Inngest-mode production never pays this extra query.
+  let modelOverride: string | undefined;
+  try {
+    const { data: wf } = await supabase
+      .from("workflows").select("flow_json").eq("id", workflowId).single();
+    const m = (wf?.flow_json as FlowJSON)?.settings?.llmModel;
+    if (typeof m === "string" && m) modelOverride = m;
+  } catch (_e) { /* ignore — fall back to engine default */ }
+
   // Fetch conversation history — only customer messages and LLM responses
   // (excludes flow text node outputs, buttons, images, nudges that pollute context)
   const { data: history } = await supabase
@@ -349,7 +362,7 @@ async function callOpenLLM(
     userId,
     userMessage,
     conversationHistory,
-    undefined, // no config overrides
+    modelOverride ? { model: modelOverride } : undefined, // per-bot model override
     undefined, // no legacy triggerContext
     false,     // production = not draft
     fullWorkflowRecord || undefined,

@@ -252,7 +252,8 @@ async function callLLMFallback(
   userMessage: string,
   conversationId: string,
   workflowRecord?: string,
-  languagePreference?: string
+  languagePreference?: string,
+  modelOverride?: string
 ): Promise<string> {
   // Fetch conversation history from demo_conversations
   const { data: history } = await supabase
@@ -280,7 +281,7 @@ async function callLLMFallback(
     userId,
     userMessage,
     conversationHistory,
-    undefined, // no config overrides
+    modelOverride ? { model: modelOverride } : undefined, // per-bot model override
     undefined, // no legacy triggerContext
     true,      // useDraft for preview
     fullWorkflowRecord || undefined,
@@ -909,10 +910,14 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Per-bot model override (flow_json.settings.llmModel); empty/unset → engine default
+    const _settings = (workflow.flow_json as FlowJSON)?.settings as { llmModel?: unknown } | undefined;
+    const llmModelOverride = typeof _settings?.llmModel === "string" ? _settings.llmModel : undefined;
+
     // Workflow paused — use LLM-only mode (no flow node execution)
     if (workflow.status !== "active") {
       const workflowRecord = (workflow.workflow_record as string) || undefined;
-      const botResponse = await callLLMFallback(user_id, message, convId, workflowRecord, session_state?.variables?.language);
+      const botResponse = await callLLMFallback(user_id, message, convId, workflowRecord, session_state?.variables?.language, llmModelOverride);
       await supabase.from("demo_conversations").insert({
         user_id,
         conversation_id: convId,
@@ -929,7 +934,7 @@ Deno.serve(async (req) => {
     const workflowRecord = (workflow.workflow_record as string) || undefined;
 
     if (!flow?.nodes?.length) {
-      const botResponse = await callLLMFallback(user_id, message, convId, workflowRecord, session_state?.variables?.language);
+      const botResponse = await callLLMFallback(user_id, message, convId, workflowRecord, session_state?.variables?.language, llmModelOverride);
       await supabase.from("demo_conversations").insert({
         user_id,
         conversation_id: convId,
@@ -971,7 +976,7 @@ Deno.serve(async (req) => {
       if (strictMode) {
         return strictNudgeResponse("אני יכול לעזור רק דרך התהליך. שלח הודעה כדי להתחיל.", stayOnNode);
       }
-      const botResponse = await callLLMFallback(user_id, message, convId, workflowRecord, variables?.language);
+      const botResponse = await callLLMFallback(user_id, message, convId, workflowRecord, variables?.language, llmModelOverride);
       await supabase.from("demo_conversations").insert({
         user_id,
         conversation_id: convId,
@@ -1133,7 +1138,7 @@ Deno.serve(async (req) => {
       }
 
       // No menu request or no linked parent — continue with LLM
-      const botResponse = await callLLMFallback(user_id, message, convId, workflowRecord, variables?.language);
+      const botResponse = await callLLMFallback(user_id, message, convId, workflowRecord, variables?.language, llmModelOverride);
       await supabase.from("demo_conversations").insert({
         user_id, conversation_id: convId,
         user_message: message, bot_response: botResponse,
@@ -1523,7 +1528,7 @@ Deno.serve(async (req) => {
           user_message: message, bot_response: flowText,
         });
       }
-      const botResponse = await callLLMFallback(user_id, message, convId, workflowRecord, variables?.language);
+      const botResponse = await callLLMFallback(user_id, message, convId, workflowRecord, variables?.language, llmModelOverride);
       await supabase.from("demo_conversations").insert({
         user_id, conversation_id: convId,
         user_message: message, bot_response: botResponse,

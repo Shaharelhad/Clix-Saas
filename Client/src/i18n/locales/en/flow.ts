@@ -176,6 +176,17 @@ const flow = {
   settingsResetKeywordPlaceholder: "אפס",
   settingsDone: "Done",
 
+  // Bot model selector
+  settingsLlmModel: "Bot model",
+  settingsLlmModelHint: "Which AI model powers this bot's replies. Leave on default unless you have a reason to change it.",
+  settingsLlmModelDefault: "System default (Gemini 2.5 Pro)",
+  modelGroupGemini: "Google Gemini",
+  modelGroupGpt: "OpenAI GPT",
+  modelGroupReasoning: "OpenAI reasoning (slower)",
+  modelGroupClaude: "Anthropic Claude",
+  modelGroupGrok: "xAI Grok",
+  modelGroupDeepseek: "DeepSeek",
+
   // Auto-save & lock
   autoSaved: "Auto-saved",
   lockedBanner: "Unpublish the workflow to edit",
