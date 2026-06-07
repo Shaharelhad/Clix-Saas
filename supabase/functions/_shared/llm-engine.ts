@@ -363,6 +363,7 @@ export async function callLLMEngine(
     }
   }
 
+  console.log(`[llm-engine] reply user=${userId} model=${usedModel} requested=${primaryModel}${usedModel !== primaryModel ? " (fell-back)" : ""}`);
   return { response: botResponse, model: usedModel, conversationStage };
 }
 
