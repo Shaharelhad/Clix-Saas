@@ -13,7 +13,6 @@ export type FlowNodeType =
   | "api_call"
   | "language"
   | "ai_router"
-  | "notion_ai_agent"
   | "mor_ai_agent"
   | "condition"
   | "list";
@@ -116,17 +115,6 @@ export interface FlowNodeData extends Record<string, unknown> {
   // ai_router
   routerIntents?: Array<{ id: string; label: string; description: string }>;
   routerContext?: string;
-  // notion_ai_agent
-  agentSystemPrompt?: string;
-  agentIntegrationId?: string;
-  agentDatabaseId?: string;
-  agentTools?: {
-    updateNotion?: boolean;
-    bookEventDate?: { enabled: boolean; webhookUrl: string };
-    calendarCheck?: { enabled: boolean; webhookUrl: string };
-    findSlots?: { enabled: boolean; webhookUrl: string };
-    createMeeting?: { enabled: boolean; webhookUrl: string };
-  };
   // mor_ai_agent — read by flow-webhook's executeMorAiAgent / _shared/lead-storage-helpers.ts.
   // The 3 lead-CRM tools (save_lead / update_lead_status / mark_paid) are always-on in v1;
   // no toggles exposed in the UI.
@@ -222,7 +210,6 @@ export const NODE_COLORS: Record<FlowNodeType, string> = {
   api_call: "#ec4899",
   language: "#2563eb",
   ai_router: "#f97316",
-  notion_ai_agent: "#10b981",
   mor_ai_agent: "#a855f7",
   condition: "#eab308",
   list: "#f59e0b",
@@ -252,19 +239,6 @@ export const NODE_DEFAULTS: Record<FlowNodeType, Partial<FlowNodeData>> = {
     conditionRules: [
       { id: "rule_1", variable: "", operator: "equals", value: "" },
     ],
-  },
-  notion_ai_agent: {
-    type: "notion_ai_agent",
-    agentSystemPrompt: "",
-    agentIntegrationId: "",
-    agentDatabaseId: "",
-    agentTools: {
-      updateNotion: true,
-      bookEventDate: { enabled: false, webhookUrl: "" },
-      calendarCheck: { enabled: false, webhookUrl: "" },
-      findSlots: { enabled: false, webhookUrl: "" },
-      createMeeting: { enabled: false, webhookUrl: "" },
-    },
   },
   mor_ai_agent: {
     type: "mor_ai_agent",

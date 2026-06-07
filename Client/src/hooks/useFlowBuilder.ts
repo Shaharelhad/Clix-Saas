@@ -27,7 +27,6 @@ function describeNodeType(type: string): string {
     delay: "ממתין",
     open_bot: "מעביר לשיחת AI חופשית",
     ai_router: "ניתוב חכם לפי כוונה",
-    notion_ai_agent: "סוכן AI נוטיון עם כלים",
     condition: "אם (IF)",
   };
   return map[type] || type;
