@@ -176,6 +176,17 @@ const flow = {
   settingsResetKeywordPlaceholder: "אפס",
   settingsDone: "Done",
 
+  // Bot model selector
+  settingsLlmModel: "Bot model",
+  settingsLlmModelHint: "Which AI model powers this bot's replies. Leave on default unless you have a reason to change it.",
+  settingsLlmModelDefault: "System default (Gemini 2.5 Pro)",
+  modelGroupGemini: "Google Gemini",
+  modelGroupGpt: "OpenAI GPT",
+  modelGroupReasoning: "OpenAI reasoning (slower)",
+  modelGroupClaude: "Anthropic Claude",
+  modelGroupGrok: "xAI Grok",
+  modelGroupDeepseek: "DeepSeek",
+
   // Auto-save & lock
   autoSaved: "Auto-saved",
   lockedBanner: "Unpublish the workflow to edit",
@@ -260,33 +271,12 @@ const flow = {
   conditionRuleCount_one: "1 rule",
   conditionRuleCount_other: "{{count}} rules",
 
-  // Notion AI Agent node
-  nodeNotionAiAgent: "Notion AI Agent",
-  nodeNotionAiAgentDesc: "AI agent with Notion + Calendar tools",
+  // MOR AI Agent node
   nodeMorAiAgent: "MOR AI Agent",
   nodeMorAiAgentDesc: "AI agent with lead-CRM tools (save_lead, update_lead_status, mark_paid)",
   morAgentSystemPromptLabel: "System Prompt",
   morAgentSystemPromptHint: "Instructions for the AI — describe persona, behavior, and when to call save_lead / update_lead_status / mark_paid.",
   morAgentSystemPromptPlaceholder: "You are Liora, Mor's assistant. Greet users warmly. When they introduce themselves, call save_lead. When they show interest, call update_lead_status with status='engaging'. When they confirm payment ('שילמתי'), call mark_paid.",
-  notionAgentIntegration: "Notion Integration",
-  notionAgentIntegrationHint: "Select your Notion integration",
-  notionAgentNoIntegration: "No Notion integration found. Add one in the integrations panel.",
-  notionAgentDatabaseId: "Database ID",
-  notionAgentDatabaseIdHint: "Notion database ID (32 characters)",
-  notionAgentPrompt: "System Prompt",
-  notionAgentPromptHint: "Instructions for the AI agent — include business context, goals, and behavior rules",
-  notionAgentPromptPlaceholder: "You are a sales assistant for [business]. Your goal is to collect event date, venue name, and audience type from the customer...",
-  notionAgentTools: "Tools",
-  notionAgentToolsHint: "Enable tools the agent can use during conversation",
-  notionAgentToolUpdate: "Update Notion",
-  notionAgentToolBookEvent: "Book Event Date",
-  notionAgentToolCalendar: "Calendar Check",
-  notionAgentToolSlots: "Find Slots",
-  notionAgentToolMeeting: "Create Meeting",
-  notionAgentNoTools: "No tools enabled",
-  notionAgentVarsTitle: "Available Variables",
-  notionAgentVarPhone: "Customer phone number",
-  notionAgentVarFromQuery: "From Notion query (previous node)",
 
   // API Call node
   nodeApiCall: "API Call",
