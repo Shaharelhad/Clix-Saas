@@ -26,6 +26,15 @@ const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
+// WhatsApp gateway — same base/key the wa-messaging helpers use. The watchdog
+// cron talks to the session lifecycle endpoints directly (status/start), which
+// wa-messaging.ts doesn't expose.
+const WA_GATEWAY_BASE = "https://wa.clixwapp.online";
+const WA_GATEWAY_API_KEY = Deno.env.get("WA_GATEWAY_API_KEY")!;
+// A session stuck in `connecting` is given this many kicks before we give up
+// and leave it for a human re-scan (avoids hammering a truly logged-out session).
+const RECONNECT_MAX_ATTEMPTS = 5;
+
 const inngest = new Inngest({
   id: "clix",
   eventKey: Deno.env.get("INNGEST_EVENT_KEY"),
@@ -923,11 +932,119 @@ const syncGoogleSheets = inngest.createFunction(
   },
 );
 
+// ── Gateway reconnect watchdog ──────────────────────────────
+// WhatsApp sessions occasionally drop their socket and sit in `connecting`
+// until someone manually clicks "Generate QR" (which calls /api/session/start
+// and reconnects with the saved credentials — no new QR needed). This cron
+// automates that kick so connected bots self-heal without an admin watching.
+//
+// Conservative by design:
+//   - Only acts on the transient `connecting` state.
+//   - Skips sessions with no phone_number (never linked, OR the admin hit
+//     Disconnect — which nulls phone_number — so we never undo that).
+//   - Caps attempts so a genuinely logged-out session isn't kicked forever.
+const gatewayWatchdog = inngest.createFunction(
+  { id: "gateway-watchdog", retries: 1 },
+  { cron: "*/3 * * * *" }, // every 3 minutes
+  async ({ step }) => {
+    const instances = await step.run("fetch-gateway-instances", async () => {
+      const { data, error } = await supabase
+        .from("gateway_instances")
+        .select("instance_id, phone_number, reconnect_attempts");
+      if (error) {
+        console.error("[gateway-watchdog] Failed to fetch instances:", error);
+        return [];
+      }
+      return data || [];
+    });
+
+    if (instances.length === 0) return { checked: 0, kicked: 0 };
+
+    let kicked = 0;
+
+    for (const inst of instances) {
+      const didKick = await step.run(`watchdog-${inst.instance_id}`, async () => {
+        try {
+          // 1. Read the live session state from the gateway.
+          const statusRes = await fetch(
+            `${WA_GATEWAY_BASE}/api/session/status/${inst.instance_id}`,
+            {
+              headers: { "x-api-key": WA_GATEWAY_API_KEY },
+              signal: AbortSignal.timeout(8000),
+            },
+          );
+          const statusData = await statusRes.json().catch(() => ({}));
+          const liveStatus = (statusData as { status?: string }).status || "not_found";
+          const livePhone = (statusData as { phoneNumber?: string }).phoneNumber;
+
+          // 2. Mirror it back to the DB (same as the gateway-admin status action).
+          const updates: Record<string, unknown> = {
+            status: liveStatus,
+            updated_at: new Date().toISOString(),
+          };
+          if (livePhone) updates.phone_number = livePhone;
+          // Healthy again → clear the attempt counter.
+          if (liveStatus === "connected") updates.reconnect_attempts = 0;
+          await supabase
+            .from("gateway_instances")
+            .update(updates)
+            .eq("instance_id", inst.instance_id);
+
+          // 3. Only the transient `connecting` state is auto-recoverable.
+          if (liveStatus !== "connecting") return false;
+          // No saved creds (never linked / admin-disconnected) → leave alone.
+          if (!inst.phone_number) return false;
+          // Bounded retries — give up on a truly dead/logged-out session.
+          const attempts = (inst.reconnect_attempts as number | null) ?? 0;
+          if (attempts >= RECONNECT_MAX_ATTEMPTS) {
+            console.warn(
+              `[gateway-watchdog] ${inst.instance_id} stuck in 'connecting' after ${attempts} attempts — giving up, needs manual re-scan`,
+            );
+            return false;
+          }
+
+          // 4. Kick a reconnect with the saved credentials.
+          console.log(
+            `[gateway-watchdog] Kicking reconnect for ${inst.instance_id} (attempt ${attempts + 1})`,
+          );
+          await fetch(
+            `${WA_GATEWAY_BASE}/api/session/start/${inst.instance_id}`,
+            {
+              method: "POST",
+              headers: { "x-api-key": WA_GATEWAY_API_KEY },
+              signal: AbortSignal.timeout(15000),
+            },
+          );
+          await supabase
+            .from("gateway_instances")
+            .update({
+              reconnect_attempts: attempts + 1,
+              last_reconnect_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            })
+            .eq("instance_id", inst.instance_id);
+
+          return true;
+        } catch (err) {
+          console.error(
+            `[gateway-watchdog] Error processing ${inst.instance_id}:`,
+            err,
+          );
+          return false;
+        }
+      });
+      if (didKick) kicked++;
+    }
+
+    return { checked: instances.length, kicked };
+  },
+);
+
 // ── Serve Inngest functions ─────────────────────────────────
 Deno.serve(
   serve({
     client: inngest,
-    functions: [processMessage, processDelayedJobs, syncGoogleSheets],
+    functions: [processMessage, processDelayedJobs, syncGoogleSheets, gatewayWatchdog],
     servePath: "/functions/v1/inngest",
     signingKey: Deno.env.get("INNGEST_SIGNING_KEY"),
   })
