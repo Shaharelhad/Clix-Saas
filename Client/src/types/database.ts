@@ -426,7 +426,9 @@ export type Database = {
           id: string
           instance_id: string
           label: string
+          last_reconnect_at: string | null
           phone_number: string | null
+          reconnect_attempts: number
           status: string
           updated_at: string | null
           webhook_url: string | null
@@ -437,7 +439,9 @@ export type Database = {
           id?: string
           instance_id: string
           label?: string
+          last_reconnect_at?: string | null
           phone_number?: string | null
+          reconnect_attempts?: number
           status?: string
           updated_at?: string | null
           webhook_url?: string | null
@@ -448,7 +452,9 @@ export type Database = {
           id?: string
           instance_id?: string
           label?: string
+          last_reconnect_at?: string | null
           phone_number?: string | null
+          reconnect_attempts?: number
           status?: string
           updated_at?: string | null
           webhook_url?: string | null
